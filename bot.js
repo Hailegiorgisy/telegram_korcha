@@ -59,6 +59,10 @@ orders.set("KC-849102", {
   createdAt: new Date(Date.now() - 1000 * 60 * 35),
 });
 
+function sanitizeForMarkdown(text = "") {
+  return String(text).replace(/([_*`\[\]()])/g, "\\$1");
+}
+
 // Safe Telegram Markdown reply helper that catches unescaped Markdown syntax errors
 async function safeReplyMarkdown(ctx, text, extra = {}) {
   try {
@@ -136,8 +140,9 @@ function getAppDownloadPayload(key = "shein") {
 
 // Helper: Standard Welcome Message & Main Inline Keyboard (Download Marketplace Apps & In-Bot Worker Chat)
 function getMainWelcomePayload(name = "ውድ ደንበኛ") {
+  const safeName = sanitizeForMarkdown(name);
   const welcomeText =
-    `👋 ሰላም ${name}! እንኳን ወደ ኮርቻ (Korcha) በደህና መጡ።\n\n` +
+    `👋 ሰላም ${safeName}! እንኳን ወደ ኮርቻ (Korcha) በደህና መጡ።\n\n` +
     `ከ **Shein**፣ **Temu** እና **AliExpress** እቃዎችን በቀላሉ ለመምረጥ፣ ዋጋ ለማስላትና ለማዘዝ ከታች ያለውን ቁልፍ **ይጫኑት**፦`;
 
   const inlineRows = [
@@ -288,7 +293,7 @@ function startWorkerPortal() {
     }
   });
 
-  // GET /api/set-webhook - Registers webhook in 1 click (recommended for Plesk / HTTPS)
+  // GET /api/set-webhook - Registers webhook in 1 click (handles 409 transition gracefully)
   app.get("/api/set-webhook", async (req, res) => {
     if (!bot || !BOT_TOKEN) {
       return res.status(400).json({ success: false, error: "BOT_TOKEN not configured in .env" });
@@ -300,7 +305,34 @@ function startWorkerPortal() {
     const targetUrl = req.query.url || defaultUrl;
 
     try {
-      await bot.telegram.setWebhook(targetUrl, { drop_pending_updates: false });
+      // 1. Terminate any active polling runner in this process
+      try {
+        bot.stop("SWITCH_TO_WEBHOOK");
+      } catch {}
+
+      // 2. Clear any lingering webhook and wait for any open getUpdates connection to close
+      await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1500));
+
+      // 3. Try setWebhook with retry in case Telegram was in the middle of a polling cycle
+      let lastErr = null;
+      let registered = false;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await bot.telegram.setWebhook(targetUrl, { drop_pending_updates: false });
+          registered = true;
+          break;
+        } catch (err) {
+          lastErr = err;
+          console.warn(`setWebhook attempt ${attempt} returned: ${err.message}. Retrying in 2s...`);
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+
+      if (!registered && lastErr) {
+        throw lastErr;
+      }
+
       const webhookInfo = await bot.telegram.getWebhookInfo();
       return res.json({
         success: true,
@@ -2190,23 +2222,43 @@ bot.catch((err, ctx) => {
 // Launch unified server (Worker Portal & TMA static app)
 startWorkerPortal();
 
-// Launch bot via Webhook (if TELEGRAM_WEBHOOK_URL is set or AUTO_WEBHOOK=true) or Long Polling
+// Launch bot via Webhook (recommended on production Plesk domain) or Long Polling
 async function launchTelegramBot() {
   if (!BOT_TOKEN) return;
 
+  const isProduction = Boolean(
+    process.env.AUTO_WEBHOOK === "true" ||
+    process.env.TELEGRAM_WEBHOOK_URL ||
+    (TELEGRAM_WEB_APP_URL && TELEGRAM_WEB_APP_URL.includes("telegram.korcha.com.et"))
+  );
+
   const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL || (
-    process.env.AUTO_WEBHOOK === "true"
+    isProduction
       ? `${TELEGRAM_WEB_APP_URL.replace(/\/+$/, "")}/api/telegram-webhook`
       : null
   );
 
   if (webhookUrl) {
-    console.log(`🔗 Setting Telegram Webhook: ${webhookUrl}`);
+    console.log(`🔗 Configuring Telegram Webhook for Plesk server: ${webhookUrl}`);
     try {
+      // 1. Clear any prior polling connection
+      await bot.telegram.deleteWebhook({ drop_pending_updates: false }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1500));
+
+      // 2. Register Webhook
       await bot.telegram.setWebhook(webhookUrl, { drop_pending_updates: false });
       console.log(`✅ Webhook set successfully to ${webhookUrl}`);
     } catch (err) {
-      console.error("❌ Failed to set Telegram Webhook:", err.message);
+      console.warn("⚠️ Initial setWebhook note:", err.message);
+      // Retry after 2.5s
+      setTimeout(async () => {
+        try {
+          await bot.telegram.setWebhook(webhookUrl, { drop_pending_updates: false });
+          console.log(`✅ Webhook set successfully on retry to ${webhookUrl}`);
+        } catch (retryErr) {
+          console.error("❌ Failed to set Telegram Webhook on retry:", retryErr.message);
+        }
+      }, 2500);
     }
   } else {
     try {
