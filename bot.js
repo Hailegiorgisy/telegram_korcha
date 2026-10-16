@@ -59,16 +59,27 @@ orders.set("KC-849102", {
   createdAt: new Date(Date.now() - 1000 * 60 * 35),
 });
 
-// Persistent Main Reply Keyboard with "Return to Main"
+// Safe Telegram Markdown reply helper that catches unescaped Markdown syntax errors
+async function safeReplyMarkdown(ctx, text, extra = {}) {
+  try {
+    return await ctx.replyWithMarkdown(text, extra);
+  } catch (err) {
+    console.warn("Markdown reply fallback triggered:", err.message);
+    try {
+      const clean = text.replace(/[*_`\[\]()]/g, "");
+      return await ctx.reply(clean, extra);
+    } catch (err2) {
+      console.error("Failed to send reply even with plain text fallback:", err2.message);
+    }
+  }
+}
+
+// Persistent Main Reply Keyboard
 const replyButtons = [
   [Markup.button.webApp("👉 እዚህ ይጫኑት (ኮርቻ አፕ ክፈት) 🚀", TELEGRAM_WEB_APP_URL)],
   ["🏠 ዋና ማውጫ", "📦 የእኔ ትዕዛዞች"],
   ["💬 ሰራተኛ አናግር", "📖 መመሪያ"]
 ];
-
-if (TELEGRAM_WEB_APP_URL) {
-  replyButtons.unshift([Markup.button.webApp("🚀 ኮርቻ አፕ ክፈት (Open Mini App)", TELEGRAM_WEB_APP_URL)]);
-}
 
 const mainReplyKeyboard = Markup.keyboard(replyButtons).resize();
 
@@ -221,9 +232,13 @@ function calculateDoorPrice(usdPrice, weightKg = 0.4, lengthCm = 30, widthCm = 3
 function runScraper(args) {
   return new Promise((resolve) => {
     const scriptPath = path.join(__dirname, "scraper.py");
-    execFile("python3", [scriptPath, ...args], (error, stdout, stderr) => {
+    execFile("python3", [scriptPath, ...args], { timeout: 10000 }, (error, stdout, stderr) => {
       if (error || !stdout) {
-        console.warn("Scraper warning:", stderr || error?.message);
+        if (error?.killed) {
+          console.warn("Scraper execution timed out after 10s");
+        } else {
+          console.warn("Scraper warning:", stderr || error?.message);
+        }
         resolve(null);
         return;
       }
@@ -256,12 +271,90 @@ function startWorkerPortal() {
     next();
   });
 
-  // Telegram Webhook endpoint (works alongside or instead of long polling on Plesk)
-  app.post("/api/telegram-webhook", (req, res) => {
-    if (bot && typeof bot.handleUpdate === "function") {
-      bot.handleUpdate(req.body, res);
-    } else {
-      res.sendStatus(200);
+  // Telegram Webhook endpoint (handles incoming Telegram updates in real time)
+  app.post("/api/telegram-webhook", async (req, res) => {
+    try {
+      if (bot && typeof bot.handleUpdate === "function") {
+        await bot.handleUpdate(req.body, res);
+      }
+      if (!res.headersSent) {
+        res.sendStatus(200);
+      }
+    } catch (err) {
+      console.error("Webhook processing error:", err.message);
+      if (!res.headersSent) {
+        res.sendStatus(200);
+      }
+    }
+  });
+
+  // GET /api/set-webhook - Registers webhook in 1 click (recommended for Plesk / HTTPS)
+  app.get("/api/set-webhook", async (req, res) => {
+    if (!bot || !BOT_TOKEN) {
+      return res.status(400).json({ success: false, error: "BOT_TOKEN not configured in .env" });
+    }
+    const host = req.get("host");
+    const defaultUrl = (TELEGRAM_WEB_APP_URL && TELEGRAM_WEB_APP_URL.startsWith("http"))
+      ? `${TELEGRAM_WEB_APP_URL.replace(/\/+$/, "")}/api/telegram-webhook`
+      : `https://${host}/api/telegram-webhook`;
+    const targetUrl = req.query.url || defaultUrl;
+
+    try {
+      await bot.telegram.setWebhook(targetUrl, { drop_pending_updates: false });
+      const webhookInfo = await bot.telegram.getWebhookInfo();
+      return res.json({
+        success: true,
+        message: "Webhook successfully registered with Telegram! The bot will now receive messages instantly without 409 polling conflicts or Passenger sleeping.",
+        target_url: targetUrl,
+        webhook_info: webhookInfo,
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET /api/delete-webhook - Deletes webhook and clears polling blocks
+  app.get("/api/delete-webhook", async (req, res) => {
+    if (!bot || !BOT_TOKEN) {
+      return res.status(400).json({ success: false, error: "BOT_TOKEN not configured in .env" });
+    }
+    try {
+      await bot.telegram.deleteWebhook({ drop_pending_updates: false });
+      return res.json({
+        success: true,
+        message: "Telegram webhook deleted. Bot can now use long polling mode.",
+      });
+    } catch (err) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // GET /api/bot-status - Live connectivity check
+  app.get("/api/bot-status", async (req, res) => {
+    if (!bot || !BOT_TOKEN) {
+      return res.json({ configured: false, error: "BOT_TOKEN missing in .env" });
+    }
+    try {
+      const me = await bot.telegram.getMe();
+      const webhookInfo = await bot.telegram.getWebhookInfo();
+      return res.json({
+        configured: true,
+        bot: {
+          id: me.id,
+          username: me.username,
+          first_name: me.first_name,
+        },
+        mode: webhookInfo.url ? "webhook" : "polling",
+        webhook: {
+          url: webhookInfo.url || "(None - Polling Mode)",
+          has_custom_certificate: webhookInfo.has_custom_certificate,
+          pending_update_count: webhookInfo.pending_update_count,
+          last_error_date: webhookInfo.last_error_date ? new Date(webhookInfo.last_error_date * 1000).toISOString() : null,
+          last_error_message: webhookInfo.last_error_message || null,
+        },
+      });
+    } catch (err) {
+      return res.status(500).json({ configured: true, error: err.message });
     }
   });
 
@@ -834,14 +927,30 @@ bot.action(["return_to_main", "menu_main"], async (ctx) => {
   }
 });
 
-// 3. Text triggers for Return to Main Menu
-bot.hears([/ወደ ዋና ማውጫ/i, /main menu/i, /ተመለስ/i, /ዋና ሜኑ/i], async (ctx) => {
+// 3. Text triggers for Return to Main Menu (matches "🏠 ዋና ማውጫ", "ዋና ማውጫ", "ተመለስ", "home")
+bot.hears([/ዋና ማውጫ/i, /ወደ ዋና ማውጫ/i, /main menu/i, /ተመለስ/i, /ዋና ሜኑ/i, /home/i, /^menu$/i], async (ctx) => {
   const userId = ctx.from.id;
   userStates.delete(userId);
 
   const name = ctx.from.first_name || "ውድ ደንበኛ";
   const payload = getMainWelcomePayload(name);
-  return ctx.replyWithMarkdown(payload.text, payload.keyboard);
+  await ctx.reply("👋 እንኳን ደህና መጡ!", mainReplyKeyboard);
+  return safeReplyMarkdown(ctx, payload.text, payload.keyboard);
+});
+
+// Dedicated trigger for "💬 ሰራተኛ አናግር"
+bot.hears([/ሰራተኛ አናግር/i, /ድጋፍ/i, /support/i, /አስተናጋጅ/i, /አናግር/i], async (ctx) => {
+  const userId = ctx.from.id;
+  userStates.set(userId, { step: "AWAITING_WORKER_CHAT" });
+  return safeReplyMarkdown(
+    ctx,
+    `💬 **ከኮርቻ ሰራተኛና ድጋፍ ሰጪ ጋር በቀጥታ ይነጋገሩ**\n\n` +
+    `እባክዎን የሚፈልጉትን ጥያቄ፣ የእቃ መረጃ ወይም አስተያየት እዚህ ይጻፉልን፦\n\n` +
+    `*(መልዕክትዎ ወዲያውኑ ለሰራተኞቻችን ይደርሳል፤ በደቂቃዎች ውስጥ እዚሁ በቦቱ ይመልሱልዎታል)*`,
+    Markup.inlineKeyboard([
+      [Markup.button.callback("🔙 ሰርዝና ወደ ዋና ማውጫ ተመለስ", "return_to_main")]
+    ])
+  );
 });
 
 // 4. Marketplaces Trigger (Official PlayStore & AppStore downloads)
@@ -2070,31 +2179,55 @@ bot.on("text", async (ctx, next) => {
   }
 });
 
+// Global error handling for Telegraf so unhandled errors NEVER crash the bot
+bot.catch((err, ctx) => {
+  console.error(`⚠️ Telegraf Error [updateType=${ctx?.updateType}]:`, err.message || err);
+  try {
+    ctx.reply("⚠️ ይቅርታ፣ ጥያቄዎን በማስተናገድ ላይ ጊዜያዊ ችግር አጋጥሟል። እባክዎ እንደገና ይሞክሩ ወይም /start ይጫኑ።").catch(() => {});
+  } catch {}
+});
+
 // Launch unified server (Worker Portal & TMA static app)
 startWorkerPortal();
 
-// Launch bot via Webhook (if TELEGRAM_WEBHOOK_URL is set) or Long Polling
-if (BOT_TOKEN) {
-  const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
+// Launch bot via Webhook (if TELEGRAM_WEBHOOK_URL is set or AUTO_WEBHOOK=true) or Long Polling
+async function launchTelegramBot() {
+  if (!BOT_TOKEN) return;
+
+  const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL || (
+    process.env.AUTO_WEBHOOK === "true"
+      ? `${TELEGRAM_WEB_APP_URL.replace(/\/+$/, "")}/api/telegram-webhook`
+      : null
+  );
+
   if (webhookUrl) {
-    console.log(`🔗 Configuring Telegram Webhook: ${webhookUrl}`);
-    bot.telegram.setWebhook(webhookUrl).then(() => {
+    console.log(`🔗 Setting Telegram Webhook: ${webhookUrl}`);
+    try {
+      await bot.telegram.setWebhook(webhookUrl, { drop_pending_updates: false });
       console.log(`✅ Webhook set successfully to ${webhookUrl}`);
-    }).catch((err) => {
+    } catch (err) {
       console.error("❌ Failed to set Telegram Webhook:", err.message);
-    });
+    }
   } else {
-    bot.launch({ dropPendingUpdates: true }).then(() => {
+    try {
+      // First, remove any stale webhook from previous sessions that would cause 409 Conflict
+      await bot.telegram.deleteWebhook({ drop_pending_updates: false });
+      await bot.launch({
+        allowedUpdates: ["message", "callback_query", "edited_message"]
+      });
       console.log("🚀 Korcha Telegram Bot launched successfully (Long Polling)...");
-    }).catch((err) => {
+    } catch (err) {
       if (err.message && err.message.includes("409")) {
-        console.error("⚠️ 409 Conflict: Another bot instance is polling Telegram. Make sure only ONE bot process is running bot.js.");
+        console.warn("⚠️ 409 Conflict in long polling. Another instance may already be polling Telegram.");
+        console.warn("💡 TIP: Visit /api/set-webhook to switch to instant Webhook mode on Plesk!");
       } else {
         console.error("⚠️ Bot launch error:", err.message);
       }
-    });
+    }
   }
 }
+
+launchTelegramBot();
 
 process.once("SIGINT", () => bot && bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot && bot.stop("SIGTERM"));
