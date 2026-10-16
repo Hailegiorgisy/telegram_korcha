@@ -6,12 +6,10 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { StorefrontHome } from './components/StorefrontHome';
-import { TelegramSimulator } from './components/TelegramSimulator';
 import { MarketplaceSearchExplorer } from './components/MarketplaceSearchExplorer';
 import { MarketplaceCalculator } from './components/MarketplaceCalculator';
 import { OrderTracker } from './components/OrderTracker';
 import { MyOrdersView } from './components/MyOrdersView';
-import { TelegramKorchaRepo } from './components/TelegramKorchaRepo';
 import { Order, ParsedProduct } from './types';
 import { SAMPLE_PRODUCTS } from './data/sampleProducts';
 import { calculateDoorstepPricing, getPaymentRatios } from './services/pricingEngine';
@@ -100,7 +98,7 @@ const INITIAL_DEMO_ORDERS: Order[] = [
 ];
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'simulator' | 'search' | 'calculator' | 'orders' | 'github'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'calculator' | 'orders'>('home');
   const [officialRate] = useState<number>(145.50);
   const [selectedProductForEstimation, setSelectedProductForEstimation] = useState<ParsedProduct | null>(null);
 
@@ -169,7 +167,7 @@ export default function App() {
 
     setOrders((prev) => [newOrder, ...prev]);
     setToastNotification({
-      message: `🚨 አዲስ ትዕዛዝ ደርሷል: #${newOrder.orderNumber} (ስልክ: ${newOrder.customerPhone}) • የ ${depositPct}% ክፍያ: ${newOrder.item.pricing.depositAmountEtb.toLocaleString()} ብር`,
+      message: `🚨 አዲስ ትዕዛዝ ደርሷል: #${newOrder.orderNumber} (ስልክ: ${newOrder.customerPhone}) • የ ${depositPct}% ክፍያ: ${newOrder.item.pricing.depositAmountEtb.toLocaleString()} ETB`,
       phone: newOrder.customerPhone,
     });
 
@@ -211,7 +209,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       {/* Toast Notification Bar with quick tracking button */}
       {toastNotification && (
-        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-4 py-2 font-bold text-xs sm:text-sm text-center flex items-center justify-center gap-3 shadow-lg sticky top-0 z-50">
+        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-4 py-2 font-bold text-xs sm:text-sm text-center flex items-center justify-center gap-3 shadow-lg">
           <span>{toastNotification.message}</span>
           {toastNotification.phone && (
             <button
@@ -239,27 +237,14 @@ export default function App() {
           <StorefrontHome
             onSelectProductForCalculator={handleSelectProductFromSearch}
             onNavigateToOrders={handleNavigateToOrders}
-            onNavigateToSimulator={() => setActiveTab('simulator')}
             onOrderCompleted={handleNewOrderPlaced}
             officialRate={officialRate}
-          />
-        )}
-
-        {activeTab === 'simulator' && (
-          <TelegramSimulator
-            officialRate={officialRate}
-            onNewOrderPlaced={handleNewOrderPlaced}
-            botToken={botToken}
-            workerChatId={workerChatId}
-            onNavigateToSearch={() => setActiveTab('search')}
-            onNavigateToOrders={handleNavigateToOrders}
           />
         )}
 
         {activeTab === 'orders' && (
           <MyOrdersView
             orders={orders}
-            onNavigateToSimulator={() => setActiveTab('simulator')}
             onNavigateToSearch={() => setActiveTab('search')}
           />
         )}
@@ -279,8 +264,6 @@ export default function App() {
             onNavigateToOrders={handleNavigateToOrders}
           />
         )}
-
-        {activeTab === 'github' && <TelegramKorchaRepo />}
       </main>
 
       {/* Footer */}
