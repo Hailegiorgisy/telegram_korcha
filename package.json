@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-	  "push-all": "bash push.sh",
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build && cp -rf dist/* .",
+    "build": "vite build",
+    "postinstall": "vite build || true",
     "start": "node bot.js",
     "start:web": "node server.js",
     "preview": "vite preview",

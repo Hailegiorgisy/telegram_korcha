@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import express from "express";
 import multer from "multer";
 import QRCode from "qrcode";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +14,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 // Environment Configuration
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
 const WORKER_CHAT_ID = process.env.TELEGRAM_WORKER_CHAT_ID;
 const WORKER_USERNAME = (process.env.WORKER_TELEGRAM_USERNAME || "korcha_support").replace("@", "");
 const HKD_EXCHANGE_RATE = parseFloat(process.env.HKD_EXCHANGE_RATE || "30.0");
@@ -21,7 +22,7 @@ const USD_TO_HKD = 7.8;
 const KG_CARGO_RATE_ETB = parseFloat(process.env.KG_CARGO_RATE_ETB || "1000.0");
 const TELEBIRR_PHONE = process.env.TELEBIRR_PHONE || "+251-996237800";
 const CBE_ACCOUNT = process.env.CBE_ACCOUNT || "10001116390";
-const TELEGRAM_WEB_APP_URL = "https://telegram.korcha.com.et/?v=2";
+const TELEGRAM_WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || process.env.VITE_APP_URL || "https://telegram.korcha.com.et";
 const PORT = process.env.PORT || process.env.WORKER_PORT || 3000;
 const WORKER_PORT = PORT;
 
@@ -29,12 +30,14 @@ const WORKER_PORT = PORT;
 const ADVANCE_PAYMENT_PERCENT = parseInt(process.env.ADVANCE_PAYMENT_PERCENT || process.env.VITE_ADVANCE_PAYMENT_PERCENT || "40", 10) || 40;
 const COD_PAYMENT_PERCENT = parseInt(process.env.COD_PAYMENT_PERCENT || process.env.VITE_COD_PAYMENT_PERCENT || String(100 - ADVANCE_PAYMENT_PERCENT), 10) || (100 - ADVANCE_PAYMENT_PERCENT);
 
+let bot;
 if (!BOT_TOKEN) {
-  console.error("FATAL: TELEGRAM_BOT_TOKEN is missing in environment variables (.env).");
-  process.exit(1);
+  console.warn("⚠️ WARNING: TELEGRAM_BOT_TOKEN is missing or empty in .env!");
+  console.warn("⚠️ The Express web server & Mini App will still start, but the Telegram Bot will not poll.");
+  bot = new Telegraf("000000000:AAA_DUMMY_TOKEN_FOR_STARTUP");
+} else {
+  bot = new Telegraf(BOT_TOKEN);
 }
-
-const bot = new Telegraf(BOT_TOKEN);
 
 // In-Memory Data Stores
 const quotes = new Map(); // ticketId -> Quote object
@@ -242,6 +245,25 @@ function startWorkerPortal() {
 
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
+
+  // Allow Telegram Web and mobile app frames & CORS
+  app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE");
+    res.setHeader("Access-Control-Allow-Headers", "X-Requested-With,content-type,Authorization");
+    res.setHeader("Content-Security-Policy", "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org;");
+    res.removeHeader("X-Frame-Options");
+    next();
+  });
+
+  // Telegram Webhook endpoint (works alongside or instead of long polling on Plesk)
+  app.post("/api/telegram-webhook", (req, res) => {
+    if (bot && typeof bot.handleUpdate === "function") {
+      bot.handleUpdate(req.body, res);
+    } else {
+      res.sendStatus(200);
+    }
+  });
 
   const getPortalStyles = () => `
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -696,20 +718,88 @@ function startWorkerPortal() {
     }
   });
 
+  // Health check endpoint
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', app: 'Korcha Unified Web & Bot', timestamp: new Date().toISOString() });
+  });
+
+  // Diagnostics endpoint for easy server verification on Plesk
+  app.get('/api/diagnostics', (req, res) => {
+    const distDir = path.join(__dirname, 'dist');
+    const indexHtml = path.join(distDir, 'index.html');
+    res.json({
+      status: 'online',
+      node_version: process.version,
+      bot_configured: Boolean(BOT_TOKEN),
+      bot_token_preview: BOT_TOKEN ? `${BOT_TOKEN.slice(0, 5)}...${BOT_TOKEN.slice(-4)}` : 'missing',
+      worker_chat_configured: Boolean(WORKER_CHAT_ID),
+      port: WORKER_PORT,
+      telegram_web_app_url: TELEGRAM_WEB_APP_URL,
+      dist_dir_exists: fs.existsSync(distDir),
+      dist_index_html_exists: fs.existsSync(indexHtml),
+      telebirr_phone: TELEBIRR_PHONE,
+      cbe_account: CBE_ACCOUNT,
+      advance_payment_percent: ADVANCE_PAYMENT_PERCENT,
+      cod_payment_percent: COD_PAYMENT_PERCENT,
+    });
+  });
+
   // Serve static Web Version & TMA frontend if dist directory exists
   const distDir = path.join(__dirname, "dist");
-  app.use(express.static(distDir));
+  const indexHtml = path.join(distDir, "index.html");
+
+  if (fs.existsSync(distDir)) {
+    app.use(express.static(distDir));
+  }
+
   app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/worker-portal")) return next();
-    res.sendFile(path.join(distDir, "index.html"), (err) => {
-      if (err) next();
-    });
+    if (
+      req.path.startsWith("/worker-portal") ||
+      req.path.startsWith("/api") ||
+      req.path.startsWith("/health") ||
+      req.path.startsWith("/app") ||
+      req.path.startsWith("/store") ||
+      req.path.startsWith("/download")
+    ) {
+      return next();
+    }
+    if (fs.existsSync(indexHtml)) {
+      return res.sendFile(indexHtml);
+    }
+    return res.status(200).send(`
+      <!DOCTYPE html>
+      <html lang="am">
+        <head>
+          <meta charset="utf-8">
+          <title>Korcha (ኮርቻ) Server Status</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #fff; padding: 40px; text-align: center; }
+            .box { max-width: 520px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 16px; border: 1px solid #334155; }
+            h2 { color: #f59e0b; margin-bottom: 12px; }
+            a { color: #38bdf8; text-decoration: none; font-weight: bold; }
+            code { background: #020617; padding: 3px 8px; border-radius: 6px; font-family: monospace; color: #facc15; }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <h2>🐎 Korcha (ኮርቻ) Server is Online!</h2>
+            <p style="color: #94a3b8; font-size: 14px; margin-bottom: 16px;">The Node.js backend is active. The frontend <code>dist/</code> folder has not been built yet.</p>
+            <p style="color: #cbd5e1; font-size: 13px; margin-bottom: 20px;">Run <code>npm run build</code> in your terminal or Plesk Node.js interface.</p>
+            <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+              <a href="/api/diagnostics" style="background: #334155; padding: 8px 16px; border-radius: 8px;">View Diagnostics</a>
+              <a href="/worker-portal" style="background: #f59e0b; color: #022c22; padding: 8px 16px; border-radius: 8px;">Worker Portal</a>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
   });
 
   app.listen(WORKER_PORT, () => {
     console.log(`🚀 Korcha Server listening on port ${WORKER_PORT}`);
     console.log(`🌐 Web App / TMA: http://localhost:${WORKER_PORT}/`);
     console.log(`🛠️ Worker Portal: http://localhost:${WORKER_PORT}/worker-portal`);
+    console.log(`🩺 Diagnostics: http://localhost:${WORKER_PORT}/api/diagnostics`);
   });
 }
 
@@ -1983,12 +2073,28 @@ bot.on("text", async (ctx, next) => {
 // Launch unified server (Worker Portal & TMA static app)
 startWorkerPortal();
 
-// Launch bot long polling
-bot.launch().then(() => {
-  console.log("🚀 Korcha Telegram Bot is running in Worker-Assisted Mode...");
-}).catch((err) => {
-  console.error("Bot launch failed:", err.message);
-});
+// Launch bot via Webhook (if TELEGRAM_WEBHOOK_URL is set) or Long Polling
+if (BOT_TOKEN) {
+  const webhookUrl = process.env.TELEGRAM_WEBHOOK_URL;
+  if (webhookUrl) {
+    console.log(`🔗 Configuring Telegram Webhook: ${webhookUrl}`);
+    bot.telegram.setWebhook(webhookUrl).then(() => {
+      console.log(`✅ Webhook set successfully to ${webhookUrl}`);
+    }).catch((err) => {
+      console.error("❌ Failed to set Telegram Webhook:", err.message);
+    });
+  } else {
+    bot.launch({ dropPendingUpdates: true }).then(() => {
+      console.log("🚀 Korcha Telegram Bot launched successfully (Long Polling)...");
+    }).catch((err) => {
+      if (err.message && err.message.includes("409")) {
+        console.error("⚠️ 409 Conflict: Another bot instance is polling Telegram. Make sure only ONE bot process is running bot.js.");
+      } else {
+        console.error("⚠️ Bot launch error:", err.message);
+      }
+    });
+  }
+}
 
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+process.once("SIGINT", () => bot && bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot && bot.stop("SIGTERM"));

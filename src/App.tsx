@@ -160,7 +160,50 @@ export default function App() {
     setActiveTab('orders');
   };
 
-  // ... other handlers unchanged ...
+  const handleNewOrderPlaced = async (newOrder: Order) => {
+    const { advancePercent, codPercent } = getPaymentRatios();
+    const depositPct = newOrder.item.pricing.depositPercent || advancePercent;
+    const codPct = newOrder.item.pricing.codPercent || codPercent;
+
+    setOrders((prev) => [newOrder, ...prev]);
+    setToastNotification({
+      message: `🚨 አዲስ ትዕዛዝ ደርሷል: #${newOrder.orderNumber} (ስልክ: ${newOrder.customerPhone}) • የ ${depositPct}% ክፍያ: ${newOrder.item.pricing.depositAmountEtb.toLocaleString()} ብር`,
+      phone: newOrder.customerPhone,
+    });
+
+    setTimeout(() => {
+      setToastNotification(null);
+    }, 8000);
+
+    // Forward alert to Telegram workers if configured
+    if (botToken && workerChatId) {
+      const tgUserTag = newOrder.customerTelegramId
+        ? `<a href="tg://user?id=${newOrder.customerTelegramId}">${newOrder.customerTelegramUser || 'ደንበኛ'}</a> (ID: <code>${newOrder.customerTelegramId}</code>)`
+        : `${newOrder.customerTelegramUser || 'ደንበኛ'}`;
+
+      const alertText =
+        `🚨 <b>አዲስ የኮርቻ ትዕዛዝ ደርሷል! (#${newOrder.orderNumber})</b>\n\n` +
+        `<b>👤 ደንበኛ:</b> ${tgUserTag}\n` +
+        `<b>📞 ስልክ:</b> ${newOrder.customerPhone}\n` +
+        `<b>📍 አድራሻ:</b> ${newOrder.deliveryCity} (${newOrder.deliveryLandmark})\n` +
+        `<b>🛍️ እቃ:</b> ${newOrder.item.product.title}\n` +
+        (newOrder.notes ? `<b>🎨 ምርጫ:</b> ${newOrder.notes}\n` : '') +
+        `<b>💰 ጠቅላላ ዋጋ:</b> ${newOrder.item.pricing.totalPriceEtb.toLocaleString()} ETB\n` +
+        `<b>💳 የ ${depositPct}% ቅድመ ክፍያ:</b> ${newOrder.item.pricing.depositAmountEtb.toLocaleString()} ETB\n` +
+        `<b>🚚 ቀሪ ${codPct}%:</b> ${newOrder.item.pricing.codAmountEtb.toLocaleString()} ETB\n` +
+        (newOrder.telebirrTxnId ? `<b>🧾 የክፍያ ማጣቀሻ (Txn ID):</b> <code>${newOrder.telebirrTxnId}</code>\n` : '') +
+        `\n👉 <b>በቀጥታ በቦቱ ለደንበኛው ለመመለስ፦</b> ለዚህ መልዕክት Reply ያድርጉ ወይም <code>/reply ${newOrder.orderNumber} &lt;መልስ&gt;</code>`;
+
+      await sendLiveTelegramWorkerAlert(botToken, workerChatId, alertText);
+    }
+  };
+
+  const handleSelectProductFromSearch = (prod: ParsedProduct) => {
+    setSelectedProductForEstimation(prod);
+    setActiveTab('calculator');
+    setToastNotification({ message: `✅ "${prod.title.slice(0, 30)}..." ወደ ዋጋ ማስያ ገጽ ተላልፏል!` });
+    setTimeout(() => setToastNotification(null), 4000);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">

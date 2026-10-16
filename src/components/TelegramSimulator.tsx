@@ -1418,7 +1418,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
 
               <div className="flex items-center gap-1">
                 <a
-                  href="https://t.me/korcha_bot"
+                  href="https://t.me/korchaetbot"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 transition-colors cursor-pointer"

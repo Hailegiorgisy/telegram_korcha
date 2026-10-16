@@ -616,12 +616,12 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               💬 ቴሌግራም ቦት ክፈት (Open Bot)
             </button>
             <a
-              href="https://t.me/korcha_bot"
+              href="https://t.me/korchaetbot"
               target="_blank"
               rel="noopener noreferrer"
               className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm transition-all border border-slate-700"
             >
-              @korcha_bot
+              @korchaetbot
             </a>
           </div>
         </div>
