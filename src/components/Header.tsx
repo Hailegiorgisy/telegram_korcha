@@ -1,18 +1,16 @@
 import React from 'react';
 import {
   Home,
-  Bot,
   Search,
   Calculator,
   Package,
-  Github,
   Send,
 } from 'lucide-react';
 import { KorchaSaddleIcon } from './KorchaSaddleIcon';
 
 interface HeaderProps {
-  activeTab: 'home' | 'simulator' | 'search' | 'calculator' | 'orders' | 'github';
-  setActiveTab: (tab: 'home' | 'simulator' | 'search' | 'calculator' | 'orders' | 'github') => void;
+  activeTab: 'home' | 'search' | 'calculator' | 'orders';
+  setActiveTab: (tab: 'home' | 'search' | 'calculator' | 'orders') => void;
   orderCount?: number;
   isTMA?: boolean;
   tmaUser?: { id: number; first_name?: string; username?: string } | null;
@@ -34,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('home')}
             className="flex items-center gap-3 cursor-pointer select-none"
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-700 to-amber-900 border border-amber-500/40 flex items-center justify-center shadow-lg shadow-amber-500/20 text-white p-1">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-700 to-amber-900 border border-amber-500/40 flex items-center justify-center shadow-lg">
               <KorchaSaddleIcon className="w-7 h-7 text-amber-300 drop-shadow" />
             </div>
             <div>
@@ -57,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Simplistic Navigation Tabs with Home and My Orders view */}
+          {/* Simplistic Navigation Tabs with Home, Search, Calculator and My Orders view */}
           <nav className="flex items-center gap-1 sm:gap-2 overflow-x-auto no-scrollbar py-1">
             <button
               onClick={() => setActiveTab('home')}
@@ -69,17 +67,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Home className="w-4 h-4" />
               <span>ሱቅ (Home)</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('simulator')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'simulator'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Bot className="w-4 h-4" />
-              <span>ቴሌግራም ቦት</span>
             </button>
 
             <button
@@ -127,25 +114,12 @@ export const Header: React.FC<HeaderProps> = ({
               <span>ዋጋ ማስያ & QR</span>
             </button>
 
-            <button
-              onClick={() => setActiveTab('github')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'github'
-                  ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Github className="w-4 h-4" />
-              <span className="hidden md:inline">telegram_korcha</span>
-              <span className="md:hidden">Repo</span>
-            </button>
-
             {/* Direct Telegram App Link */}
             <a
               href="https://t.me/korchaetbot"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 border border-sky-500/40 transition-all cursor-pointer whitespace-nowrap ml-1 shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 border border-sky-500/40 transition-all"
               title="ክፈት በቴሌግራም መተግበሪያ (Open directly in Telegram)"
             >
               <Send className="w-3.5 h-3.5 text-sky-400" />
@@ -157,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
               href="https://t.me/korchaetbot?start=support"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all cursor-pointer whitespace-nowrap ml-1"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all"
               title="በቦቱ ከአስተናጋጅ ጋር ይነጋገሩ (Live In-Bot Support)"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
