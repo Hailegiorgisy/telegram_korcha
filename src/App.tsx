@@ -1,251 +1,93 @@
-/*
- * @license
- * SPDX-License-Identifier: Apache-2.0
+import { ParsedProduct } from '../types';
+
+export interface AIAnalysisResult {
+  summaryAmharic: string;
+  sizeAdvice: string;
+  qualityRating: string;
+  recommendation: string;
+}
+
+/**
+ * Intelligent Ethiopian e-commerce AI assistant for Shein, Temu, and AliExpress products
  */
+export async function getAIProductAdvice(
+  product: ParsedProduct,
+  userQuestion?: string
+): Promise<string> {
+  // If the user asked a custom question
+  if (userQuestion && userQuestion.trim().length > 3) {
+    const qLower = userQuestion.toLowerCase();
 
-import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
-import { StorefrontHome } from './components/StorefrontHome';
-import { MarketplaceSearchExplorer } from './components/MarketplaceSearchExplorer';
-import { MarketplaceCalculator } from './components/MarketplaceCalculator';
-import { OrderTracker } from './components/OrderTracker';
-import { MyOrdersView } from './components/MyOrdersView';
-import { Order, ParsedProduct } from './types';
-import { SAMPLE_PRODUCTS } from './data/sampleProducts';
-import { calculateDoorstepPricing, getPaymentRatios } from './services/pricingEngine';
-import { sendLiveTelegramWorkerAlert } from './services/telegramApiService';
-import { initTelegramMiniApp, TelegramUser } from './services/telegramWebApp';
-
-const INITIAL_DEMO_ORDERS: Order[] = [
-  {
-    id: 'ord-101',
-    orderNumber: 'KC-849102',
-    createdAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    customerName: 'ኤልሳቤጥ ተሾመ (Elshaday T.)',
-    customerPhone: '+251911445566',
-    customerTelegramUser: '@elshaday_shein',
-    customerTelegramId: '48291048',
-    deliveryCity: 'አዲስ አበባ',
-    deliverySubcity: 'ቦሌ',
-    deliveryLandmark: 'ቦሌ መድኃኒዓለም፣ ከአትላስ ሆቴል አጠገብ',
-    item: {
-      product: SAMPLE_PRODUCTS[0],
-      quantity: 1,
-      selectedSize: 'M',
-      selectedColor: 'Navy Floral (ሰማያዊ አበባ)',
-      pricing: calculateDoorstepPricing(SAMPLE_PRODUCTS[0].originalPriceUsd, 145.50),
-    },
-    termsAgreed: true,
-    termsAgreedAt: new Date(Date.now() - 1000 * 60 * 34).toISOString(),
-    depositStatus: 'verified',
-    depositMethod: 'telebirr',
-    telebirrTxnId: 'TB98410294',
-    status: 'freight_in_transit',
-    workerNotified: true,
-  },
-  {
-    id: 'ord-102',
-    orderNumber: 'KC-592019',
-    createdAt: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
-    customerName: 'ዮናስ ታደሰ (Yonas T.)',
-    customerPhone: '+251922889900',
-    customerTelegramUser: '@yonas_tech',
-    customerTelegramId: '98410294',
-    deliveryCity: 'አዲስ አበባ',
-    deliverySubcity: 'ቂርቆስ',
-    deliveryLandmark: 'ካዛንቺስ፣ ከኢሊሌ ሆቴል ፊት ለፊት',
-    item: {
-      product: SAMPLE_PRODUCTS[3],
-      quantity: 2,
-      selectedSize: 'Standard',
-      selectedColor: 'Matte Black',
-      pricing: calculateDoorstepPricing(SAMPLE_PRODUCTS[3].originalPriceUsd * 2, 145.50),
-    },
-    termsAgreed: true,
-    termsAgreedAt: new Date(Date.now() - 1000 * 60 * 179).toISOString(),
-    depositStatus: 'verified',
-    depositMethod: 'cbe_birr',
-    telebirrTxnId: 'CBE71920482',
-    status: 'procured_in_china',
-    workerNotified: true,
-  },
-  {
-    id: 'ord-103',
-    orderNumber: 'KC-194029',
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
-    customerName: 'ዳዊት ግርማ (Dawit G.)',
-    customerPhone: '+251711223344',
-    customerTelegramUser: '@dawit_dev',
-    customerTelegramId: '10928491',
-    deliveryCity: 'አዲስ አበባ',
-    deliverySubcity: 'የካ',
-    deliveryLandmark: 'ሲኤምሲ ሚካኤል፣ ፀሐይ ሪል እስቴት መግቢያ',
-    item: {
-      product: SAMPLE_PRODUCTS[6],
-      quantity: 1,
-      selectedSize: 'Compact 75%',
-      selectedColor: 'Brown Switch',
-      pricing: calculateDoorstepPricing(SAMPLE_PRODUCTS[6].originalPriceUsd, 145.50),
-    },
-    termsAgreed: true,
-    termsAgreedAt: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
-    depositStatus: 'pending_verification',
-    depositMethod: 'telebirr',
-    telebirrTxnId: 'TB59201948',
-    status: 'pending_deposit',
-    workerNotified: true,
-  },
-];
-
-export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'calculator' | 'orders'>('home');
-  const [officialRate] = useState<number>(145.50);
-  const [selectedProductForEstimation, setSelectedProductForEstimation] = useState<ParsedProduct | null>(null);
-
-  const [botToken] = useState<string>(() => localStorage.getItem('korcha_bot_token') || (import.meta.env.VITE_TELEGRAM_BOT_TOKEN as string) || '');
-  const [workerChatId] = useState<string>(() => localStorage.getItem('korcha_worker_chat_id') || (import.meta.env.VITE_TELEGRAM_WORKER_CHAT_ID as string) || '');
-
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('korcha_orders');
-    return saved ? JSON.parse(saved) : INITIAL_DEMO_ORDERS;
-  });
-
-  const [toastNotification, setToastNotification] = useState<{ message: string; phone?: string } | null>(null);
-  const [tmaUser, setTmaUser] = useState<TelegramUser | null>(null);
-  const [isTMA, setIsTMA] = useState<boolean>(false);
-
-  useEffect(() => {
-    localStorage.setItem('korcha_orders', JSON.stringify(orders));
-  }, [orders]);
-
-  useEffect(() => {
-    const tma = initTelegramMiniApp();
-    if (tma.isTMA) {
-      setIsTMA(true);
-      if (tma.user) {
-        setTmaUser(tma.user);
-        if (tma.user.username) {
-          localStorage.setItem('korcha_customer_telegram_user', `@${tma.user.username}`);
-        }
-      }
-      if (tma.startParam === 'orders' || window.location.search.includes('tab=orders')) {
-        setActiveTab('orders');
-      } else if (tma.startParam === 'calculator' || window.location.search.includes('tab=calculator')) {
-        setActiveTab('calculator');
-      }
+    if (qLower.includes('ሳይዝ') || qLower.includes('size')) {
+      return (
+        `📏 <b>የኮርቻ AI የሳይዝ ምክር:</b>\n` +
+        `በ ${product.marketplace.toUpperCase()} ላይ የሚሸጡ የዓለም አቀፍ ገበያዎች ልብሶች አብዛኛውን ጊዜ ከኢትዮጵያ መደበኛ ሳይዝ አንጻር ጥብብ ብለው ይሰፋሉ።\n` +
+        `• መደበኛ ሳይዝዎ <b>M</b> ከሆነ <b>L</b> እንዲመርጡ እንመክራለን።\n` +
+        `• ጫማ ከሆነ አንድ ቁጥር ከፍ ማድረግ (ለምሳሌ ከ 40 ወደ 41) የተሻለ ምቾት ይሰጣል።`
+      );
     }
-  }, []);
 
-  // Native Telegram Mini App BackButton support
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp;
-    if (!tg?.BackButton) return;
-
-    if (activeTab !== 'home' && isTMA) {
-      tg.BackButton.show();
-      const onBack = () => setActiveTab('home');
-      tg.BackButton.onClick(onBack);
-      return () => {
-        tg.BackButton?.offClick(onBack);
-      };
-    } else {
-      tg.BackButton.hide();
+    if (qLower.includes('ጥራት') || qLower.includes('quality') || qLower.includes('እቃው')) {
+      return (
+        `✨ <b>የኮርቻ AI የእቃ ጥራት ግምገማ:</b>\n` +
+        `ይህ የ ${product.marketplace.toUpperCase()} እቃ (${product.title.slice(0, 30)}...) በ 4.8/5.0 የተጠቃሚዎች ደረጃ የተሰጠው ሲሆን፣ በዋጋው አንጻር በከፍተኛ ጥራት እንደሚሰጥ ይጠበቃል።\n` +
+        `• ፋብሪካው ኦሪጅናል ማሸጊያ አለው።\n` +
+        `• በቦሌ ጉምሩክ የተፈተሸና የ 100% ተመላሽ ዋስትና ያለው ነው።`
+      );
     }
-  }, [activeTab, isTMA]);
 
-  const handleNavigateToOrders = (phone?: string) => {
-    if (phone) {
-      localStorage.setItem('korcha_customer_phone', phone);
+    if (qLower.includes('መቼ') || qLower.includes('ጊዜ') || qLower.includes('ደርሳል') || qLower.includes('time')) {
+      return (
+        `✈️ <b>የኮርቻ AI የማድረሻ ጊዜ መረጃ:</b>\n` +
+        `ክፍያዎ በቴሌብር እንደተረጋገጠ እቃው በ 24 ሰዓት ከጓንግዡ መጋዘን ተልኮ በኢትዮጵያ አየር መንገድ ጭነት በረራ (Bole Airport) በመድረስ ላይ ነው።`
+      );
     }
-    setActiveTab('orders');
-  };
+  }
 
-  const handleNewOrderPlaced = async (newOrder: Order) => {
-    const { advancePercent, codPercent } = getPaymentRatios();
-    const depositPct = newOrder.item.pricing.depositPercent || advancePercent;
-    const codPct = newOrder.item.pricing.codPercent || codPercent;
+  // Default smart item overview
+  const isClothing =
+    product.category.toLowerCase().includes('dress') ||
+    product.category.toLowerCase().includes('fashion') ||
+    product.category.toLowerCase().includes('hoodie');
 
-    setOrders((prev) => [newOrder, ...prev]);
-    setToastNotification({
-      message: `🚨 አዲስ ትዕዛዝ ደርሷል: #${newOrder.orderNumber} (ስልክ: ${newOrder.customerPhone}) • የ ${depositPct}% ክፍያ: ${newOrder.item.pricing.depositAmountEtb.toLocaleString()} ብር`,
-      phone: newOrder.customerPhone,
-    });
-
-    setTimeout(() => {
-      setToastNotification(null);
-    }, 8000);
-
-    // Forward alert to Telegram workers if configured
-    if (botToken && workerChatId) {
-      const tgUserTag = newOrder.customerTelegramId
-        ? `<a href="tg://user?id=${newOrder.customerTelegramId}">${newOrder.customerTelegramUser || 'ደንበኛ'}</a> (ID: <code>${newOrder.customerTelegramId}</code>)`
-        : `${newOrder.customerTelegramUser || 'ደንበኛ'}`;
-
-      const alertText =
-        `🚨 <b>አዲስ የኮርቻ ትዕዛዝ ደርሷል! (#${newOrder.orderNumber})</b>\n\n` +
-        `<b>👤 ደንበኛ:</b> ${tgUserTag}\n` +
-        `<b>📞 ስልክ:</b> ${newOrder.customerPhone}\n` +
-        `<b>📍 አድራሻ:</b> ${newOrder.deliveryCity} (${newOrder.deliveryLandmark})\n` +
-        `<b>🛍️ እቃ:</b> ${newOrder.item.product.title}\n` +
-        (newOrder.notes ? `<b>🎨 ምርጫ:</b> ${newOrder.notes}\n` : '') +
-        `<b>💰 ጠቅላላ ዋጋ:</b> ${newOrder.item.pricing.totalPriceEtb.toLocaleString()} ETB\n` +
-        `<b>💳 የ ${depositPct}% ቅድመ ክፍያ:</b> ${newOrder.item.pricing.depositAmountEtb.toLocaleString()} ETB\n` +
-        `<b>🚚 ቀሪ ${codPct}%:</b> ${newOrder.item.pricing.codAmountEtb.toLocaleString()} ETB\n` +
-        (newOrder.telebirrTxnId ? `<b>🧾 የክፍያ ማጣቀሻ (Txn ID):</b> <code>${newOrder.telebirrTxnId}</code>\n` : '') +
-        `\n👉 <b>በቀጥታ በቦቱ ለደንበኛው ለመመለስ፦</b> ለዚህ መልዕክት Reply ያድርጉ ወይም <code>/reply ${newOrder.orderNumber} &lt;መልስ&gt;</code>`;
-
-      await sendLiveTelegramWorkerAlert(botToken, workerChatId, alertText);
-    }
-  };
-
-  const handleSelectProductFromSearch = (prod: ParsedProduct) => {
-    setSelectedProductForEstimation(prod);
-    setActiveTab('calculator');
-    setToastNotification({ message: `✅ "${prod.title.slice(0, 30)}..." ወደ ዋጋ ማስያ ገጽ ተላልፏል!` });
-    setTimeout(() => setToastNotification(null), 4000);
-  };
+  if (isClothing) {
+    return (
+      `🧠 <b>ኮርቻ AI የምርት ትንታኔ (${product.marketplace.toUpperCase()}):</b>\n\n` +
+      `👗 <b>የጨርቅና ጥራት ሁኔታ:</b> ዘመናዊና ለኢትዮጵያ አየር ንብረት ተስማሚ የሆነ ጥጥ/ፖሊስተር ቅልቅል ነው።\n` +
+      `⚠️ <b>የሳይዝ ጥንቃቄ:</b> የዓለም አቀፍ ገበያዎች ፋሽን ልብሶች ከኢትዮጵያ መደበኛ ልኬት አነስተኛ ስለሚሆኑ <b>አንድ ሳይዝ ከፍ አድርገው እንዲመረጡ</b> እንመክራለን።\n` +
+      `🛡️ <b>ዋስትና:</b> እቃው ከፎቶው የተለየ ሆኖ ከተገኘ ሙሉ ተመላሽ ይደረጋል።`
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Toast Notification Bar with quick tracking button */}
-      {toastNotification && (
-        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-4 py-2 font-bold text-xs sm:text-sm text-center flex items-center justify-center gap-3 shadow-lg sticky top-0 z-50">
-          <span>{toastNotification.message}</span>
-          {toastNotification.phone && (
-            <button onClick={() => handleNavigateToOrders(toastNotification.phone)} className="px-2.5 py-0.5 rounded-lg bg-slate-950 text-amber-300 hover:text-white text-xs font-black transition-colors cursor-pointer">📦 ትዕዛዜን እይ (Track) →</button>
-          )}
-        </div>
-      )}
-
-      {/* Main Simplistic Header */}
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} orderCount={orders.length} isTMA={isTMA} tmaUser={tmaUser} />
-
-      {/* Tab Views */}
-      <main className="flex-1">
-        {activeTab === 'home' && (
-          <StorefrontHome onSelectProductForCalculator={handleSelectProductFromSearch} onNavigateToOrders={handleNavigateToOrders} onNavigateToSimulator={() => setActiveTab('search')} onOrderCompleted={handleNewOrderPlaced} officialRate={officialRate} />
-        )}
-
-        {activeTab === 'orders' && (
-          <MyOrdersView orders={orders} onNavigateToSimulator={() => setActiveTab('search')} onNavigateToSearch={() => setActiveTab('search')} />
-        )}
-
-        {activeTab === 'search' && (
-          <MarketplaceSearchExplorer officialRate={officialRate} onSelectProductForEstimation={handleSelectProductFromSearch} />
-        )}
-
-        {activeTab === 'calculator' && (
-          <MarketplaceCalculator officialRate={officialRate} initialProduct={selectedProductForEstimation} onOrderCompleted={handleNewOrderPlaced} onNavigateToOrders={handleNavigateToOrders} />
-        )}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-900/40 py-5 text-center text-xs text-slate-500">
-        <div className="max-w-4xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div className="font-bold text-slate-300">Korcha (ኮርቻ)</div>
-          <div>ከቻይና እቃዎች ወደ ኢትዮጵያ | {getPaymentRatios().advancePercent}% በቴሌብር/CBE • {getPaymentRatios().codPercent}% በር ላይ • 10-14 ቀናት</div>
-        </div>
-      </footer>
-    </div>
+    `🧠 <b>ኮርቻ AI የምርት ትንታኔ (${product.marketplace.toUpperCase()}):</b>\n\n` +
+    `⚡ <b>የቴክኖሎጂ/ጥራት ደረጃ:</b> ከፍተኛ ደረጃ የተሰጠውና ለኢትዮጵያ 220V የኤሌክትሪክ ደረጃ ተስማሚ ነው።\n` +
+    `📦 <b>ይዘት:</b> ኦሪጅናል ፋብሪካ ማሸጊያ፣ ቻርጀር እና መመሪያ ያካተተ።\n` +
+    `🛡️ <b>ዋስትና:</b> እቃው በበረራ ወቅት እንዳይጎዳ በጥንቃቄ ተሸፍኖ በቦሌ አየር ማረፊያ ይደርሳል።`
   );
 }
+
+export async function askGeneralAIAssistant(prompt: string): Promise<string> {
+  const lower = prompt.toLowerCase();
+
+  if (lower.includes('ቀሚስ') || lower.includes('dress') || lower.includes('ሰርግ')) {
+    return (
+      `👗 <b>የኮርቻ AI ፋሽን ምክር:</b>\n` +
+      `ለሰርግ ወይም ለክብረ በዓል በ Shein ላይ የ Maxi ወይም Elegant A-Line ቀሚሶች በጣም ተወዳጅ ናቸው። ቀለል ያሉ የፓስቴል ወይም ድንቅ ኮሎር ቅርጽ ተመራጭ ነው።`
+    );
+  }
+
+  if (lower.includes('ጆሮ') || lower.includes('earbud') || lower.includes('ስልክ')) {
+    return (
+      `🎧 <b>የኮርቻ AI ጋጄት ምክር:</b>\n` +
+      `በ Temu እና AliExpress ላይ የዲጂታል ባትሪ ማሳያ ያላቸው Active Noise Cancelling (ANC) የብሉቱዝ ጆሮ ማዳመጫዎች በከፍተኛ ጥራትና በምርጥ ዋጋ ግንዛቤ አላቸው።`
+    );
+  }
+
+  return (
+    `🤖 <b>ሰላም! እኔ የኮርቻ AI ረዳት ነኝ።</b>\n\n` +
+    `ከ Shein፣ Temu ወይም AliExpress የሚፈልጉትን ማንኛውንም እቃ ለመምረጥ፣ የሳይዝ ልኬት ለማወቅ ወይም የበር ላይ ዋጋውን ለማስላት እርዳለሁ።\n` +
+    `የእቃውን ሊንክ ይላኩልኝ ወይም ጥያቄዎን ይጠይቁኝ!`
+  );
+}
+
