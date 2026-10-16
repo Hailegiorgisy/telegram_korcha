@@ -209,7 +209,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
       {/* Toast Notification Bar with quick tracking button */}
       {toastNotification && (
-        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-4 py-2 font-bold text-xs sm:text-sm text-center flex items-center justify-center gap-3 shadow-lg">
+        <div className="bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 text-slate-950 px-4 py-2 font-bold text-xs sm:text-sm text-center flex items-center justify-center gap-3 shadow-lg sticky top-0 z-50">
           <span>{toastNotification.message}</span>
           {toastNotification.phone && (
             <button
@@ -237,6 +237,7 @@ export default function App() {
           <StorefrontHome
             onSelectProductForCalculator={handleSelectProductFromSearch}
             onNavigateToOrders={handleNavigateToOrders}
+            onNavigateToSimulator={() => setActiveTab('search')}
             onOrderCompleted={handleNewOrderPlaced}
             officialRate={officialRate}
           />
@@ -245,6 +246,7 @@ export default function App() {
         {activeTab === 'orders' && (
           <MyOrdersView
             orders={orders}
+            onNavigateToSimulator={() => setActiveTab('search')}
             onNavigateToSearch={() => setActiveTab('search')}
           />
         )}
