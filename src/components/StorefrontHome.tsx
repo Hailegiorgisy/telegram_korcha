@@ -1,3 +1,172 @@
+<<<<<<< HEAD
+// src/components/StorefrontHome.tsx: Customer Storefront without Price Estimator or Worker Portal
+import React from 'react';
+import { Link as LinkIcon, Camera, MessageCircle, ExternalLink, ShieldCheck, Truck, CreditCard, Sparkles } from 'lucide-react';
+import { CATEGORIES } from '../data/categories';
+
+interface StorefrontHomeProps {
+  onOpenQuoteModal: (mode?: 'link' | 'screenshot') => void;
+  selectedCategory: string;
+  onSelectCategory: (id: string) => void;
+}
+
+export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
+  onOpenQuoteModal,
+  selectedCategory,
+  onSelectCategory,
+}) => {
+  const workerUsername = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
+    || 'korcha_support';
+  const supportUrl = `https://t.me/${workerUsername}`;
+
+  const marketplaces = [
+    { name: 'Shein', url: 'https://www.shein.com', color: 'from-black to-stone-800', desc: 'አልባሳትና ፋሽን' },
+    { name: 'Temu', url: 'https://www.temu.com', color: 'from-orange-600 to-amber-600', desc: 'የቤትና የተለያዩ እቃዎች' },
+    { name: 'AliExpress', url: 'https://www.aliexpress.com', color: 'from-red-600 to-rose-600', desc: 'ኤሌክትሮኒክስና መለዋወጫ' },
+  ];
+
+  return (
+    <div className="space-y-5 pb-12 animate-fade-in max-w-md mx-auto">
+      {/* Hero Banner: Beautified with "ሊንክ ያስገቡ" Call to Action */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-5 shadow-xl border border-stone-800">
+        <div className="relative z-10 space-y-3">
+          <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-semibold border border-amber-500/30">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ</span>
+          </div>
+
+          <h2 className="text-xl font-extrabold leading-tight">
+            የፈለጉትን እቃ ይምረጡ፣ <br />
+            እኛ በርዎ ድረስ እናደርሳለን!
+          </h2>
+
+          <p className="text-xs text-stone-300 leading-relaxed">
+            ከ Shein, Temu ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ስክሪንሾት ያስገቡ። አስተናጋጆቻችን ወጪውን አስልተው ያቀርቡልዎታል።
+          </p>
+
+          {/* Primary Action Button: "ሊንክ ያስገቡ" (as per 3.4) */}
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
+            <button
+              onClick={() => onOpenQuoteModal('link')}
+              className="py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/25 active:scale-95 transition-all"
+            >
+              <LinkIcon className="w-4 h-4" />
+              <span>ሊንክ ያስገቡ</span>
+            </button>
+
+            <button
+              onClick={() => onOpenQuoteModal('screenshot')}
+              className="py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-white/15 active:scale-95 transition-all"
+            >
+              <Camera className="w-4 h-4 text-amber-400" />
+              <span>ስክሪንሾት ላክ</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Decorative background glow */}
+        <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-600/20 rounded-full blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Global Marketplace Browsing Cards */}
+      <div className="space-y-2.5">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
+            ዓለም አቀፍ ገበያዎች (Global Sites)
+          </h3>
+          <span className="text-[11px] text-amber-700 font-semibold">ሊንኩን ኮፒ አድርገው ይዘዙ</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {marketplaces.map((m) => (
+            <a
+              key={m.name}
+              href={m.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group p-3 rounded-2xl bg-white border border-stone-200/80 hover:border-amber-400 hover:shadow-md transition-all text-center block"
+            >
+              <div className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${m.color} text-white font-extrabold text-xs flex items-center justify-center mx-auto mb-1.5 shadow-xs group-hover:scale-105 transition-transform`}>
+                {m.name[0]}
+              </div>
+              <p className="font-bold text-xs text-stone-900 group-hover:text-amber-700">{m.name}</p>
+              <p className="text-[10px] text-stone-400 line-clamp-1">{m.desc}</p>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Category Navigation (Fulfilled Requirement 5.1) */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500 px-1">
+          የእቃዎች ምድብ (Categories)
+        </h3>
+
+        <div className="grid grid-cols-4 gap-2">
+          {CATEGORIES.filter(c => c.id !== 'all').map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => {
+                onSelectCategory(cat.id);
+                onOpenQuoteModal('link');
+              }}
+              className="p-2.5 rounded-2xl bg-white border border-stone-200/70 hover:border-amber-400 hover:bg-amber-50/50 flex flex-col items-center justify-center space-y-1 transition-all active:scale-95 text-center shadow-2xs"
+            >
+              <span className="text-xl">{cat.icon}</span>
+              <span className="text-[11px] font-semibold text-stone-800 line-clamp-1">{cat.nameAm}</span>
+              <span className="text-[9px] text-stone-400 line-clamp-1">{cat.nameEn}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Trust & Service Highlights */}
+      <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+        <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-1">
+          <CreditCard className="w-4 h-4 text-amber-600 mx-auto" />
+          <p className="font-bold text-[11px] text-stone-900">በቴሌብር ይክፈሉ</p>
+          <p className="text-[10px] text-stone-500">40% ቅድመ ክፍያ ብቻ</p>
+        </div>
+
+        <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-1">
+          <Truck className="w-4 h-4 text-emerald-600 mx-auto" />
+          <p className="font-bold text-[11px] text-stone-900">በርዎ ድረስ</p>
+          <p className="text-[10px] text-stone-500">ቀሪውን ሲረከቡ ይክፈሉ</p>
+        </div>
+
+        <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-1">
+          <ShieldCheck className="w-4 h-4 text-blue-600 mx-auto" />
+          <p className="font-bold text-[11px] text-stone-900">የታመነ አገልግሎት</p>
+          <p className="text-[10px] text-stone-500">ቀጥታ ድጋፍ በቦት</p>
+        </div>
+      </div>
+
+      {/* Direct Contact Card with korcha_support (Fulfilling 2.3 & 2.4 & 7.2) */}
+      <div className="rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-4 flex items-center justify-between">
+        <div className="space-y-0.5">
+          <p className="font-bold text-xs text-emerald-950 flex items-center space-x-1.5">
+            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+            <span>በቦቱ ከአስተናጋጅ ጋር አውራ</span>
+          </p>
+          <p className="text-[11px] text-emerald-800">
+            የእቃ ጥያቄዎችንና መረጃዎችን በቴሌግራም ያግኙ (@{workerUsername})
+          </p>
+        </div>
+        <a
+          href={supportUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shrink-0 shadow-xs active:scale-95 transition-all"
+        >
+          አውራ
+        </a>
+      </div>
+    </div>
+  );
+};
+
+export default StorefrontHome;
+=======
 import React, { useState } from 'react';
 import {
   Search,
@@ -19,13 +188,14 @@ import {
   Check,
   Layers,
   ShoppingBag,
+  Camera,
 } from 'lucide-react';
 import { ParsedProduct, Order } from '../types';
 import { SAMPLE_PRODUCTS } from '../data/sampleProducts';
 import { calculateDoorstepPricing, getPaymentRatios } from '../services/pricingEngine';
-import { MARKETPLACE_APPS, getSmartMarketplaceUrl } from '../utils/marketplaceLinks';
 import { PaymentQRCode } from './PaymentQRCode';
 import { parseMarketplaceLink } from '../services/marketplaceParser';
+import { MARKETPLACE_APPS, getSmartMarketplaceUrl } from '../utils/marketplaceLinks';
 
 interface StorefrontHomeProps {
   onSelectProductForCalculator: (prod: ParsedProduct) => void;
@@ -33,6 +203,7 @@ interface StorefrontHomeProps {
   onNavigateToSimulator: () => void;
   onOrderCompleted: (order: Order) => void;
   officialRate: number;
+  onOpenScreenshotModal?: () => void;
 }
 
 export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
@@ -41,6 +212,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   onNavigateToSimulator,
   onOrderCompleted,
   officialRate,
+  onOpenScreenshotModal,
 }) => {
   const [pasteInput, setPasteInput] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -185,7 +357,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
             {/* Main Headline */}
             <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-tight">
-              የመረጡትን እቃ ከቻይና <br className="hidden sm:inline" />
+              የመረጡትን እቃ ከዓለም አቀፍ ገበያ <br className="hidden sm:inline" />
               <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent">
                 በቀጥታ አዲስ አበባ ደጃፍዎ
               </span> ድረስ እናስመጣለን
@@ -219,6 +391,33 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               </button>
             </form>
 
+            {/* Screenshot Action Banner linking to Korcha Worker */}
+            {onOpenScreenshotModal && (
+              <div className="mt-4 max-w-2xl mx-auto p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-slate-900 to-sky-500/15 border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-left shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center shrink-0">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+                      <span>📸 የእቃው ስክሪንሾት (ፎቶ) አለዎት?</span>
+                      <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/20 text-amber-300 font-bold">ቀጥታ ለሰራተኛው</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      ስክሪንሾት በማስገባት ዋጋ ይጠይቁ — ሰራተኛችን ዋጋውን አስልቶ በቀጥታ ይልክልዎታል!
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenScreenshotModal}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition-all cursor-pointer shadow-md shadow-amber-500/20 shrink-0 whitespace-nowrap"
+                >
+                  📸 ስክሪንሾት አስገባ →
+                </button>
+              </div>
+            )}
+
             {/* Quick Sample Links */}
             <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-400 pt-2">
               <span className="font-medium text-slate-400">ናሙና እቃዎች፦</span>
@@ -227,23 +426,23 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                 onClick={() => onSelectProductForCalculator(SAMPLE_PRODUCTS[0])}
                 className="hover:text-amber-300 underline cursor-pointer"
               >
-                👗 Shein Summer Dress ($16.50)
+                👗 Shein Dress ($16.50)
               </button>
               <span className="text-slate-600">·</span>
               <button
                 type="button"
-                onClick={() => onSelectProductForCalculator(SAMPLE_PRODUCTS[3])}
+                onClick={() => onSelectProductForCalculator(SAMPLE_PRODUCTS[1])}
                 className="hover:text-amber-300 underline cursor-pointer"
               >
-                🎧 Temu ANC Earbuds ($14.99)
+                🎧 Temu Earbuds ($14.99)
               </button>
               <span className="text-slate-600">·</span>
               <button
                 type="button"
-                onClick={() => onSelectProductForCalculator(SAMPLE_PRODUCTS[6])}
+                onClick={() => onSelectProductForCalculator(SAMPLE_PRODUCTS[2])}
                 className="hover:text-amber-300 underline cursor-pointer"
               >
-                ⌨️ AliExpress Keyboard ($29.90)
+                ⌨️ AliExpress Keyboard ($34.20)
               </button>
             </div>
 
@@ -294,49 +493,168 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </section>
 
-      {/* Official App Downloads Bar with Device-Aware Smart Links */}
+      {/* Supported Marketplaces Section (Shein, Temu, AliExpress) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <ShoppingBag className="w-4 h-4" />
-              <span>የገበያ ቦታዎች አፖች (Download Apps)</span>
+        <div className="p-5 sm:p-6 rounded-3xl bg-slate-900 border border-slate-800 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <ShoppingBag className="w-4 h-4" />
+                <span>የሚደገፉ የገበያ ቦታዎች (Supported Marketplaces)</span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1">
+                ከ Shein፣ Temu ወይም AliExpress የሚፈልጉትን እቃ ይምረጡ፤ ሊንኩን ወይም ስክሪንሾቱን በማስገባት ዋጋ ማስላት ይችላሉ፦
+              </p>
             </div>
-            <p className="text-xs text-slate-300 mt-1">
-              በስልክዎ አፕሊኬሽኖቹን በመጫን እቃዎችን ይምረጡ፤ የፈለጉትን እቃ Share ➔ Copy Link በማድረግ እዚህ ማዘዝ ይችላሉ፦
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <a
-              href={getSmartMarketplaceUrl('shein')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-xs font-bold text-pink-300 hover:text-white flex items-center gap-1.5 transition-all"
-            >
-              <span>👗 Shein App</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Shein Card */}
+            <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+              selectedCategory === 'fashion'
+                ? 'bg-pink-500/15 border-pink-500/60 ring-2 ring-pink-500/30'
+                : 'bg-slate-950/70 border-slate-800 hover:border-pink-500/40'
+            }`}>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-pink-300">👗 Shein (ሺኢን)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 font-bold border border-pink-500/30">ፋሽን</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                  ዘመናዊ የሴቶች፣ የወንዶችና የህፃናት አልባሳት፣ ጫማዎችና ቦርሳዎች
+                </p>
+              </div>
 
-            <a
-              href={getSmartMarketplaceUrl('temu')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-xs font-bold text-orange-300 hover:text-white flex items-center gap-1.5 transition-all"
-            >
-              <span>🛍️ Temu App</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+              <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+                <a
+                  href={getSmartMarketplaceUrl('shein')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 px-3 rounded-xl bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/40 text-pink-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                  title="Shein App በ Play Store ወይም App Store ክፈት"
+                >
+                  <span>📲 Shein አፕ ክፈት</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
 
-            <a
-              href={getSmartMarketplaceUrl('aliexpress')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-xs font-bold text-red-300 hover:text-white flex items-center gap-1.5 transition-all"
-            >
-              <span>📦 AliExpress App</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+                <div className="flex items-center justify-between gap-1.5 text-[10px]">
+                  <a
+                    href={MARKETPLACE_APPS.shein.androidUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-center border border-slate-800 transition-colors"
+                  >
+                    📱 Play Store
+                  </a>
+                  <a
+                    href={MARKETPLACE_APPS.shein.iosUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-center border border-slate-800 transition-colors"
+                  >
+                    🍎 App Store
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* Temu Card */}
+            <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+              selectedCategory === 'home'
+                ? 'bg-orange-500/15 border-orange-500/60 ring-2 ring-orange-500/30'
+                : 'bg-slate-950/70 border-slate-800 hover:border-orange-500/40'
+            }`}>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-orange-300">🛍️ Temu (ቴሙ)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 font-bold border border-orange-500/30">የቤት & ቴክ</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                  ጥራት ያላቸው የቤትና የኩሽና እቃዎች፣ መገልገያዎችና ኤሌክትሮኒክስ
+                </p>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+                <a
+                  href={getSmartMarketplaceUrl('temu')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 px-3 rounded-xl bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                  title="Temu App በ Play Store ወይም App Store ክፈት"
+                >
+                  <span>📲 Temu አፕ ክፈት</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                <div className="flex items-center justify-between gap-1.5 text-[10px]">
+                  <a
+                    href={MARKETPLACE_APPS.temu.androidUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-center border border-slate-800 transition-colors"
+                  >
+                    📱 Play Store
+                  </a>
+                  <a
+                    href={MARKETPLACE_APPS.temu.iosUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-center border border-slate-800 transition-colors"
+                  >
+                    🍎 App Store
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            {/* AliExpress Card */}
+            <div className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+              selectedCategory === 'electronics'
+                ? 'bg-red-500/15 border-red-500/60 ring-2 ring-red-500/30'
+                : 'bg-slate-950/70 border-slate-800 hover:border-red-500/40'
+            }`}>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-red-300">📦 AliExpress (አሊኤክስፕረስ)</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 font-bold border border-red-500/30">ቴክኖሎጂ</span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                  በጅምላና በችርቻሮ የሚቀርቡ የቴክኖሎጂ እቃዎችና መለዋወጫዎች
+                </p>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-slate-800/80 space-y-2">
+                <a
+                  href={getSmartMarketplaceUrl('aliexpress')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                  title="AliExpress App በ Play Store ወይም App Store ክፈት"
+                >
+                  <span>📲 AliExpress አፕ ክፈት</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+
+                <div className="flex items-center justify-between gap-1.5 text-[10px]">
+                  <a
+                    href={MARKETPLACE_APPS.aliexpress.androidUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-center border border-slate-800 transition-colors"
+                  >
+                    📱 Play Store
+                  </a>
+                  <a
+                    href={MARKETPLACE_APPS.aliexpress.iosUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-1 px-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-center border border-slate-800 transition-colors"
+                  >
+                    🍎 App Store
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -616,12 +934,12 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               💬 ቴሌግራም ቦት ክፈት (Open Bot)
             </button>
             <a
-              href="https://t.me/korcha_bot"
+              href="https://t.me/korchaetbot"
               target="_blank"
               rel="noopener noreferrer"
               className="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm transition-all border border-slate-700"
             >
-              @korcha_bot
+              @korchaetbot
             </a>
           </div>
         </div>
@@ -838,3 +1156,4 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
     </div>
   );
 };
+>>>>>>> e4c81a9a55bb3ed24e62c7b0d1dd4368a1cfd36a

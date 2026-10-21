@@ -1,7 +1,7 @@
 import { ParsedProduct } from '../types';
 
 export const SAMPLE_PRODUCTS: ParsedProduct[] = [
-  // --- SHEIN ---
+  // 1. SHEIN (Fashion & Apparel)
   {
     id: 'shein-1',
     marketplace: 'shein',
@@ -16,36 +16,8 @@ export const SAMPLE_PRODUCTS: ParsedProduct[] = [
     rating: 4.8,
     reviewsCount: 1420,
   },
-  {
-    id: 'shein-2',
-    marketplace: 'shein',
-    url: 'https://www.shein.com/Men-Heavyweight-Vintage-Oversized-Hoodie-p-2940192.html',
-    title: 'Men Heavyweight Vintage Drop Shoulder Oversized Hoodie',
-    titleAmharic: 'የወንዶች ዘመናዊ ወፍራም ሁዲ',
-    category: 'Men Streetwear',
-    imageUrl: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600&auto=format&fit=crop&q=80',
-    originalPriceUsd: 19.80,
-    availableSizes: ['M', 'L', 'XL', '2XL'],
-    availableColors: ['Charcoal Grey (ግራጫ)', 'Washed Black (ጥቁር)', 'Sand Beige (ቢዥ)'],
-    rating: 4.9,
-    reviewsCount: 880,
-  },
-  {
-    id: 'shein-3',
-    marketplace: 'shein',
-    url: 'https://www.shein.com/Minimalist-Structured-Crossbody-Handbag-p-3849102.html',
-    title: 'Minimalist Structured Crossbody Shoulder Handbag',
-    titleAmharic: 'የሴቶች ዘመናዊ የእጅ ቦርሳ',
-    category: 'Bags & Accessories',
-    imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=600&auto=format&fit=crop&q=80',
-    originalPriceUsd: 12.90,
-    availableSizes: ['Standard (መካከለኛ)'],
-    availableColors: ['Caramel Tan (ቡናማ)', 'Midnight Black (ጥቁር)', 'Cream White (ክሬም ነጭ)'],
-    rating: 4.7,
-    reviewsCount: 650,
-  },
 
-  // --- TEMU ---
+  // 2. TEMU (Home & Gadgets)
   {
     id: 'temu-1',
     marketplace: 'temu',
@@ -60,36 +32,8 @@ export const SAMPLE_PRODUCTS: ParsedProduct[] = [
     rating: 4.8,
     reviewsCount: 2980,
   },
-  {
-    id: 'temu-2',
-    marketplace: 'temu',
-    url: 'https://www.temu.com/12-in-1-Multifunction-Vegetable-Chopper-Mandoline-Slicer-p-m482910.html',
-    title: '12-in-1 Multifunctional Vegetable Chopper & Kitchen Mandoline Slicer',
-    titleAmharic: '12-በ-1 ሁለገብ የሽንኩርትና አትክልት መክተፊያ',
-    category: 'Home & Kitchen',
-    imageUrl: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=600&auto=format&fit=crop&q=80',
-    originalPriceUsd: 11.40,
-    availableSizes: ['Large Set (ሙሉ ስብስብ)'],
-    availableColors: ['Emerald Green (አረንጓዴ)', 'Slate Grey (ግራጫ)'],
-    rating: 4.9,
-    reviewsCount: 5120,
-  },
-  {
-    id: 'temu-3',
-    marketplace: 'temu',
-    url: 'https://www.temu.com/Portable-Cordless-Electric-Handheld-Espresso-Maker-p-e192039.html',
-    title: 'Portable Cordless Electric Handheld Espresso Coffee Machine',
-    titleAmharic: 'ተንቀሳቃሽ የኤሌክትሪክ ቡና ማፍያ ማሽን',
-    category: 'Appliances & Coffee',
-    imageUrl: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&auto=format&fit=crop&q=80',
-    originalPriceUsd: 28.50,
-    availableSizes: ['150ml Travel Size'],
-    availableColors: ['Matte Black (ጥቁር)', 'Titanium Silver (ብርማ)'],
-    rating: 4.7,
-    reviewsCount: 740,
-  },
 
-  // --- ALIEXPRESS ---
+  // 3. ALIEXPRESS (Tech & Accessories)
   {
     id: 'aliexpress-1',
     marketplace: 'aliexpress',
@@ -103,33 +47,5 @@ export const SAMPLE_PRODUCTS: ParsedProduct[] = [
     availableColors: ['Red Switch (ጸጥ ያለ)', 'Brown Switch (ታክታይል)', 'Blue Switch (ጠቅ ጠቅ)'],
     rating: 4.9,
     reviewsCount: 1840,
-  },
-  {
-    id: 'aliexpress-2',
-    marketplace: 'aliexpress',
-    url: 'https://www.aliexpress.com/item/1005007281920192.html',
-    title: '100W GaN 4-Port Fast Charger for Laptop, Phone & Tablet',
-    titleAmharic: '100 ዋት ፈጣን የላፕቶፕና ስልክ ቻርጀር (GaN Fast Charger)',
-    category: 'Phone Accessories',
-    imageUrl: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=600&auto=format&fit=crop&q=80',
-    originalPriceUsd: 18.90,
-    availableSizes: ['EU Plug (ለኢትዮጵያ የሚሆን)'],
-    availableColors: ['Space Grey (ጥቁር ግራጫ)', 'Arctic White (ነጭ)'],
-    rating: 4.8,
-    reviewsCount: 4200,
-  },
-  {
-    id: 'aliexpress-3',
-    marketplace: 'aliexpress',
-    url: 'https://www.aliexpress.com/item/1005008192049182.html',
-    title: 'Luxury Stainless Steel Waterproof Automatic Men Quartz Watch',
-    titleAmharic: 'የወንዶች ዘመናዊ የውሃ መከላከያ የእጅ ሰዓት',
-    category: 'Jewelry & Watches',
-    imageUrl: 'https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=600&auto=format&fit=crop&q=80',
-    originalPriceUsd: 22.50,
-    availableSizes: ['42mm Dial (መደበኛ)'],
-    availableColors: ['Silver Blue (ብርማ ሰማያዊ)', 'Full Black (ጥቁር)', 'Gold Black (ወርቃማ ጥቁር)'],
-    rating: 4.7,
-    reviewsCount: 960,
   },
 ];

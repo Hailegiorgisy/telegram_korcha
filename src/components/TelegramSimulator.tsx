@@ -28,7 +28,6 @@ import { parseMarketplaceLink } from '../services/marketplaceParser';
 import { calculateDoorstepPricing, getPaymentRatios } from '../services/pricingEngine';
 import { PaymentQRCode } from './PaymentQRCode';
 import { KorchaSaddleIcon } from './KorchaSaddleIcon';
-import { MARKETPLACE_APPS, getSmartMarketplaceUrl, detectDeviceOS } from '../utils/marketplaceLinks';
 
 interface TelegramSimulatorProps {
   officialRate: number;
@@ -274,7 +273,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
 
   // Initial Welcome Page of the Telegram Bot
   // Exactly implements the user requested Amharic greeting & 3-step instructions:
-  // "ውድ .... እንኳን ወደ ኮርቻ መጡ። በኮርቻ በመጠቀም ከቻይና እቃዎችን ማስመጣት ይችላሉ። 3 ሂደቶችን ብቻ ይጠቀሙ።
+  // "ውድ .... እንኳን ወደ ኮርቻ መጡ። በኮርቻ በመጠቀም ከዓለም አቀፍ ገበያ እቃዎችን ማስመጣት ይችላሉ። 3 ሂደቶችን ብቻ ይጠቀሙ።
   // 1) የሚፈልጉትን ዕቃ ከተለያዩ ቦታዎች ይምረጡ።
   // 2) የመረጡትን ዕቃ ሊንክ ወይንም ፎቶ (screenshot) ወደ መተግበሪያው ያስገቡ።
   // 3) መተግበሪያው ቤትዎ ሲደርስ የሚከፍሉትን የዕቃውን ዋጋ ሲያስቀምጥልዎት 25% ዋጋ በመክፈል ይዘዙን። ዕቃው ከ10 እስከ 14 ባለው ቀናት ውስጥ እጅዎ ይገባል። ቤትዎ ሲደርስ ቀሪዎን 75% ይከፍላሉ።
@@ -406,14 +405,14 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
     }
 
     if (action === 'test_sample_temu') {
-      const p = SAMPLE_PRODUCTS[3];
+      const p = SAMPLE_PRODUCTS[1];
       setInputVal(p.url);
       submitCustomerProductToWorker(p, 'link');
       return;
     }
 
     if (action === 'test_sample_ali') {
-      const p = SAMPLE_PRODUCTS[6];
+      const p = SAMPLE_PRODUCTS[2];
       setInputVal(p.url);
       submitCustomerProductToWorker(p, 'link');
       return;
@@ -422,106 +421,6 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
     // Simulate Worker Responding with price quote
     if (action === 'deliver_worker_quote' && pendingTicket) {
       deliverWorkerQuote(pendingTicket.product, pendingTicket.ticketId);
-      return;
-    }
-
-    // App Store Download Actions for Shein, Temu, and AliExpress
-    if (action === 'link_shein') {
-      const app = MARKETPLACE_APPS.shein;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `usr-${Date.now()}`,
-          sender: 'user',
-          timestamp: timeStr,
-          text: '👗 Shein አፕሊኬሽን ማውረድ እፈልጋለሁ',
-        },
-        {
-          id: `bot-shein-${Date.now()}`,
-          sender: 'bot',
-          timestamp: timeStr,
-          text:
-            `📲 <b>${app.name} (${app.amharicName}) አፕሊኬሽን ያውርዱ፦</b>\n\n` +
-            `📌 <b>መግለጫ፦</b> ${app.description}\n\n` +
-            `የስልክዎን አይነት ይምረጡ፤ በቀጥታ ወደ ስቶር ወስዶ ያወርድልዎታል፦`,
-          inlineKeyboard: [
-            [
-              { text: '📱 Google Play Store (ለ Android)', action: 'open_store', url: app.androidUrl },
-              { text: '🍎 Apple App Store (ለ iPhone)', action: 'open_store', url: app.iosUrl },
-            ],
-            [
-              { text: '👗 Shein ናሙና እቃ ሞክር', action: 'test_sample_shein' },
-              { text: '🏠 ወደ ዋና ገጽ', action: 'return_main' },
-            ],
-          ],
-        },
-      ]);
-      return;
-    }
-
-    if (action === 'link_temu') {
-      const app = MARKETPLACE_APPS.temu;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `usr-${Date.now()}`,
-          sender: 'user',
-          timestamp: timeStr,
-          text: '🛍️ Temu አፕሊኬሽን ማውረድ እፈልጋለሁ',
-        },
-        {
-          id: `bot-temu-${Date.now()}`,
-          sender: 'bot',
-          timestamp: timeStr,
-          text:
-            `📲 <b>${app.name} (${app.amharicName}) አፕሊኬሽን ያውርዱ፦</b>\n\n` +
-            `📌 <b>መግለጫ፦</b> ${app.description}\n\n` +
-            `የስልክዎን አይነት ይምረጡ፤ በቀጥታ ወደ ስቶር ወስዶ ያወርድልዎታል፦`,
-          inlineKeyboard: [
-            [
-              { text: '📱 Google Play Store (ለ Android)', action: 'open_store', url: app.androidUrl },
-              { text: '🍎 Apple App Store (ለ iPhone)', action: 'open_store', url: app.iosUrl },
-            ],
-            [
-              { text: '⚡ Temu ናሙና እቃ ሞክር', action: 'test_sample_temu' },
-              { text: '🏠 ወደ ዋና ገጽ', action: 'return_main' },
-            ],
-          ],
-        },
-      ]);
-      return;
-    }
-
-    if (action === 'link_ali') {
-      const app = MARKETPLACE_APPS.aliexpress;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `usr-${Date.now()}`,
-          sender: 'user',
-          timestamp: timeStr,
-          text: '📦 AliExpress አፕሊኬሽን ማውረድ እፈልጋለሁ',
-        },
-        {
-          id: `bot-ali-${Date.now()}`,
-          sender: 'bot',
-          timestamp: timeStr,
-          text:
-            `📲 <b>${app.name} (${app.amharicName}) አፕሊኬሽን ያውርዱ፦</b>\n\n` +
-            `📌 <b>መግለጫ፦</b> ${app.description}\n\n` +
-            `የስልክዎን አይነት ይምረጡ፤ በቀጥታ ወደ ስቶር ወስዶ ያወርድልዎታል፦`,
-          inlineKeyboard: [
-            [
-              { text: '📱 Google Play Store (ለ Android)', action: 'open_store', url: app.androidUrl },
-              { text: '🍎 Apple App Store (ለ iPhone)', action: 'open_store', url: app.iosUrl },
-            ],
-            [
-              { text: '📱 AliExpress ናሙና ሞክር', action: 'test_sample_ali' },
-              { text: '🏠 ወደ ዋና ገጽ', action: 'return_main' },
-            ],
-          ],
-        },
-      ]);
       return;
     }
 
@@ -1218,7 +1117,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
               <ShoppingBag className="w-5 h-5" />
             </span>
             <span className="text-xs font-bold text-amber-400 tracking-wider uppercase">
-              ኮርቻ (Korcha) • ከቻይና እቃዎች ወደ ኢትዮጵያ
+              ኮርቻ (Korcha) • ከዓለም አቀፍ ገበያ እቃዎች ወደ ኢትዮጵያ
             </span>
             <span className="text-xs text-slate-400">·</span>
             <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
@@ -1231,7 +1130,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
           </h1>
 
           <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-            በኮርቻ በመጠቀም ከቻይና እቃዎችን ማስመጣት ይችላሉ። <b>3 ሂደቶችን ብቻ ይጠቀሙ:</b>
+            በኮርቻ በመጠቀም ከዓለም አቀፍ ገበያ እቃዎችን ማስመጣት ይችላሉ። <b>3 ሂደቶችን ብቻ ይጠቀሙ:</b>
           </p>
 
           {/* 3 Step Visual Cards with Real Photography */}
@@ -1258,37 +1157,6 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     የሚፈልጉትን ማንኛውንም ፋሽን፣ ቴክኖሎጂ ወይም የቤት እቃ በሱቆቹ ውስጥ ይምረጡ።
                   </p>
-                </div>
-                <div className="flex items-center gap-1.5 pt-1">
-                  <a
-                    href={getSmartMarketplaceUrl('shein')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-pink-300 hover:text-white underline decoration-pink-500/50"
-                    title="Download Shein App (Play Store / App Store)"
-                  >
-                    📲 Shein App
-                  </a>
-                  <span className="text-slate-600">·</span>
-                  <a
-                    href={getSmartMarketplaceUrl('temu')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-orange-300 hover:text-white underline decoration-orange-500/50"
-                    title="Download Temu App (Play Store / App Store)"
-                  >
-                    📲 Temu App
-                  </a>
-                  <span className="text-slate-600">·</span>
-                  <a
-                    href={getSmartMarketplaceUrl('aliexpress')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] text-red-300 hover:text-white underline decoration-red-500/50"
-                    title="Download AliExpress App (Play Store / App Store)"
-                  >
-                    📲 AliExpress App
-                  </a>
                 </div>
               </div>
             </div>
@@ -1411,14 +1279,14 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
                     <span className="text-xs">🇪🇹</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    China to Ethiopia Shopping Assistant
+                    Global markets to Ethiopia Shopping Assistant
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1">
                 <a
-                  href="https://t.me/korcha_bot"
+                  href="https://t.me/korchaetbot"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 transition-colors cursor-pointer"

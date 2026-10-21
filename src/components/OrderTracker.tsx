@@ -68,8 +68,8 @@ export const OrderTracker: React.FC<OrderTrackerProps> = ({ orders }) => {
     },
     {
       key: 'procured_in_china',
-      titleAmharic: 'ከቻይና ተገዝቷል',
-      titleEnglish: 'Procured from China',
+      titleAmharic: 'ከዓለም አቀፍ ገበያ ተገዝቷል',
+      titleEnglish: 'Procured from Global markets',
       icon: Package,
       desc: 'እቃው ከፋብሪካው ተገዝቶ ወደ ጓንግዡ መጋዘን ገብቷል።',
     },

@@ -72,7 +72,7 @@ export const MarketplaceSearchExplorer: React.FC<MarketplaceSearchExplorerProps>
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            የሚፈልጉትን እቃ ከተለያዩ የቻይና ሱቆች ይፈልጉ
+            የሚፈልጉትን እቃ ከተለያዩ የዓለም አቀፍ ገበያ ሱቆች ይፈልጉ
           </h2>
           <p className="text-slate-400 text-xs sm:text-sm mt-1 leading-relaxed">
             ከተለያዩ የገበያ ቦታዎች የሚፈልጉትን እቃ ይፈልጉ። እቃውን ከመረጡ በኋላ ሊንኩን ኮፒ (Copy) አድርገው ወደ <b>«ዋጋ ማስያ»</b> ወይም ወደ <b>«ቴሌግራም ቦት»</b> በመውሰድ የኢትዮጵያ ብር ዋጋውን በቅጽበት ማወቅ ይችላሉ።
