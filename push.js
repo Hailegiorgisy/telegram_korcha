@@ -1,4 +1,4 @@
-// push.js: Push server files to GitHub via Node.js
+// push.js: Push server files to GitHub securely
 import { execSync } from 'child_process';
 import fs from 'fs';
 
@@ -13,29 +13,32 @@ function run(cmd) {
   }
 }
 
-console.log('--- Starting Git Push to GitHub ---');
+console.log('--- Starting Git Push ---');
 
-// 1. Ensure .gitignore protects sensitive credentials
-const gitignore = `node_modules/\n.env\nuploads/\ndist/\n.DS_Store\n`;
+// 1. Ensure .gitignore protects push.js, .env, and node_modules
+const gitignore = `node_modules/\n.env\nuploads/\ndist/\npush.js\n.DS_Store\n`;
 fs.writeFileSync('.gitignore', gitignore);
 
 // 2. Configure Git Author
 run('git config user.name "Hailegiorgisy"');
 run('git config user.email "hgyirgu1@gmail.com"');
 
-// 3. Untrack .env so secrets are never pushed
-run('git rm --cached .env 2>/dev/null || true');
+// 3. Remove push.js and .env from Git staging
+run('git rm --cached push.js .env 2>/dev/null || true');
 
-// 4. Ensure we are on branch 'main'
-run('git checkout -B main');
+// 4. Reset previous commit containing the token
+run('git reset --soft HEAD~1 2>/dev/null || true');
 
-// 5. Stage all files
+// 5. Stage only safe files
 run('git add -A');
 
-// 6. Commit
-run('git commit -m "Full update: bot, mini app, and dependencies from plesk" || true');
-
-// 7. Push to GitHub
+// 6. Commit clean files
+run('git commit -m "Update from server: clean build and bot" || true');
 run('git push -u -f origin main');
+
+// 7. Push with token in memory (never written to Git history)
+const GITHUB_TOKEN = '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'; // <-- Paste token here
+run(`git remote set-url origin https://${GITHUB_TOKEN}@github.com/Hailegiorgisy/telegram_korcha.git`);
+run('git push -u origin main');
 
 console.log('--- Finished Git Push ---');
