@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
+		"push": "node push.js",
     "build": "vite build",
     "start": "node bot.js",
     "start:web": "node server.js",
-		"push": "node push.js",
     "migrate": "node -e \"import('./db.js').then(m => m.runMigrations())\""
   },
   "dependencies": {
