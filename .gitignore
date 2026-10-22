@@ -1,12 +1,6 @@
 node_modules/
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
-*.patch
-tmp/
-__pycache__/
+.env
 uploads/
+dist/
+push.js
+.DS_Store
