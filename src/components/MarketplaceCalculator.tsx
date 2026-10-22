@@ -32,6 +32,7 @@ import { parseMarketplaceLink } from '../services/marketplaceParser';
 import { SAMPLE_PRODUCTS } from '../data/sampleProducts';
 import { PaymentQRCode } from './PaymentQRCode';
 import { triggerTmaHaptic } from '../services/telegramWebApp';
+import { MARKETPLACE_APPS, getSmartMarketplaceUrl } from '../utils/marketplaceLinks';
 
 interface PriceEstimationProps {
   officialRate: number;
@@ -104,6 +105,11 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
 
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [customerTelegram, setCustomerTelegram] = useState<string>(() => {
+    const tg = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+    if (tg?.username) return `@${tg.username}`;
+    return localStorage.getItem('korcha_customer_telegram_user') || '';
+  });
   const [deliveryCity, setDeliveryCity] = useState<string>('አዲስ አበባ');
   const [deliverySubcity, setDeliverySubcity] = useState<string>('ቦሌ');
   const [deliveryLandmark, setDeliveryLandmark] = useState<string>('');
@@ -201,9 +207,14 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
     ].filter(Boolean).join(' • ');
 
     const tgUser = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
-    const realTgUser = tgUser?.username
-      ? `@${tgUser.username}`
-      : localStorage.getItem('korcha_customer_telegram_user') || (tgUser?.first_name ? `${tgUser.first_name}` : '@ethio_customer');
+    const rawTg = customerTelegram.trim();
+    const resolvedTgUser = rawTg
+      ? (rawTg.startsWith('@') ? rawTg : `@${rawTg}`)
+      : (tgUser?.username ? `@${tgUser.username}` : (tgUser?.first_name ? `${tgUser.first_name}` : '@customer'));
+
+    if (resolvedTgUser) {
+      localStorage.setItem('korcha_customer_telegram_user', resolvedTgUser);
+    }
     const realTgId = tgUser?.id ? String(tgUser.id) : undefined;
     const resolvedCustomerName = customerName.trim() || (tgUser?.first_name ? `${tgUser.first_name}${tgUser.last_name ? ' ' + tgUser.last_name : ''}` : 'የኮርቻ ደንበኛ');
 
@@ -213,7 +224,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
       createdAt: new Date().toISOString(),
       customerName: resolvedCustomerName,
       customerPhone: customerPhone.trim(),
-      customerTelegramUser: realTgUser,
+      customerTelegramUser: resolvedTgUser,
       customerTelegramId: realTgId,
       deliveryCity,
       deliverySubcity,
@@ -263,56 +274,125 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
 
         {/* Direct In-Bot Support Link */}
         <a
-          href="https://t.me/korcha_bot?start=support"
+          href="https://t.me/korchaetbot?start=support"
           target="_blank"
           rel="noopener noreferrer"
           className="px-5 py-3.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all shrink-0 cursor-pointer"
         >
           <MessageCircle className="w-4 h-4 text-emerald-400" />
-          <span>💬 በቦቱ ከሰራተኛው ጋር አውራ (@korcha_bot)</span>
+          <span>💬 በቦቱ ከሰራተኛው ጋር አውራ (@korchaetbot)</span>
         </a>
       </div>
 
-      {/* 3 Supported Marketplaces Strip */}
+      {/* 3 Supported Marketplaces Selector with App Store & Play Store Links */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <a
-          href="https://m.shein.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-pink-500/60 transition-all flex items-center justify-between group shadow-md"
-        >
-          <div>
-            <div className="text-sm font-bold text-pink-300 group-hover:text-pink-200">👗 Shein (ሼይን)</div>
-            <div className="text-xs text-slate-400 mt-0.5">ፋሽንና አልባሳት</div>
+        {/* Shein */}
+        <div className={`p-3 sm:p-4 rounded-2xl border text-left transition-all ${
+          product.marketplace === 'shein'
+            ? 'bg-pink-500/15 border-pink-500 ring-2 ring-pink-500/30'
+            : 'bg-slate-900 border-slate-800'
+        }`}>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => {
+            setProduct((prev) => ({ ...prev, marketplace: 'shein' }));
+            setInputUrlOrText('https://m.shein.com');
+          }}>
+            <div className="text-xs sm:text-sm font-black text-pink-300 flex items-center gap-1.5">
+              <span>👗 Shein (ሺኢን)</span>
+            </div>
+            <span className="text-[10px] text-pink-400 font-bold bg-pink-500/20 px-2 py-0.5 rounded-full">ፋሽን</span>
           </div>
-          <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-pink-400" />
-        </a>
+          <div className="text-[10px] text-slate-400 mt-1">አልባሳት፣ ጫማና ፋሽን</div>
+          <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1 text-[10px]">
+            <a
+              href={MARKETPLACE_APPS.shein.androidUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
+            >
+              📱 Play Store
+            </a>
+            <a
+              href={MARKETPLACE_APPS.shein.iosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
+            >
+              🍎 App Store
+            </a>
+          </div>
+        </div>
 
-        <a
-          href="https://www.temu.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-orange-500/60 transition-all flex items-center justify-between group shadow-md"
-        >
-          <div>
-            <div className="text-sm font-bold text-orange-300 group-hover:text-orange-200">🛍️ Temu (ቴሙ)</div>
-            <div className="text-xs text-slate-400 mt-0.5">የቤትና ቴክኖሎጂ</div>
+        {/* Temu */}
+        <div className={`p-3 sm:p-4 rounded-2xl border text-left transition-all ${
+          product.marketplace === 'temu'
+            ? 'bg-orange-500/15 border-orange-500 ring-2 ring-orange-500/30'
+            : 'bg-slate-900 border-slate-800'
+        }`}>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => {
+            setProduct((prev) => ({ ...prev, marketplace: 'temu' }));
+            setInputUrlOrText('https://www.temu.com');
+          }}>
+            <div className="text-xs sm:text-sm font-black text-orange-300 flex items-center gap-1.5">
+              <span>🛍️ Temu (ቴሙ)</span>
+            </div>
+            <span className="text-[10px] text-orange-400 font-bold bg-orange-500/20 px-2 py-0.5 rounded-full">የቤት/ቴክ</span>
           </div>
-          <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-orange-400" />
-        </a>
+          <div className="text-[10px] text-slate-400 mt-1">የቤትና ኩሽና እቃዎች</div>
+          <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1 text-[10px]">
+            <a
+              href={MARKETPLACE_APPS.temu.androidUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
+            >
+              📱 Play Store
+            </a>
+            <a
+              href={MARKETPLACE_APPS.temu.iosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
+            >
+              🍎 App Store
+            </a>
+          </div>
+        </div>
 
-        <a
-          href="https://m.aliexpress.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="p-4 rounded-2xl bg-slate-900 border border-slate-800 hover:border-red-500/60 transition-all flex items-center justify-between group shadow-md"
-        >
-          <div>
-            <div className="text-sm font-bold text-red-300 group-hover:text-red-200">📦 AliExpress (አሊኤክስፕረስ)</div>
-            <div className="text-xs text-slate-400 mt-0.5">ልዩ ልዩ እቃዎች</div>
+        {/* AliExpress */}
+        <div className={`p-3 sm:p-4 rounded-2xl border text-left transition-all ${
+          product.marketplace === 'aliexpress'
+            ? 'bg-red-500/15 border-red-500 ring-2 ring-red-500/30'
+            : 'bg-slate-900 border-slate-800'
+        }`}>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => {
+            setProduct((prev) => ({ ...prev, marketplace: 'aliexpress' }));
+            setInputUrlOrText('https://m.aliexpress.com');
+          }}>
+            <div className="text-xs sm:text-sm font-black text-red-300 flex items-center gap-1.5">
+              <span>📦 AliExpress</span>
+            </div>
+            <span className="text-[10px] text-red-400 font-bold bg-red-500/20 px-2 py-0.5 rounded-full">ቴክኖሎጂ</span>
           </div>
-          <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-red-400" />
-        </a>
+          <div className="text-[10px] text-slate-400 mt-1">ቴክኖሎጂና መለዋወጫዎች</div>
+          <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1 text-[10px]">
+            <a
+              href={MARKETPLACE_APPS.aliexpress.androidUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
+            >
+              📱 Play Store
+            </a>
+            <a
+              href={MARKETPLACE_APPS.aliexpress.iosUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
+            >
+              🍎 App Store
+            </a>
+          </div>
+        </div>
       </div>
 
       {/* Main Tabbed Input Section: Link, Screenshot, Worker Helper */}
@@ -588,7 +668,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
 
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto shrink-0">
             <a
-              href={`https://t.me/korcha_bot?start=quote_${ticketId}`}
+              href={`https://t.me/korchaetbot?start=quote_${ticketId}`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
@@ -775,27 +855,38 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
                   <span>የማድረሻ አድራሻና ስልክ ቁጥር ያስገቡ</span>
                 </h5>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-300">ስምዎ (Full Name):</label>
                     <input
                       type="text"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="ለምሳሌ፦ ቤተልሄም ታደሰ"
+                      placeholder="ስምዎ (Your Name)"
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-300">ስልክ ቁጥር (Phone Number) *:</label>
+                    <label className="text-xs font-semibold text-slate-300">ስልክ ቁጥር (Phone) *:</label>
                     <input
                       type="tel"
                       required
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="0911234567"
+                      placeholder="09******** ወይም 07********"
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">ቴሌግራም መለያ (Telegram):</label>
+                    <input
+                      type="text"
+                      value={customerTelegram}
+                      onChange={(e) => setCustomerTelegram(e.target.value)}
+                      placeholder="@username"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
                     />
                   </div>
                 </div>
@@ -828,7 +919,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
                       required
                       value={deliveryLandmark}
                       onChange={(e) => setDeliveryLandmark(e.target.value)}
-                      placeholder="ቦሌ መድኃኔዓለም ከአትላስ ሆቴል አጠገብ"
+                      placeholder="ምሳሌ፦ ቦሌ ወይም ቂርቆስ ወይም አድራሻዎ"
                       className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500"
                     />
                   </div>
@@ -908,7 +999,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
                   <span>ትዕዛዝዎ በተሳካ ሁኔታ ተመዝግቧል! (#{orderConfirmed.orderNumber})</span>
                 </div>
                 <p className="text-xs text-slate-300">
-                  ትዕዛዙ ወደ ሰራተኛ ዴስክ ተላልፏል፤ የ {orderConfirmed.item.pricing.depositPercent || 40}% ቅድመ ክፍያውን እንደፈጸሙ እቃው ከቻይና ይታዘዛል።
+                  ትዕዛዙ ወደ ሰራተኛ ዴስክ ተላልፏል፤ የ {orderConfirmed.item.pricing.depositPercent || 40}% ቅድመ ክፍያውን እንደፈጸሙ እቃው ከዓለም አቀፍ ገበያ ይታዘዛል።
                 </p>
                 <div className="pt-2 flex flex-wrap items-center gap-3">
                   <a

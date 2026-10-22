@@ -56,8 +56,8 @@ const TRACKING_STAGES: {
   },
   {
     key: 'procured_in_china',
-    titleAmharic: 'ከቻይና ተገዝቷል',
-    titleEnglish: 'Procured from China',
+    titleAmharic: 'ከዓለም አቀፍ ገበያ ተገዝቷል',
+    titleEnglish: 'Procured from Global markets',
     icon: Package,
     desc: 'እቃው ከሱቁ ተገዝቶ ወደ ጓንግዡ መጋዘን ገብቷል።',
   },
@@ -137,8 +137,8 @@ export const getOrderStageBadge = (status: OrderStatus) => {
       };
     case 'procured_in_china':
       return {
-        labelAmharic: 'ከቻይና ተገዝቷል',
-        labelEnglish: 'Procured in China',
+        labelAmharic: 'ከዓለም አቀፍ ገበያ ተገዝቷል',
+        labelEnglish: 'Procured in Global markets',
         bg: 'bg-indigo-500/20',
         text: 'text-indigo-300',
         border: 'border-indigo-500/40',
@@ -258,18 +258,18 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
               ያዘዟቸውን እቃዎች፣ የ {getPaymentRatios().advancePercent}% ቅድመ ክፍያ ማረጋገጫ እና ከእቃ አቅራቢዉ እስከ ደጃፍዎ ያለውን የቀጥታ የጉዞ ሁኔታ ለመከታተል ስልክ ቁጥርዎን ወይም የትዕዛዝ ቁጥርዎን ይላኩልን።
             </p>
             <div className="text-xs text-amber-300/90 font-medium pt-1">
-              💡 ምሳሌ፦ <span className="font-mono bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-700 text-amber-300">/track 0911445566</span> ወይም <span className="font-mono bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-700 text-amber-300">/track KC-849102</span> ወይም በቀጥታ ስልክዎን እዚህ ቻት ላይ ወይም ለአገልግሎት አቅራቢ ሰራተኛዉ ይጻፉ።
+              💡 ምሳሌ፦ <span className="font-mono bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-700 text-amber-300">/track 09********</span> ወይም <span className="font-mono bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-700 text-amber-300">/track KC-******</span> ወይም በቀጥታ ስልክዎን እዚህ ይጻፉ።
             </div>
           </div>
 
           <a
-            href="https://t.me/korcha_bot?start=support"
+            href="https://t.me/korchaetbot?start=support"
             target="_blank"
             rel="noopener noreferrer"
             className="px-5 py-3.5 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all shrink-0 cursor-pointer"
           >
             <MessageCircle className="w-4 h-4 text-emerald-400" />
-            <span>💬 በቦቱ ከአስተናጋጅ ጋር አውራ (@korcha_bot)</span>
+            <span>💬 በቦቱ ከአስተናጋጅ ጋር አውራ (@korchaetbot)</span>
           </a>
         </div>
 
@@ -286,7 +286,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   type="text"
                   value={phoneNumberInput}
                   onChange={(e) => setPhoneNumberInput(e.target.value)}
-                  placeholder="ምሳሌ፦ 0911234567 ወይም +251911445566 (ወይም የትዕዛዝ ቁጥር)..."
+                  placeholder="ምሳሌ፦ 09******** ወይም 07******** (ወይም የትዕዛዝ ቁጥር)..."
                   className="w-full bg-slate-950 border border-slate-700 rounded-2xl pl-11 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
                 />
               </div>
@@ -531,7 +531,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                           </div>
 
                           <a
-                            href={`https://t.me/korcha_bot?start=payment_${order.orderNumber}`}
+                            href={`https://t.me/korchaetbot?start=payment_${order.orderNumber}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold text-xs underline pt-1"
@@ -736,7 +736,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       </div>
 
                       <a
-                        href={`https://t.me/korcha_bot?start=track_${order.orderNumber}`}
+                        href={`https://t.me/korchaetbot?start=track_${order.orderNumber}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shrink-0"

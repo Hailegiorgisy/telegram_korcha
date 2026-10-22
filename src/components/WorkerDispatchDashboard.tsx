@@ -92,7 +92,7 @@ export const WorkerDispatchDashboard: React.FC<WorkerDispatchDashboardProps> = (
         return (
           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30 flex items-center gap-1">
             <Package className="w-3 h-3" />
-            ከቻይና ተገዝቷል
+            ከዓለም አቀፍ ገበያ ተገዝቷል
           </span>
         );
       case 'freight_in_transit':
@@ -316,7 +316,7 @@ export const WorkerDispatchDashboard: React.FC<WorkerDispatchDashboardProps> = (
             <option value="all">ሁሉም ደረጃዎች</option>
             <option value="pending_deposit">ቅድመ ክፍያ በመጠባበቅ ላይ</option>
             <option value="deposit_verified">ክፍያ ተረጋግጧል</option>
-            <option value="procured_in_china">ከቻይና ተገዝቷል</option>
+            <option value="procured_in_china">ከዓለም አቀፍ ገበያ ተገዝቷል</option>
             <option value="freight_in_transit">በበረራ ላይ</option>
             <option value="customs_clearing">ቦሌ ጉምሩክ</option>
             <option value="out_for_delivery">ቤት ለቤት በመጓዝ ላይ</option>
@@ -449,7 +449,7 @@ export const WorkerDispatchDashboard: React.FC<WorkerDispatchDashboardProps> = (
                       rel="noopener noreferrer"
                       className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1"
                     >
-                      <span>የቻይና ሊንክ ክፈት</span>
+                      <span>የዓለም አቀፍ ገበያ ሊንክ ክፈት</span>
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
@@ -568,7 +568,7 @@ export const WorkerDispatchDashboard: React.FC<WorkerDispatchDashboardProps> = (
                     onClick={() => onUpdateOrderStatus(selectedOrder.id, 'procured_in_china')}
                     className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 text-xs font-medium transition-colors"
                   >
-                    1. ከቻይና ታዘዘ (Procured)
+                    1. ከዓለም አቀፍ ገበያ ታዘዘ (Procured)
                   </button>
                   <button
                     onClick={() => onUpdateOrderStatus(selectedOrder.id, 'freight_in_transit')}

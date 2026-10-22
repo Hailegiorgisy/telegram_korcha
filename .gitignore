@@ -1,11 +1,5 @@
-.env*
-!.env.example
 node_modules/
+.env
+uploads/
 dist/
-push.sh
-push.sh
-push.sh
-push.sh
-push.sh
-push.sh
-push.sh
+.DS_Store
