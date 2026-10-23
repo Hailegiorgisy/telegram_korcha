@@ -294,7 +294,7 @@ export function App() {
                       ) : (
                         <div className="bg-stone-50 rounded-xl p-2.5 text-[11px] text-stone-500 flex items-center space-x-1.5">
                           <Clock className="w-3.5 h-3.5 text-stone-400" />
-                          <span>ጥያቄዎ በመገምገም ላይ ነው። አስተናጋጃችን መልስ ሲጽፉ ወዲያውኑ እዚህ ይታያል።</span>
+                          <span>ጥያቄዎ በመገምገም ላይ ነው። ሰራተኛችን መልስ ሲጽፉ ወዲያውኑ እዚህ ይታያል።</span>
                         </div>
                       )}
 
@@ -308,7 +308,7 @@ export function App() {
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleSendCustomerMessage(ord.order_code, ord.customer_phone);
                             }}
-                            placeholder="ለአስተናጋጅ መልዕክት ወይም ጥያቄ ይጻፉ..."
+                            placeholder="ለሰራተኛ መልዕክት ወይም ጥያቄ ይጻፉ..."
                             className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 outline-hidden"
                           />
                           <button
@@ -327,7 +327,7 @@ export function App() {
                             {pingSuccess[ord.order_code] ? (
                               <span className="text-emerald-700 font-bold flex items-center">
                                 <CheckCircle className="w-3.5 h-3.5 inline mr-1 text-emerald-600" />
-                                ጥያቄው ለአስተናጋጅ ደርሷል
+                                ጥያቄው ለሰራተኛ ደርሷል
                               </span>
                             ) : (
                               'አስቸኳይ ክትትል ይፈልጋሉ?'
@@ -357,14 +357,14 @@ export function App() {
                   ))
                 ) : (
                   <div className="bg-white rounded-2xl p-6 text-center border border-stone-200/80 text-xs text-stone-500 space-y-2">
-                    <p>ምንም የተገኘ ትዕዛዝ የለም። እባክዎ ስልክ ቁጥሩን ወይም ኮዱን በትክክል ያስገቡ።</p>
+                    <p>Our worker will let you know the status soon. / ሰራተኛችን በቅርቡ ወቅታዊውን ሁኔታ ያሳውቅዎታል!</p>
                     <a 
                       href={`https://t.me/${workerUsername}`} 
                       target="_blank" 
                       rel="noreferrer" 
                       className="inline-block text-amber-700 font-bold underline"
                     >
-                      አስተናጋጅ ያነጋግሩ (@{workerUsername})
+                      ከሰራተኛ ጋር አውራ (@{workerUsername})
                     </a>
                   </div>
                 )}

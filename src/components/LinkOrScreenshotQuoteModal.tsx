@@ -465,7 +465,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                   </p>
                 )}
                 <p className="mt-1 text-[11px] text-stone-500">
-                  አስተናጋጃችን የእቃውን ዋጋ አስልቶ በዚህ ስልክ ወይም በቴሌግራም ያሳውቅዎታል
+                  ሰራተኛችን የእቃውን ዋጋ አስልቶ በዚህ ስልክ ወይም በቴሌግራም ያሳውቅዎታል
                 </p>
               </div>
 
@@ -521,7 +521,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                   </div>
                 )}
                 <div className="pt-1 text-[11px] text-stone-600 space-y-1">
-                  <p>1. አስተናጋጃችን እቃውን ፈትሾ አጠቃላይ ዋጋ በብር ያሰላል።</p>
+                  <p>1. ሰራተኛችን እቃውን ፈትሾ አጠቃላይ ዋጋ በብር ያሰላል።</p>
                   <p>2. የዋጋ ዝርዝር በቴሌግራም ወይም በስልክ ({phoneNumber}) ይደርስዎታል።</p>
                   <p>3. 40% ቅድመ ክፍያ ከፍለው ትዕዛዝዎን ያረጋግጣሉ። ቀሪ 60% አዲስ አበባ ሲደርስ ይከፍላሉ።</p>
                 </div>
@@ -534,7 +534,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                   rel="noopener noreferrer"
                   className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all"
                 >
-                  <span>ከአስተናጋጅ ጋር በቀጥታ አውራ (@{workerUsername})</span>
+                  <span>ከሰራተኛ ጋር በቀጥታ አውራ (@{workerUsername})</span>
                 </a>
                 <button
                   type="button"

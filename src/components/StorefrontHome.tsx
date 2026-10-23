@@ -1,5 +1,5 @@
-// src/components/StorefrontHome.tsx: Customer Storefront with Marketing Pictures, CBE Birr & Telebirr Advertisement Banner
-import React from 'react';
+// src/components/StorefrontHome.tsx: Customer Storefront with 6 Categories, Worker Products/Empty State, CBE Birr & Telebirr Ad Banner
+import React, { useState } from 'react';
 import { 
   Link as LinkIcon, 
   Camera, 
@@ -9,9 +9,11 @@ import {
   ShieldCheck, 
   Sparkles, 
   Zap,
-  Check
+  Check,
+  ShoppingBag,
+  ExternalLink
 } from 'lucide-react';
-import { CATEGORIES } from '../data/categories';
+import { CATEGORIES, CategoryDefinition } from '../data/categories';
 
 interface StorefrontHomeProps {
   onOpenQuoteModal: (mode?: 'link' | 'screenshot', preferredPayment?: 'telebirr' | 'cbe_birr') => void;
@@ -24,9 +26,17 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   selectedCategory,
   onSelectCategory,
 }) => {
+  const [activeCatId, setActiveCatId] = useState<string>(selectedCategory || 'electronics');
   const workerUsername = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
     || 'korcha_support';
   const supportUrl = `https://t.me/${workerUsername}`;
+
+  const currentCategory = CATEGORIES.find(c => c.id === activeCatId) || CATEGORIES[0];
+
+  const handleCategoryClick = (catId: string) => {
+    setActiveCatId(catId);
+    onSelectCategory(catId);
+  };
 
   return (
     <div className="space-y-5 pb-12 animate-fade-in max-w-md mx-auto">
@@ -44,7 +54,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
           </h2>
 
           <p className="text-xs text-stone-300 leading-relaxed">
-            ከ Shein, Amazon ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ስክሪንሾት ያስገቡ። አስተናጋጆቻችን ወጪውን አስልተው ያቀርቡልዎታል።
+            ከ Shein, Amazon ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ስክሪንሾት ያስገቡ። ሰራተኞቻችን ወጪውን አስልተው ያቀርቡልዎታል።
           </p>
 
           {/* Primary Action Buttons */}
@@ -138,42 +148,109 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </div>
 
-      {/* Category Navigation with Marketing Pictures */}
-      <div className="space-y-2.5">
+      {/* Exactly Six Categories Selection */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
-            የእቃዎች ምድብ (Categories)
+            የእቃዎች ምድብ (6 Categories)
           </h3>
-          <span className="text-[11px] text-stone-400">ምስሉን ነክተው ይዘዙ</span>
+          <span className="text-[11px] text-stone-400">ምድቡን ይምረጡ</span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          {CATEGORIES.filter((c) => c.id !== 'all').map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => {
-                onSelectCategory(cat.id);
-                onOpenQuoteModal('link');
-              }}
-              className="relative overflow-hidden rounded-2xl h-24 border border-stone-200/80 shadow-xs hover:shadow-md transition-all active:scale-98 text-left group cursor-pointer"
-            >
-              {/* Background Marketing Image */}
-              <img
-                src={cat.image}
-                alt={cat.nameEn}
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              {/* Dark Gradient Overlay for Readability */}
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/85 via-stone-900/40 to-transparent" />
+        {/* 6 Category Grid */}
+        <div className="grid grid-cols-3 gap-2">
+          {CATEGORIES.map((cat) => {
+            const isSelected = cat.id === activeCatId;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => handleCategoryClick(cat.id)}
+                className={`p-2.5 rounded-2xl border text-center transition-all cursor-pointer relative overflow-hidden flex flex-col items-center justify-center ${
+                  isSelected
+                    ? 'border-amber-600 bg-amber-50/80 shadow-xs ring-1 ring-amber-500'
+                    : 'border-stone-200/80 bg-white hover:bg-stone-50 shadow-2xs'
+                }`}
+              >
+                <span className="text-xl mb-1">{cat.icon}</span>
+                <p className={`font-bold text-[11px] leading-tight ${isSelected ? 'text-amber-900' : 'text-stone-800'}`}>
+                  {cat.nameAm}
+                </p>
+                <p className="text-[9px] text-stone-400 mt-0.5 line-clamp-1">{cat.nameEn}</p>
+                {cat.products.length > 0 && (
+                  <span className="mt-1 px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 text-[8px] font-bold">
+                    {cat.products.length} እቃዎች
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
 
-              {/* Text Badge Content */}
-              <div className="relative z-10 h-full p-2.5 flex flex-col justify-end text-white">
-                <span className="text-base mb-0.5">{cat.icon}</span>
-                <p className="font-extrabold text-xs leading-tight drop-shadow-xs">{cat.nameAm}</p>
-                <p className="text-[10px] text-stone-300 font-medium drop-shadow-xs">{cat.nameEn}</p>
+        {/* Category Products Viewer (Shows Products or Empty State) */}
+        <div className="mt-2 pt-2">
+          {currentCategory && (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <h4 className="text-xs font-bold text-stone-800 flex items-center space-x-1.5">
+                  <span>{currentCategory.icon}</span>
+                  <span>{currentCategory.nameAm} ({currentCategory.nameEn})</span>
+                </h4>
+                <span className="text-[10px] text-stone-500 font-medium">
+                  {currentCategory.products.length} የተዘረዘሩ እቃዎች
+                </span>
               </div>
-            </button>
-          ))}
+
+              {currentCategory.products.length === 0 ? (
+                /* Empty state when no products added by workers yet */
+                <div className="p-5 rounded-2xl bg-stone-50 border border-stone-200/80 text-center space-y-2.5">
+                  <div className="w-10 h-10 rounded-full bg-stone-200/80 text-stone-500 flex items-center justify-center mx-auto text-lg shadow-inner">
+                    📭
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-xs text-stone-900">
+                      በዚህ ምድብ ውስጥ የተጨመረ እቃ የለም
+                    </h5>
+                    <p className="text-[11px] text-stone-500 mt-1 max-w-xs mx-auto leading-relaxed">
+                      ሰራተኞች እቃ ሲጨምሩ እዚህ ዝርዝሩ ይታያል። ከ Shein ወይም Amazon የፈለጉትን እቃ ሊንክ ወይም ስክሪንሾት በመላክ አሁኑኑ ማዘዝ ይችላሉ!
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => onOpenQuoteModal('link')}
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer inline-flex items-center space-x-1.5"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5" />
+                    <span>በሊንክ ወይም በስክሪንሾት እዘዝ</span>
+                  </button>
+                </div>
+              ) : (
+                /* Dynamic product cards populated when workers add items */
+                <div className="grid grid-cols-2 gap-2.5">
+                  {currentCategory.products.map((prod) => (
+                    <div
+                      key={prod.id}
+                      className="p-3 rounded-2xl bg-white border border-stone-200/80 shadow-2xs space-y-2 flex flex-col justify-between"
+                    >
+                      <img
+                        src={prod.image}
+                        alt={prod.title}
+                        className="w-full h-28 object-cover rounded-xl"
+                      />
+                      <div>
+                        <p className="font-bold text-xs text-stone-900 line-clamp-1">{prod.title}</p>
+                        <p className="text-amber-700 font-extrabold text-xs mt-0.5">{prod.priceEtb} ETB</p>
+                      </div>
+                      <button
+                        onClick={() => onOpenQuoteModal('link')}
+                        className="w-full py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] transition-colors cursor-pointer"
+                      >
+                        ይዘዙ (Order)
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -203,7 +280,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         <div className="space-y-0.5">
           <p className="font-bold text-xs text-emerald-950 flex items-center space-x-1.5">
             <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-            <span>በቦቱ ከአስተናጋጅ ጋር አውራ</span>
+            <span>በቦቱ ከሰራተኛ ጋር አውራ</span>
           </p>
           <p className="text-[11px] text-emerald-800">
             የእቃ ጥያቄዎችንና መረጃዎችን በቴሌግራም ያግኙ (@{workerUsername})

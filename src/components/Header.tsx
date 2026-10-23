@@ -51,14 +51,14 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Direct Support Button: በቦቱ ከአስተናጋጅ ጋር አውራ -> korcha_support */}
+          {/* Direct Support Button: በቦቱ ከሰራተኛ ጋር አውራ -> korcha_support */}
           <button
             onClick={handleSupportClick}
             className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200/70 text-xs font-semibold shadow-xs transition-colors active:scale-95"
-            title="ከአስተናጋጅ ጋር ይገናኙ"
+            title="ከሰራተኛ ጋር ይገናኙ"
           >
             <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-            <span>አስተናጋጅ አውራ</span>
+            <span>ሰራተኛ አውራ</span>
           </button>
         </div>
 
