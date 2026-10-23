@@ -1,4 +1,4 @@
-// bot.js: Telegram Korcha Bot with Guided Step-by-Step Quote Wizard, Web Server, DB Persistence, Worker Notification & Direct Responses
+// bot.js: Telegram Korcha Bot with Guided Step-by-Step Quote Wizard, Web Server, DB Persistence, Worker Notification, Direct Responses & Abuse Protection
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -20,7 +20,9 @@ import {
   recordCustomerPing,
   recordOrderLookup,
   respondToCustomerPing,
-  getCustomerPings
+  getCustomerPings,
+  syncFallbackToPostgres,
+  startReconciliationWorker
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -630,22 +632,111 @@ ${workerNoteDisplay}━━━━━━━━━━━━━━━━━━━━
   console.log('[Bot Info] Running without active Telegram Bot Token. API & Web App operational.');
 }
 
+// ----------------------------------------------------
+// ABUSE PROTECTION & RATE LIMITING MIDDLEWARE
+// ----------------------------------------------------
+function createRateLimiter({ windowMs, maxRequests, message }) {
+  const requestHistory = new Map();
+
+  // Periodic cleanup of stale IP records
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, timestamps] of requestHistory.entries()) {
+      const valid = timestamps.filter(t => now - t < windowMs);
+      if (valid.length === 0) {
+        requestHistory.delete(ip);
+      } else {
+        requestHistory.set(ip, valid);
+      }
+    }
+  }, 5 * 60 * 1000);
+
+  return (req, res, next) => {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown-client';
+    const now = Date.now();
+    const timestamps = requestHistory.get(ip) || [];
+
+    const recent = timestamps.filter(t => now - t < windowMs);
+
+    if (recent.length >= maxRequests) {
+      const retryAfterSeconds = Math.ceil((recent[0] + windowMs - now) / 1000);
+      res.setHeader('Retry-After', retryAfterSeconds);
+      return res.status(429).json({
+        success: false,
+        error: message || 'Too many requests. Please slow down and try again later.',
+        retryAfterSeconds,
+      });
+    }
+
+    recent.push(now);
+    requestHistory.set(ip, recent);
+    next();
+  };
+}
+
+// 1. Quote Submission Limiter: Max 10 submissions per 15 minutes per IP
+const quoteSubmissionLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  maxRequests: 10,
+  message: 'ብዙ የእቃ ጥያቄዎችን በተከታታይ ልከዋል። እባክዎ ከ15 ደቂቃ በኋላ እንደገና ይሞክሩ (Rate limit exceeded: 10 requests per 15 minutes).',
+});
+
+// 2. Order Lookup Limiter: Max 30 lookups per 5 minutes per IP
+const orderLookupLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  maxRequests: 30,
+  message: 'የትዕዛዝ ፍለጋ ገደብ ላይ ደርሰዋል። እባክዎ ትንሽ ቆይተው ይሞክሩ (Lookup rate limit: 30 per 5 minutes).',
+});
+
+// 3. Customer Ping Limiter: Max 5 pings per 10 minutes per IP
+const customerPingLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  maxRequests: 5,
+  message: 'አስተናጋጁን ለማነጋገር አጭር ጊዜ ይጠብቁ (Ping limit: 5 per 10 minutes).',
+});
+
 // REST API for Web & Telegram Mini App
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const upload = multer({ dest: path.join(__dirname, 'uploads/') });
+// Upload Middleware with Abuse Protection (10MB limit, image mime type verification)
+const upload = multer({
+  dest: uploadsDir,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10 MB maximum upload size
+    files: 1, // Only 1 file per request
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('ልክ ያልሆነ የፋይል ዓይነት! JPG, PNG ወይም WEBP ፎቶ ብቻ ይጫኑ (Only JPEG, PNG, and WEBP images are allowed).'));
+    }
+  },
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'Korcha Unified Backend with Direct Responses & Payment Marketing',
+    service: 'Korcha Unified Backend with Direct Responses, Abuse Protection & Reconciliation',
     worker: WORKER_USERNAME,
     paymentOptions: ['telebirr', 'cbe_birr'],
+    rateLimiting: 'active',
     timestamp: new Date().toISOString(),
   });
+});
+
+// Manual trigger for reconciliation sync
+app.post('/api/admin/reconcile', async (req, res) => {
+  try {
+    const result = await syncFallbackToPostgres();
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Test notification delivery to worker chat
@@ -679,8 +770,18 @@ app.get('/api/test-notify', async (req, res) => {
   }
 });
 
-// POST /api/quotes (from TMA or Web modal)
-app.post('/api/quotes', upload.single('screenshot'), async (req, res) => {
+// POST /api/quotes with Abuse Protection (Rate limiting + Multer validation)
+app.post('/api/quotes', quoteSubmissionLimiter, (req, res, next) => {
+  upload.single('screenshot')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, error: 'የፎቶው መጠን ከ10MB መብለጥ የለበትም (Image size exceeds 10MB limit).' });
+      }
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     const { sourceType, productUrl, size, color, quantity, details, phone, telegramId } = req.body;
     const screenshotFile = req.file;
@@ -751,8 +852,8 @@ app.post('/api/quotes', upload.single('screenshot'), async (req, res) => {
   }
 });
 
-// GET /api/orders/lookup: Customer Self-Service order tracking with instant worker notification
-app.get('/api/orders/lookup', async (req, res) => {
+// GET /api/orders/lookup with Rate Limiter
+app.get('/api/orders/lookup', orderLookupLimiter, async (req, res) => {
   try {
     const { phone, code } = req.query;
     let orders = [];
@@ -825,8 +926,8 @@ app.get('/api/orders/lookup', async (req, res) => {
   }
 });
 
-// POST /api/orders/:code/ping: Customer ping or follow-up request on active inquiry
-app.post('/api/orders/:code/ping', async (req, res) => {
+// POST /api/orders/:code/ping with Customer Ping Rate Limiter
+app.post('/api/orders/:code/ping', customerPingLimiter, async (req, res) => {
   try {
     const code = req.params.code;
     const { phone, note, customerName, telegramId } = req.body;
@@ -999,7 +1100,7 @@ app.get('*', (req, res, next) => {
     <div class="logo">ኮ</div>
     <span class="badge">KORCHA ETHIOPIA</span>
     <h1>ኮርቻ የውጭ ገበያ ድልድይ</h1>
-    <p>Unified Server is running with Worker Notification, Direct Responses & Telebirr/CBE Birr Marketing active.</p>
+    <p>Unified Server is running with Worker Notification, Direct Responses, Abuse Protection & Fallback Reconciliation active.</p>
     <div class="links">
       <a href="/health">የሰርቨር ጤና (API Health)</a>
       <a href="https://t.me/${escapeHtml(WORKER_USERNAME)}" target="_blank" class="secondary">ከአስተናጋጅ ጋር አውራ (@${escapeHtml(WORKER_USERNAME)})</a>

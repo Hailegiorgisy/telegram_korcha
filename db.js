@@ -1,4 +1,4 @@
-// db.js: ACID-compliant Database Layer with Automatic Migrations & Resilient In-Memory Fallback
+// db.js: ACID-compliant Database Layer with Automatic Migrations, Resilient In-Memory Fallback & Background Reconciliation Sync
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
@@ -12,6 +12,7 @@ const { Pool } = pg;
 // In-Memory Fail-safe Store (ensures 100% server uptime even if PostgreSQL is offline)
 let isPostgresAvailable = false;
 let hasCheckedPostgres = false;
+let isReconciling = false;
 
 const inMemoryStore = {
   customers: new Map(),
@@ -36,7 +37,6 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  // Suppress uncaught idle error crashes
   console.warn('[DB Pool] Idle client warning (fail-safe active):', err.message);
 });
 
@@ -73,6 +73,9 @@ export async function runMigrations() {
     isPostgresAvailable = true;
     hasCheckedPostgres = true;
     console.log('[DB] PostgreSQL connected & database schema is up to date.');
+
+    // Attempt reconciliation if any records exist in-memory
+    await syncFallbackToPostgres();
   } catch (err) {
     if (client) {
       try { await client.query('ROLLBACK'); } catch (_) {}
@@ -86,7 +89,7 @@ export async function runMigrations() {
 }
 
 // Check PG availability helper
-async function checkPG() {
+export async function checkPG() {
   if (!hasCheckedPostgres) {
     try {
       const c = await pool.connect();
@@ -133,6 +136,7 @@ export async function upsertCustomer({ telegramId, telegramUsername, firstName, 
     telegram_username: telegramUsername || null,
     first_name: firstName || null,
     phone_number: phone,
+    syncedToPg: false,
     updated_at: new Date().toISOString(),
   };
   inMemoryStore.customers.set(key, updated);
@@ -203,6 +207,7 @@ export async function createQuote({
     details: details || null,
     status: 'pending_review',
     assigned_worker: worker,
+    syncedToPg: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -297,6 +302,7 @@ export async function createOrder({
     worker_response: null,
     last_customer_ping: null,
     last_lookup_at: null,
+    syncedToPg: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
@@ -391,6 +397,7 @@ export async function updateOrderStatus(orderCode, newStatus, changedBy = 'korch
     order.latest_worker_note = note;
     order.worker_response = note;
   }
+  order.syncedToPg = false;
   order.updated_at = new Date().toISOString();
   inMemoryStore.orderHistory.push({
     order_id: order.id,
@@ -451,6 +458,7 @@ export async function recordCustomerPing({
     worker_response: null,
     responded_at: null,
     responded_by: null,
+    syncedToPg: false,
     created_at: now,
   };
   inMemoryStore.pings.push(pingRecord);
@@ -458,6 +466,7 @@ export async function recordCustomerPing({
   const ord = inMemoryStore.orders.get(referenceCode);
   if (ord) {
     ord.last_customer_ping = now;
+    ord.syncedToPg = false;
   }
   return pingRecord;
 }
@@ -534,6 +543,7 @@ export async function respondToCustomerPing({
       p.worker_response = responseText;
       p.responded_at = now;
       p.responded_by = worker;
+      p.syncedToPg = false;
     }
   }
   const ord = inMemoryStore.orders.get(referenceCode);
@@ -541,6 +551,7 @@ export async function respondToCustomerPing({
     if (newStatus) ord.status = newStatus;
     ord.latest_worker_note = responseText;
     ord.worker_response = responseText;
+    ord.syncedToPg = false;
     ord.updated_at = now;
   }
   return { success: true, referenceCode, responseText, newStatus };
@@ -563,5 +574,209 @@ export async function getCustomerPings(referenceCode) {
     .filter(p => p.reference_code === referenceCode)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
+
+// 12. FALLBACK RECONCILIATION ENGINE: Syncs volatile in-memory fallback data to PostgreSQL upon reconnect
+export async function syncFallbackToPostgres() {
+  if (isReconciling) return { status: 'in_progress' };
+  isReconciling = true;
+
+  let client;
+  let syncedCustomers = 0;
+  let syncedQuotes = 0;
+  let syncedOrders = 0;
+  let syncedPings = 0;
+
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // 1. Sync in-memory customers
+    for (const [key, cust] of inMemoryStore.customers.entries()) {
+      if (cust.syncedToPg) continue;
+      const q = `
+        INSERT INTO customers (telegram_id, telegram_username, first_name, phone_number, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (telegram_id) DO UPDATE
+        SET phone_number = EXCLUDED.phone_number, updated_at = CURRENT_TIMESTAMP
+        RETURNING id;
+      `;
+      const res = await client.query(q, [
+        cust.telegram_id || null,
+        cust.telegram_username || null,
+        cust.first_name || null,
+        cust.phone_number,
+        cust.created_at || new Date(),
+        cust.updated_at || new Date()
+      ]);
+      cust.pgId = res.rows[0]?.id;
+      cust.syncedToPg = true;
+      syncedCustomers++;
+    }
+
+    // 2. Sync in-memory quotes
+    for (const [code, quote] of inMemoryStore.quotes.entries()) {
+      if (quote.syncedToPg) continue;
+      const q = `
+        INSERT INTO quotes (
+          quote_code, customer_id, customer_telegram_id, customer_phone, source_type,
+          product_url, screenshot_url, size, color, quantity, details,
+          status, assigned_worker, created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        ON CONFLICT (quote_code) DO NOTHING;
+      `;
+      await client.query(q, [
+        quote.quote_code,
+        quote.customer_id || null,
+        quote.customer_telegram_id || null,
+        quote.customer_phone,
+        quote.source_type,
+        quote.product_url || null,
+        quote.screenshot_url || null,
+        quote.size || null,
+        quote.color || null,
+        quote.quantity || 1,
+        quote.details || null,
+        quote.status || 'pending_review',
+        quote.assigned_worker || 'korcha_support',
+        quote.created_at || new Date(),
+        quote.updated_at || new Date()
+      ]);
+      quote.syncedToPg = true;
+      syncedQuotes++;
+    }
+
+    // 3. Sync in-memory orders
+    for (const [code, order] of inMemoryStore.orders.entries()) {
+      if (order.syncedToPg) continue;
+      const q = `
+        INSERT INTO orders (
+          order_code, quote_id, customer_id, customer_telegram_id, customer_phone, product_summary,
+          total_price_etb, deposit_amount_etb, cod_balance_etb,
+          payment_method, delivery_address, status, assigned_worker,
+          latest_worker_note, worker_response, last_customer_ping, last_lookup_at,
+          created_at, updated_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        ON CONFLICT (order_code) DO UPDATE
+        SET status = EXCLUDED.status,
+            latest_worker_note = EXCLUDED.latest_worker_note,
+            worker_response = EXCLUDED.worker_response,
+            last_customer_ping = EXCLUDED.last_customer_ping,
+            last_lookup_at = EXCLUDED.last_lookup_at,
+            updated_at = CURRENT_TIMESTAMP;
+      `;
+      await client.query(q, [
+        order.order_code,
+        order.quote_id || null,
+        order.customer_id || null,
+        order.customer_telegram_id || null,
+        order.customer_phone,
+        order.product_summary,
+        order.total_price_etb,
+        order.deposit_amount_etb,
+        order.cod_balance_etb,
+        order.payment_method || 'telebirr',
+        order.delivery_address || null,
+        order.status,
+        order.assigned_worker || 'korcha_support',
+        order.latest_worker_note || null,
+        order.worker_response || null,
+        order.last_customer_ping || null,
+        order.last_lookup_at || null,
+        order.created_at || new Date(),
+        order.updated_at || new Date()
+      ]);
+      order.syncedToPg = true;
+      syncedOrders++;
+    }
+
+    // 4. Sync in-memory inquiry pings
+    for (const ping of inMemoryStore.pings) {
+      if (ping.syncedToPg) continue;
+      const q = `
+        INSERT INTO inquiry_pings (
+          reference_code, customer_phone, customer_name, customer_telegram_id,
+          ping_type, customer_note, assigned_worker, worker_response,
+          responded_at, responded_by, created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT DO NOTHING;
+      `;
+      await client.query(q, [
+        ping.reference_code,
+        ping.customer_phone,
+        ping.customer_name || null,
+        ping.customer_telegram_id || null,
+        ping.ping_type,
+        ping.customer_note || null,
+        ping.assigned_worker || 'korcha_support',
+        ping.worker_response || null,
+        ping.responded_at || null,
+        ping.responded_by || null,
+        ping.created_at || new Date()
+      ]);
+      ping.syncedToPg = true;
+      syncedPings++;
+    }
+
+    await client.query('COMMIT');
+    isPostgresAvailable = true;
+
+    const totalSynced = syncedCustomers + syncedQuotes + syncedOrders + syncedPings;
+    if (totalSynced > 0) {
+      console.log(`✅ [DB Reconciliation] Successfully flushed ${totalSynced} pending in-memory records to PostgreSQL (${syncedQuotes} quotes, ${syncedOrders} orders, ${syncedPings} pings).`);
+    }
+
+    return {
+      success: true,
+      syncedCustomers,
+      syncedQuotes,
+      syncedOrders,
+      syncedPings,
+      totalSynced,
+    };
+  } catch (err) {
+    if (client) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+    }
+    isPostgresAvailable = false;
+    return { success: false, error: err.message };
+  } finally {
+    if (client) client.release();
+    isReconciling = false;
+  }
+}
+
+// 13. Automatic Background Health Check & Reconciliation Worker (Runs every 30 seconds)
+let reconciliationInterval = null;
+export function startReconciliationWorker(intervalMs = 30000) {
+  if (reconciliationInterval) return;
+
+  reconciliationInterval = setInterval(async () => {
+    try {
+      const client = await pool.connect();
+      client.release();
+      isPostgresAvailable = true;
+
+      // Check if any in-memory items need syncing
+      const hasUnsynced = 
+        Array.from(inMemoryStore.quotes.values()).some(q => !q.syncedToPg) ||
+        Array.from(inMemoryStore.orders.values()).some(o => !o.syncedToPg) ||
+        inMemoryStore.pings.some(p => !p.syncedToPg);
+
+      if (hasUnsynced) {
+        await syncFallbackToPostgres();
+      }
+    } catch (e) {
+      isPostgresAvailable = false;
+    }
+  }, intervalMs);
+
+  console.log(`🔄 [DB Sync Worker] Background reconciliation worker active (interval: ${intervalMs / 1000}s).`);
+}
+
+// Auto-start worker on load
+startReconciliationWorker();
 
 export default pool;
