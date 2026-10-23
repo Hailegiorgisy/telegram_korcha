@@ -1,4 +1,4 @@
-// bot.js: Telegram Korcha Bot with Staff Portal, Guided Item Uploader, Shelf Editor, Quote Wizard & REST API
+// bot.js: Telegram Korcha Bot with Guided Step-by-Step Quote Wizard, Marketplace Choice, Two-Way Staff Bridge & On-Hand Shelf
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -204,6 +204,20 @@ function getCategorySelectionKeyboard() {
   return Markup.keyboard(rows).resize();
 }
 
+// 4. Step 5 Marketplace Selection Inline Keyboard
+function getMarketplaceSelectionInlineKeyboard() {
+  return Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🛍️ Shein', 'mkt_shein'),
+      Markup.button.callback('📦 AliExpress', 'mkt_aliexpress'),
+    ],
+    [
+      Markup.button.callback('🛒 Amazon', 'mkt_amazon'),
+      Markup.button.callback('🌐 ሌላ (Else / Other)', 'mkt_else'),
+    ],
+  ]);
+}
+
 // ----------------------------------------------------
 // TELEGRAM COMMAND & INTERACTION HANDLERS
 // ----------------------------------------------------
@@ -237,11 +251,11 @@ bot.start(async (ctx) => {
 👋 *እንኳን ወደ ኮርቻ (KORCHA) በደህና መጡ!*
 _የውጭ ገበያ እቃ አቅራቢ — ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ_
 
-ከ *Shein, Amazon, ወይም AliExpress* ላይ የፈለጉትን እቃ ይዘዙ ወይም በመደርደሪያችን ያሉ በእጅ ላይ ያሉ እቃዎችን ይምረጡ። የኮርቻ ሰራተኞች ወጪውን አስልተው በርዎ ድረስ ያደርሳሉ!
+ከ *Shein, AliExpress, Amazon ወይም Temu* ላይ የፈለጉትን እቃ ይዘዙ ወይም በመደርደሪያችን ያሉ በእጅ ላይ ያሉ እቃዎችን ይምረጡ። የኮርቻ ሰራተኞች ወጪውን አስልተው በርዎ ድረስ ያደርሳሉ!
 
 📌 *እንዴት ማዘዝ ይችላሉ?*
 1️⃣ *ሊንክ ወይም ፎቶ ያስገቡ* (የእቃውን ሊንክ ወይም ስክሪንሾት ይላኩ)
-2️⃣ *ዝርዝሩን ይሙሉ* (መጠን፣ ቀለም፣ ብዛት)
+2️⃣ *ድረ-ገጹንና ዝርዝሩን ይምረጡ* (Shein, AliExpress, Amazon... መጠን፣ ቀለም፣ ብዛት)
 3️⃣ *ስልክ ቁጥርዎን ያስገቡ* (ዋጋው ሲሰላ በኮርቻ ሰራተኛ ይደርስዎታል)
 
 ከታች ያሉትን ምርጫዎች ይጠቀሙ 👇
@@ -306,7 +320,7 @@ bot.hears(['📋 መደርደሪያ ተመልከት (View Shelf)', '/viewshelf']
   await ctx.replyWithMarkdown(summary, getWorkerMenuKeyboard());
 });
 
-// Worker Command: Edit Shelf Item (Step 2 Implementation)
+// Worker Command: Edit Shelf Item
 bot.command('editshelf', async (ctx) => {
   if (!isWorker(ctx)) {
     return ctx.reply('⚠️ ይህ ትዕዛዝ ለኮርቻ ሰራተኞች ብቻ የተፈቀደ ነው');
@@ -356,7 +370,7 @@ bot.command('editshelf', async (ctx) => {
   await ctx.replyWithMarkdown(itemCard, editKeyboard);
 });
 
-// Inline Callback Actions for Shelf Editing (Step 2)
+// Inline Callback Actions for Shelf Editing
 bot.action(/^edit_(title|size|price|photo|stock)_(.+)$/, async (ctx) => {
   if (!isWorker(ctx)) {
     return ctx.answerCbQuery('⚠️ ይህ ለኮርቻ ሰራተኛ ብቻ ነው');
@@ -438,7 +452,6 @@ bot.command('delshelf', async (ctx) => {
   const initialCount = shelfItems.length;
   shelfItems = shelfItems.filter((i) => i.id !== targetId);
 
-  // Attempt DB removal
   try {
     if (typeof deleteShelfProduct === 'function') {
       await deleteShelfProduct(targetId);
@@ -527,7 +540,7 @@ bot.hears(['🔗 ሊንክ ያስገቡ (Insert Link)', '/link', 'ሊንክ ያ�
   session.data = { sourceType: 'link' };
 
   await ctx.replyWithMarkdown(
-    `🔗 *የእቃውን ሊንክ ያስገቡ፡*\n\n📌 *ምሳሌ (Placeholder):*\n\`https://www.shein.com/item/12345...\`\nወይም\n\`https://www.amazon.com/dp/B08...\`\n\nእባክዎ ሊንኩን እዚህ ይላኩልን 👇`,
+    `🔗 *የእቃውን ሊንክ ያስገቡ፡*\n\n📌 *ምሳሌ:*\n\`https://www.shein.com/item/12345...\`\nወይም\n\`https://www.aliexpress.com/item/...\`\n\`https://www.amazon.com/dp/...\`\n\nእባክዎ ሊንኩን እዚህ ይላኩልን 👇`,
     Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
   );
 });
@@ -539,7 +552,7 @@ bot.hears(['📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)', '/photo', '�
   session.data = { sourceType: 'screenshot' };
 
   await ctx.replyWithMarkdown(
-    `📸 *የእቃውን ፎቶ ወይም ስክሪንሾት ይላኩ፡*\n\nከ Shein, Amazon ወይም AliExpress ላይ የተነሳውን ግልጽ ፎቶ/ስክሪንሾት እዚህ ይላኩልን 👇`,
+    `📸 *የእቃውን ፎቶ ወይም ስክሪንሾት ይላኩ፡*\n\nከ Shein, AliExpress, Amazon ወይም Temu ላይ የተነሳውን ግልጽ ፎቶ/ስክሪንሾት እዚህ ይላኩልን 👇`,
     Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
   );
 });
@@ -567,7 +580,31 @@ bot.hears(['📦 የትዕዛዝ ሁኔታ መከታተያ', '/track'], async (c
 });
 
 // ----------------------------------------------------
-// PHOTO MESSAGE HANDLER (WORKER UPLOADS + PHOTO EDITING + QUOTES)
+// STEP 5: MARKETPLACE SELECTION CALLBACK HANDLER
+// ----------------------------------------------------
+bot.action(/^mkt_(shein|aliexpress|amazon|else)$/, async (ctx) => {
+  const mktChoice = ctx.match[1];
+  const session = getSession(ctx.from.id);
+  session.data.marketplace = mktChoice;
+
+  await ctx.answerCbQuery();
+  session.state = 'AWAITING_DETAILS';
+
+  const mktLabels = {
+    shein: 'Shein 🛍️',
+    aliexpress: 'AliExpress 📦',
+    amazon: 'Amazon 🛒',
+    else: 'ሌላ (Else / Other) 🌐',
+  };
+
+  await ctx.replyWithMarkdown(
+    `✅ *የተመረጠው ገበያ:* ${mktLabels[mktChoice] || mktChoice.toUpperCase()}\n\nአሁን *የእቃውን ዝርዝር መረጃ* ይጻፉልን፡\n\n🔹 *መጠን / ሳይዝ (Size)* (ምሳሌ: M, L, 42)\n🔹 *ቀለም (Color)* (ምሳሌ: ጥቁር, ነጭ)\n🔹 *ብዛት / ቁጥር (Quantity)* (ምሳሌ: 1)\n🔹 *ተጨማሪ ማስታወሻ* ካለ\n\nእባክዎ ዝርዝሩን በአንድ መልዕክት ጽፈው ይላኩ 👇`,
+    Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+  );
+});
+
+// ----------------------------------------------------
+// PHOTO MESSAGE HANDLER
 // ----------------------------------------------------
 bot.on('photo', async (ctx, next) => {
   const photos = ctx.message.photo;
@@ -594,7 +631,7 @@ bot.on('photo', async (ctx, next) => {
     }
   }
 
-  // 2. Worker Editing Item Photo (Step 2 Implementation)
+  // 2. Worker Editing Item Photo
   if (isWorker(ctx) && session.state === 'WORKER_EDIT_PHOTO') {
     const targetId = session.data.editTargetId;
     let newImageUrl = null;
@@ -624,7 +661,7 @@ bot.on('photo', async (ctx, next) => {
     return ctx.replyWithMarkdown(`✅ *የእቃው ፎቶ በተሳካ ሁኔታ ተቀይሯል!* (ኮድ: \`${targetId}\`)`, getWorkerMenuKeyboard());
   }
 
-  // 3. Worker Uploading a Product to the Shelf (Wizard Step 1)
+  // 3. Worker Uploading a Product to the Shelf
   if (isWorker(ctx) && session.state === 'WORKER_ADD_PHOTO') {
     session.data.photoFileId = fileId;
     try {
@@ -642,9 +679,9 @@ bot.on('photo', async (ctx, next) => {
     );
   }
 
-  // 4. Customer Uploading Screenshot for a Quote Request
+  // 4. Customer Uploading Screenshot (Step 5: Ask for Marketplace)
   if (session.state === 'AWAITING_PHOTO' || session.state === 'IDLE') {
-    session.state = 'AWAITING_DETAILS';
+    session.state = 'AWAITING_MARKETPLACE';
     session.data = {
       ...session.data,
       sourceType: 'screenshot',
@@ -652,8 +689,8 @@ bot.on('photo', async (ctx, next) => {
     };
 
     return ctx.replyWithMarkdown(
-      `✅ *ፎቶው ደርሶናል!*\n\nአሁን *የእቃውን ዝርዝር መረጃ* ይጻፉልን፡\n\n🔹 *መጠን / ሳይዝ (Size)* (ምሳሌ: M, L, 42)\n🔹 *ቀለም (Color)* (ምሳሌ: ጥቁር, ነጭ)\n🔹 *ብዛት / ቁጥር (Quantity)* (ምሳሌ: 1)\n🔹 *ተጨማሪ ማስታወሻ* ካለ\n\nእባክዎ ዝርዝሩን በአንድ መልዕክት ጽፈው ይላኩ 👇`,
-      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+      `✅ *ፎቶው ደርሶናል!*\n\n🏬 *ደረጃ 1.5፡ እቃው የተመረጠበትን ድረ-ገጽ (Marketplace) ይምረጡ፡*`,
+      getMarketplaceSelectionInlineKeyboard()
     );
   }
 
@@ -661,7 +698,7 @@ bot.on('photo', async (ctx, next) => {
 });
 
 // ----------------------------------------------------
-// TEXT MESSAGE HANDLER (STATE MACHINE & ROUTING)
+// TEXT MESSAGE HANDLER
 // ----------------------------------------------------
 bot.on('text', async (ctx, next) => {
   const text = ctx.message.text.trim();
@@ -672,7 +709,6 @@ bot.on('text', async (ctx, next) => {
   // A. WORKER CONVERSATIONS & ACTIONS
   // --------------------------------------------------
   if (isWorker(ctx)) {
-    // A.1. Worker Reply-by-Quote Mechanism in Staff Chat
     if (ctx.message.reply_to_message) {
       const originalText = ctx.message.reply_to_message.text || ctx.message.reply_to_message.caption || '';
       const idMatch = originalText.match(/ID:\s*<code>(\d+)<\/code>/) || originalText.match(/ID:\s*`(\d+)`/);
@@ -697,7 +733,6 @@ bot.on('text', async (ctx, next) => {
       }
     }
 
-    // A.2. Worker Editing Text Fields (Step 2 Implementation)
     if (session.state === 'WORKER_EDIT_TITLE') {
       const targetId = session.data.editTargetId;
       const item = shelfItems.find((i) => i.id === targetId);
@@ -772,7 +807,6 @@ bot.on('text', async (ctx, next) => {
       );
     }
 
-    // A.3. Worker Wizard Step 2: Select Category (6 Categories)
     if (session.state === 'WORKER_SELECT_CATEGORY') {
       let matchedCategory = text;
       const cleanText = text.replace(/^[^\w\s\u1200-\u137F]+/u, '').trim();
@@ -794,7 +828,6 @@ bot.on('text', async (ctx, next) => {
       );
     }
 
-    // A.4. Worker Wizard Step 3: Enter Title
     if (session.state === 'WORKER_ENTER_TITLE') {
       session.data.title = text;
       session.state = 'WORKER_ENTER_PRICE';
@@ -805,7 +838,6 @@ bot.on('text', async (ctx, next) => {
       );
     }
 
-    // A.5. Worker Wizard Step 4: Enter Price
     if (session.state === 'WORKER_ENTER_PRICE') {
       const price = parseInt(text.replace(/[^\d]/g, ''), 10);
       if (isNaN(price) || price <= 0) {
@@ -821,7 +853,6 @@ bot.on('text', async (ctx, next) => {
       );
     }
 
-    // A.6. Worker Wizard Step 5: Save & Publish Item
     if (session.state === 'WORKER_ENTER_DETAILS') {
       session.data.description = text;
 
@@ -874,10 +905,8 @@ bot.on('text', async (ctx, next) => {
   // --------------------------------------------------
   // B. CUSTOMER CONVERSATIONS & ORDER FLOWS
   // --------------------------------------------------
-
-  // B.1. Customer Direct Question / Live Support
   if (session.state === 'CHATTING_WITH_SUPPORT') {
-    const notifyId = WORKER_CHAT_ID || (WORKER_USERNAMES.length > 0 ? WORKER_CHAT_ID : null);
+    const notifyId = WORKER_CHAT_ID;
     if (notifyId) {
       const staffMsg = `
 💬 <b>ጥያቄ ከደንበኛ ደርሷል!</b>
@@ -894,36 +923,36 @@ bot.on('text', async (ctx, next) => {
     }
   }
 
-  // B.2. Auto-detect pasted URL
+  // Auto-detect pasted URL (Step 5: Ask for Marketplace)
   if (session.state === 'IDLE' && (text.startsWith('http://') || text.startsWith('https://'))) {
-    session.state = 'AWAITING_DETAILS';
+    session.state = 'AWAITING_MARKETPLACE';
     session.data = {
       sourceType: 'link',
       productUrl: text,
     };
 
     return ctx.replyWithMarkdown(
-      `✅ *ሊንኩ ደርሶናል!*\n\nአሁን *የእቃውን ዝርዝር መረጃ* ይጻፉልን፡\n\n🔹 *መጠን / ሳይዝ (Size)* (ምሳሌ: M, L, 42)\n🔹 *ቀለም (Color)*\n🔹 *ብዛት / ቁጥር (Quantity)*\n🔹 *ተጨማሪ ማስታወሻ* ካለ\n\nእባክዎ ዝርዝሩን በአንድ መልዕክት ጽፈው ይላኩ 👇`,
-      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+      `✅ *ሊንኩ ደርሶናል!*\n\n🏬 *ደረጃ 1.5፡ እቃው የተመረጠበትን ድረ-ገጽ (Marketplace) ይምረጡ፡*`,
+      getMarketplaceSelectionInlineKeyboard()
     );
   }
 
-  // B.3. Awaiting Product Link
+  // Awaiting Product Link
   if (session.state === 'AWAITING_LINK') {
     if (!text.startsWith('http://') && !text.startsWith('https://')) {
       return ctx.reply('⚠️ እባክዎ ትክክለኛ የድረ-ገጽ ሊንክ ያስገቡ (በ https:// የሚጀምር)፡');
     }
 
     session.data.productUrl = text;
-    session.state = 'AWAITING_DETAILS';
+    session.state = 'AWAITING_MARKETPLACE';
 
     return ctx.replyWithMarkdown(
-      `✅ *ሊንኩ ተመዝግቧል!*\n\nቀጣይ ደረጃ፡ እባክዎ *የእቃውን ዝርዝር መረጃ* ይጻፉልን፡\n\n🔹 *መጠን / ሳይዝ (Size)* (ምሳሌ: M, L, 42)\n🔹 *ቀለም (Color)*\n🔹 *ብዛት / ቁጥር (Quantity)*\n\nእባክዎ ዝርዝሩን ጽፈው ይላኩ 👇`,
-      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+      `✅ *ሊንኩ ተመዝግቧል!*\n\n🏬 *ደረጃ 1.5፡ እቃው የተመረጠበትን ድረ-ገጽ (Marketplace) ይምረጡ፡*`,
+      getMarketplaceSelectionInlineKeyboard()
     );
   }
 
-  // B.4. Awaiting Product Details
+  // Awaiting Product Details
   if (session.state === 'AWAITING_DETAILS') {
     session.data.details = text;
     session.state = 'AWAITING_PHONE';
@@ -937,7 +966,7 @@ bot.on('text', async (ctx, next) => {
     );
   }
 
-  // B.5. Awaiting Phone Number
+  // Awaiting Phone Number
   if (session.state === 'AWAITING_PHONE') {
     if (!isValidEthiopianPhone(text)) {
       return ctx.replyWithMarkdown(
@@ -949,7 +978,7 @@ bot.on('text', async (ctx, next) => {
     return finalizeQuoteRequest(ctx, session.data, cleanPhone);
   }
 
-  // B.6. Awaiting Tracking Code or Phone
+  // Awaiting Tracking Code or Phone
   if (session.state === 'AWAITING_TRACKING_INPUT') {
     clearSession(userId);
     try {
@@ -984,7 +1013,7 @@ bot.on('text', async (ctx, next) => {
         await ctx.replyWithMarkdown(msg);
       }
       return ctx.reply('ዋና ሜኑ፡', getMainMenuKeyboard());
-    } catch (err) {
+    } catch {
       return ctx.reply('ስህተት ተከስቷል። እባክዎ ትንሽ ቆይተው ይሞክሩ።', getMainMenuKeyboard());
     }
   }
@@ -1011,6 +1040,7 @@ async function finalizeQuoteRequest(ctx, data, phone) {
   const userId = ctx.from.id;
   const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
   const quoteCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
+  const marketplace = data.marketplace || 'SHEIN';
 
   // Store mapping for two-way worker replies
   ticketCustomerMap.set(quoteCode, userId);
@@ -1032,7 +1062,7 @@ async function finalizeQuoteRequest(ctx, data, phone) {
       sourceType: data.sourceType,
       productUrl: data.productUrl,
       screenshotUrl: data.photoFileId,
-      details: data.details,
+      details: `[${marketplace.toUpperCase()}] ${data.details || ''}`,
     });
   } catch (dbErr) {
     console.warn(`[DB Offline] Quote ${quoteCode} saved without DB:`, dbErr.message);
@@ -1040,17 +1070,18 @@ async function finalizeQuoteRequest(ctx, data, phone) {
 
   clearSession(userId);
 
-  // 2. Customer Confirmation (Spec Section 1 & 3.3: 40% Deposit / 60% COD)
+  // 2. Customer Confirmation
   const confirmationText = `
 🎉 *ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!*
 ━━━━━━━━━━━━━━━━━━━━
 🏷️ *የጥያቄ ኮድ:* \`${quoteCode}\`
+🏬 *ድረ-ገጽ (Marketplace):* \`${marketplace.toUpperCase()}\`
 📱 *ስልክ ቁጥር:* \`${phone}\`
 🛍️ *ዓይነት:* ${data.sourceType === 'link' ? 'የእቃ ሊንክ' : 'ስክሪንሾት / ፎቶ'}
 📝 *ዝርዝር:* ${data.details || 'ያልተገለጸ'}
 ━━━━━━━━━━━━━━━━━━━━
 
-👨💼 *ቀጣይ ሂደት፡*
+👨‍💼 *ቀጣይ ሂደት፡*
 1. የኮርቻ ሰራተኛ እቃውን ገምግሞ አጠቃላይ ዋጋ በብር ያሰላል።
 2. የዋጋ ዝርዝሩ በቴሌግራም እዚሁ ቦት ላይ ወይም በስልክዎ ይላክልዎታል።
 3. ${ADVANCE_PERCENT}% ቅድመ ክፍያ በቴሌብር ከፍለው ትዕዛዝዎ ይረጋገጣል! (ቀሪው ${COD_PERCENT}% ሲረከቡ)
@@ -1067,13 +1098,14 @@ async function finalizeQuoteRequest(ctx, data, phone) {
   );
   await ctx.reply('ዋና ሜኑ፡', getMainMenuKeyboard());
 
-  // 3. Dispatch Notification to Worker in HTML Format (Spec 3.3: prevents Markdown URL underscore errors)
+  // 3. Dispatch Notification to Worker in HTML Format
   const notifyTarget = WORKER_CHAT_ID;
   if (notifyTarget) {
     const workerNotification = `
 🔔 <b>አዲስ የእቃ ዋጋ ጥያቄ ደርሷል!</b>
 ━━━━━━━━━━━━━━━━━━━━
 🏷️ <b>Quote Code:</b> <code>${quoteCode}</code>
+🏬 <b>Marketplace:</b> <code>${marketplace.toUpperCase()}</code>
 👤 <b>ደንበኛ:</b> ${username} (ID: <code>${userId}</code>)
 📱 <b>ስልክ:</b> <code>${phone}</code>
 📌 <b>ዓይነት:</b> ${data.sourceType.toUpperCase()}
@@ -1138,7 +1170,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// GET /api/shelf: Return categorized catalog with empty states
+// GET /api/shelf
 app.get('/api/shelf', async (req, res) => {
   if (shelfItems.length === 0) {
     await syncShelfFromDB();
@@ -1169,7 +1201,7 @@ app.get('/api/shelf', async (req, res) => {
   });
 });
 
-// POST /api/shelf/add: Add new on-hand product to shelf via API
+// POST /api/shelf/add
 app.post('/api/shelf/add', async (req, res) => {
   const { titleAm, titleEn, category, priceEtb, size, image, stockQuantity, description } = req.body;
   if (!titleAm || !priceEtb) {
@@ -1204,7 +1236,7 @@ app.post('/api/shelf/add', async (req, res) => {
   res.json({ success: true, item: newItem });
 });
 
-// PATCH /api/shelf/:id: Edit shelf product via API (Step 2 Implementation)
+// PATCH /api/shelf/:id
 app.patch('/api/shelf/:id', async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
@@ -1227,7 +1259,7 @@ app.patch('/api/shelf/:id', async (req, res) => {
   res.json({ success: true, item: shelfItems[itemIndex] });
 });
 
-// DELETE /api/shelf/:id: Remove item from shelf
+// DELETE /api/shelf/:id
 app.delete('/api/shelf/:id', async (req, res) => {
   const { id } = req.params;
   const initialCount = shelfItems.length;
@@ -1264,11 +1296,12 @@ app.get('/api/test-notify', async (req, res) => {
   }
 });
 
-// POST /api/quotes (from TMA with scraped Telegram username)
+// POST /api/quotes
 app.post('/api/quotes', upload.single('screenshot'), async (req, res) => {
   try {
     const {
       sourceType,
+      marketplace,
       productUrl,
       size,
       color,
@@ -1286,7 +1319,8 @@ app.post('/api/quotes', upload.single('screenshot'), async (req, res) => {
     }
 
     const cleanPhone = normalizePhone(phone);
-    const combinedDetails = `መጠን: ${size || 'N/A'} | ቀለም: ${color || 'N/A'} | ብዛት: ${quantity || '1'} | ማስታወሻ: ${details || 'N/A'}`;
+    const mkt = (marketplace || 'SHEIN').toUpperCase();
+    const combinedDetails = `[ገበያ: ${mkt}] | መጠን: ${size || 'N/A'} | ቀለም: ${color || 'N/A'} | ብዛት: ${quantity || '1'} | ማስታወሻ: ${details || 'N/A'}`;
     const quoteCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
 
     if (telegramId) {
@@ -1320,6 +1354,7 @@ app.post('/api/quotes', upload.single('screenshot'), async (req, res) => {
 🔔 <b>አዲስ ጥያቄ ከ Mini App ደርሷል!</b>
 ━━━━━━━━━━━━━━━━━━━━
 🏷️ <b>Quote:</b> <code>${quoteCode}</code>
+🏬 <b>Marketplace:</b> <code>${mkt}</code>
 👤 <b>ደንበኛ:</b> ${userDisplay}
 📱 <b>ስልክ:</b> <code>${cleanPhone}</code>
 📝 <b>ዝርዝር:</b> ${combinedDetails}
@@ -1383,7 +1418,7 @@ async function start() {
   try {
     await runMigrations();
     await syncShelfFromDB();
-  } catch (dbErr) {
+  } catch {
     console.warn('[DB Warning] Migrations deferred (running in fail-safe mode).');
   }
 
@@ -1392,7 +1427,6 @@ async function start() {
   });
 
   if (bot && BOT_TOKEN && BOT_TOKEN.length > 20) {
-    // Delete any stale webhook to avoid 409 Conflict during long polling
     try {
       await bot.telegram.deleteWebhook({ drop_pending_updates: false });
     } catch (e) {
