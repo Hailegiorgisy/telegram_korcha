@@ -1,0 +1,32 @@
+{
+  "name": "korcha-web",
+  "version": "2.0.0",
+  "description": "Korcha (ኮርቻ) - Ethiopia Cross-Border E-Commerce Web Platform (Shein, Temu, AliExpress)",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node backend/server.js",
+    "server": "node backend/server.js",
+    "client": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.11.5"
+  },
+  "keywords": [
+    "shein",
+    "temu",
+    "aliexpress",
+    "ethiopia",
+    "telebirr",
+    "ecommerce",
+    "korcha"
+  ],
+  "author": "Korcha Team",
+  "license": "ISC"
+}
