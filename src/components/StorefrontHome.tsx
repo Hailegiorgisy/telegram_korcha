@@ -1,4 +1,4 @@
-// src/components/StorefrontHome.tsx: Customer Storefront with 6 Shelf Categories, Buy Flow & Empty State
+// src/components/StorefrontHome.tsx: Customer Storefront with 6 Categories, Best Sellers Carousel & Buy Flow
 import React, { useState, useEffect } from 'react';
 import {
   Link as LinkIcon,
@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   PackageOpen,
   Send,
+  Flame,
 } from 'lucide-react';
 import { CATEGORIES } from '../data/categories';
 
@@ -34,6 +35,75 @@ interface StorefrontHomeProps {
   selectedCategory: string;
   onSelectCategory: (id: string) => void;
 }
+
+// Fallback curated popular items for "በብዛት የተሸጡ" if shelf is freshly seeded
+const DEFAULT_TRENDING_ITEMS: ShelfProduct[] = [
+  {
+    id: 'trending-1',
+    titleAm: 'AirPods Pro 2 (Wireless)',
+    titleEn: 'AirPods Pro 2',
+    category: 'electronics',
+    priceEtb: 3500,
+    size: 'Standard',
+    description: 'ከፍተኛ የድምፅ ጥራት ያለው ገመድ አልባ የጆሮ ማዳመጫ',
+    image: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=400&auto=format&fit=crop&q=80',
+    stockQuantity: 5,
+    inStock: true,
+    badge: 'በብዛት የተሸጠ',
+  },
+  {
+    id: 'trending-2',
+    titleAm: 'የሴቶች ክረምት ጃኬት (Puffer)',
+    titleEn: 'Women Puffer Jacket',
+    category: 'womens',
+    priceEtb: 2800,
+    size: 'M, L',
+    description: 'ለብርድ የሚሆን ውብና ምቹ ጃኬት',
+    image: 'https://images.unsplash.com/photo-1544441893-675973e31985?w=400&auto=format&fit=crop&q=80',
+    stockQuantity: 3,
+    inStock: true,
+    badge: 'በብዛት የተሸጠ',
+  },
+  {
+    id: 'trending-3',
+    titleAm: 'CeraVe Moisturizing Cream',
+    titleEn: 'CeraVe Cream',
+    category: 'beauty',
+    priceEtb: 1950,
+    size: '453g',
+    description: 'የቆዳ ድርቀትን የሚከላከል ኦርጅናል ክሬም',
+    image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=400&auto=format&fit=crop&q=80',
+    stockQuantity: 4,
+    inStock: true,
+    badge: 'በብዛት የተሸጠ',
+  },
+  {
+    id: 'trending-4',
+    titleAm: 'የህጻናት ጫማ (LED Sneaker)',
+    titleEn: 'Kids Light Sneakers',
+    category: 'kids',
+    priceEtb: 1600,
+    size: '28, 30',
+    description: 'መብራት ያለው የህጻናት ስኒከር ጫማ',
+    image: 'https://images.unsplash.com/photo-1514989940723-e8e51635b782?w=400&auto=format&fit=crop&q=80',
+    stockQuantity: 6,
+    inStock: true,
+    badge: 'በብዛት የተሸጠ',
+  },
+  {
+    id: 'trending-5',
+    titleAm: 'Smart Watch Series 8',
+    titleEn: 'Smart Watch 8',
+    category: 'electronics',
+    priceEtb: 3200,
+    size: '45mm',
+    description: 'የልብ ምትና የስልክ ጥሪ የሚቀበል ስማርት ሰዓት',
+    image: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=400&auto=format&fit=crop&q=80',
+    stockQuantity: 4,
+    inStock: true,
+    badge: 'በብዛት የተሸጠ',
+  },
+];
 
 export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   onOpenQuoteModal,
@@ -84,6 +154,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   });
 
   const activeCategoryObj = CATEGORIES.find((c) => c.id === selectedCategory);
+
+  // Best Sellers (Step 3): Use active shelf items if available, or curated trending gallery
+  const bestSellersList: ShelfProduct[] =
+    shelfItems.length > 0 ? shelfItems.slice(0, 8) : DEFAULT_TRENDING_ITEMS;
 
   // Helper: Open Telegram chat with pre-filled Buy message to worker
   const handleBuyProduct = (product: ShelfProduct) => {
@@ -166,7 +240,64 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </div>
 
-      {/* 6 Category Filter Grid with Smaller/Compact Features */}
+      {/* Step 3: በብዛት የተሸጡ (Best Sellers Collection Gallery at Top of Shelf) */}
+      <div className="space-y-2 pt-1">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center space-x-1.5">
+            <Flame className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-900">
+              በብዛት የተሸጡ (Best Sellers)
+            </h3>
+          </div>
+          <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+            ተወዳጅ እቃዎች
+          </span>
+        </div>
+
+        {/* Horizontal Carousel of Best Selling Items */}
+        <div className="flex space-x-2.5 overflow-x-auto pb-2 pt-1 no-scrollbar scroll-smooth">
+          {bestSellersList.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => handleBuyProduct(item)}
+              className="w-28 shrink-0 bg-white rounded-2xl border border-stone-200/80 p-2 shadow-2xs hover:shadow-md transition-all cursor-pointer flex flex-col justify-between active:scale-95 group"
+            >
+              <div className="relative aspect-square rounded-xl overflow-hidden bg-stone-100 mb-1.5">
+                <img
+                  src={item.image}
+                  alt={item.titleAm}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  loading="lazy"
+                />
+                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-amber-500 text-stone-950 font-black text-[8px] shadow-xs">
+                  HOT
+                </span>
+                {item.size && (
+                  <span className="absolute bottom-1 right-1 px-1 py-0.2 rounded bg-stone-900/80 text-white font-medium text-[7.5px] backdrop-blur-xs">
+                    {item.size}
+                  </span>
+                )}
+              </div>
+
+              <div>
+                <p className="font-bold text-[10.5px] text-stone-900 line-clamp-1 leading-tight group-hover:text-amber-700">
+                  {item.titleAm || item.titleEn}
+                </p>
+                <p className="text-[10px] font-extrabold text-amber-600 mt-0.5">
+                  {item.priceEtb.toLocaleString()} ETB
+                </p>
+              </div>
+
+              <div className="mt-1 pt-1 border-t border-stone-100 flex items-center justify-between text-[9px] text-stone-500">
+                <span className="text-emerald-700 font-semibold">ይግዙ</span>
+                <Send className="w-2.5 h-2.5 text-amber-600" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 6 Category Filter Grid with Compact Features */}
       <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
@@ -264,7 +395,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                       </p>
                     </div>
 
-                    {/* Step 1 Customer Buy Button -> Direct Worker Contact */}
                     <button
                       onClick={() => handleBuyProduct(product)}
                       className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-[10px] font-extrabold flex items-center space-x-1 shadow-xs active:scale-95 transition-all"
