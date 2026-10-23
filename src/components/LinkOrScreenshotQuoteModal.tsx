@@ -1,6 +1,18 @@
-// src/components/LinkOrScreenshotQuoteModal.tsx: Guided Multi-step Quote Flow
-import React, { useState } from 'react';
-import { X, Link as LinkIcon, Camera, CheckCircle2, ArrowRight, ArrowLeft, Send, AlertCircle, ShoppingBag } from 'lucide-react';
+// src/components/LinkOrScreenshotQuoteModal.tsx: Guided Multi-step Quote Flow with Telegram Username & Consent Scrape
+import React, { useState, useEffect } from 'react';
+import {
+  X,
+  Link as LinkIcon,
+  Camera,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  Send,
+  AlertCircle,
+  ShoppingBag,
+  UserCheck,
+  Edit2,
+} from 'lucide-react';
 
 interface LinkOrScreenshotQuoteModalProps {
   isOpen: boolean;
@@ -27,15 +39,37 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
   const [quantity, setQuantity] = useState('1');
   const [details, setDetails] = useState('');
 
-  // Step 3: Phone number
+  // Step 3: Phone number & Telegram Username (Step 4 Requirement with Consent Scrape)
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [telegramUsername, setTelegramUsername] = useState('');
+  const [telegramId, setTelegramId] = useState('');
+  const [telegramFirstName, setTelegramFirstName] = useState('');
+  const [hasScrapedUser, setHasScrapedUser] = useState(false);
+  const [consentGranted, setConsentGranted] = useState(true);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedQuoteCode, setSubmittedQuoteCode] = useState<string | null>(null);
 
-  const workerUsername = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
-    || 'korcha_support';
+  const workerUsername =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) ||
+    'korcha_support';
+
+  // Automatically detect Telegram WebApp user on modal open
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp) {
+      const tgUser = (window as any).Telegram.WebApp.initDataUnsafe?.user;
+      if (tgUser) {
+        if (tgUser.username) {
+          setTelegramUsername(tgUser.username.replace(/^@/, ''));
+          setHasScrapedUser(true);
+        }
+        if (tgUser.id) setTelegramId(String(tgUser.id));
+        if (tgUser.first_name) setTelegramFirstName(tgUser.first_name);
+      }
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -67,7 +101,6 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
   };
 
   const handleNextStep2 = () => {
-    // Proceed to Step 3: Phone number
     setStep(3);
   };
 
@@ -89,6 +122,12 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       formData.append('quantity', quantity);
       formData.append('details', details);
       formData.append('phone', phoneNumber);
+
+      // Pass scraped or user-confirmed username
+      const finalUsername = consentGranted && telegramUsername ? telegramUsername.replace(/^@/, '').trim() : '';
+      formData.append('telegramUsername', finalUsername);
+      formData.append('telegramId', telegramId);
+      formData.append('telegramFirstName', telegramFirstName);
 
       // Submit to backend
       const res = await fetch('/api/quotes', {
@@ -124,6 +163,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
     setDetails('');
     setPhoneNumber('');
     setSubmittedQuoteCode(null);
+    setIsEditingUsername(false);
     onClose();
   };
 
@@ -310,29 +350,87 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                   onClick={handleNextStep2}
                   className="flex-2 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all"
                 >
-                  <span>ቀጣይ፡ ስልክ ቁጥር (Next: Phone)</span>
+                  <span>ቀጣይ፡ መገናኛ መረጃ (Next: Contact)</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: Phone Number for Communication */}
+          {/* STEP 3: Phone Number & Telegram Username with Consent Scrape (Step 4 Implementation) */}
           {step === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-3.5">
               <div className="text-center py-1">
-                <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-700 mx-auto flex items-center justify-center mb-2 font-bold text-lg">
+                <div className="w-10 h-10 rounded-full bg-amber-100 text-amber-700 mx-auto flex items-center justify-center mb-1.5 font-bold text-base">
                   📱
                 </div>
-                <h4 className="font-bold text-stone-900 text-sm">የመገናኛ ስልክ ቁጥር ያስገቡ</h4>
-                <p className="text-xs text-stone-500 mt-0.5">
-                  የእቃውን ዋጋና የክፍያ ዝርዝር በአስተናጋጅ ልንልክልዎ ስልክ ያስፈልጋል
+                <h4 className="font-bold text-stone-900 text-xs">የመገናኛ መረጃዎን ያረጋግጡ</h4>
+                <p className="text-[11px] text-stone-500">
+                  የዋጋ ዝርዝርና ስሌት በቴሌግራም ወይም በስልክ ይደርስዎታል
                 </p>
               </div>
 
+              {/* Scraped Telegram Username with User Consent Card */}
+              {hasScrapedUser && !isEditingUsername ? (
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-7 h-7 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                        <UserCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-medium text-blue-800">የቴሌግራም መለያዎ፡</p>
+                        <p className="text-xs font-extrabold text-blue-950">@{telegramUsername}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingUsername(true)}
+                      className="text-[10.5px] font-semibold text-blue-700 hover:text-blue-900 flex items-center space-x-1 underline"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>ቀይር</span>
+                    </button>
+                  </div>
+
+                  {/* Explicit User Consent Checkbox */}
+                  <label className="flex items-start space-x-2 pt-1 border-t border-blue-200/60 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={consentGranted}
+                      onChange={(e) => setConsentGranted(e.target.checked)}
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-blue-300"
+                    />
+                    <span className="text-[10.5px] text-blue-900 leading-snug font-medium">
+                      በዚህ የቴሌግራም መለያ (@{telegramUsername}) የዋጋ ስሌት እንዲላክልኝ እስማማለሁ
+                    </span>
+                  </label>
+                </div>
+              ) : (
+                /* Manual Username Input if not detected or user opted to edit */
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                    የቴሌግራም መለያ ስም (Telegram @username)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={telegramUsername}
+                      onChange={(e) => setTelegramUsername(e.target.value)}
+                      placeholder="@your_username"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 text-xs font-semibold text-stone-800 outline-hidden"
+                    />
+                  </div>
+                  <p className="mt-1 text-[10px] text-stone-400">
+                    የኮርቻ ሰራተኞች በቀጥታ በቴሌግራም እንዲያነጋግሩዎት መለያዎን ያስገቡ
+                  </p>
+                </div>
+              )}
+
+              {/* Ethiopian Phone Number Input */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                  ስልክ ቁጥር (Phone Number)
+                <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                  የመገናኛ ስልክ ቁጥር (Phone Number)
                 </label>
                 <input
                   type="tel"
@@ -342,8 +440,10 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                     if (phoneError) setPhoneError('');
                   }}
                   placeholder="09**** / 07****"
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-sm font-semibold outline-hidden transition-all ${
-                    phoneError ? 'border-rose-500 focus:ring-2 focus:ring-rose-400 bg-rose-50/30' : 'border-stone-300 focus:ring-2 focus:ring-amber-500'
+                  className={`w-full px-3 py-2 rounded-xl border text-xs font-semibold outline-hidden transition-all ${
+                    phoneError
+                      ? 'border-rose-500 focus:ring-2 focus:ring-rose-400 bg-rose-50/30'
+                      : 'border-stone-300 focus:ring-2 focus:ring-amber-500'
                   }`}
                 />
                 {phoneError && (
@@ -352,8 +452,8 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                     <span>{phoneError}</span>
                   </p>
                 )}
-                <p className="mt-1.5 text-[11px] text-stone-500">
-                  ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (ምሳሌ፡ 0912345678 ወይም 0712345678)
+                <p className="mt-1 text-[10px] text-stone-400">
+                  ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (ምሳሌ፡ 0911223344 ወይም 0712345678)
                 </p>
               </div>
 
@@ -388,15 +488,20 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
               <div>
                 <h4 className="font-extrabold text-stone-900 text-base">ጥያቄዎ በተሳካ ሁኔታ ደርሷል!</h4>
                 <p className="text-xs text-stone-600 mt-1">
-                  የጥያቄ ኮድዎ፡ <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">{submittedQuoteCode}</span>
+                  የጥያቄ ኮድዎ፡{' '}
+                  <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
+                    {submittedQuoteCode}
+                  </span>
                 </p>
               </div>
 
               <div className="bg-stone-50 rounded-xl p-3.5 border border-stone-200 text-left text-xs space-y-1.5">
                 <p className="font-semibold text-stone-800">ቀጣይ ደረጃዎች፡</p>
-                <p className="text-stone-600">1. አስተናጋጃችን እቃውን ፈትሾ አጠቃላይ ዋጋ በብር ያሰላል።</p>
-                <p className="text-stone-600">2. በቴሌግራም ወይም በስልክ ({phoneNumber}) የዋጋ ዝርዝር ይደርስዎታል።</p>
-                <p className="text-stone-600">3. 40% ቅድመ ክፍያ በቴሌብር ወይም በንግድ ባንክ ከፍለው ትዕዛዝዎን ያረጋግጣሉ።</p>
+                <p className="text-stone-600">1. የኮርቻ ሰራተኛ እቃውን ፈትሾ አጠቃላይ ዋጋ በብር ያሰላል።</p>
+                <p className="text-stone-600">
+                  2. በቴሌግራም (@{telegramUsername || 'መለያዎ'}) ወይም በስልክ ({phoneNumber}) የዋጋ ዝርዝር ይደርስዎታል።
+                </p>
+                <p className="text-stone-600">3. 40% ቅድመ ክፍያ በቴሌብር ከፍለው ትዕዛዝዎን ያረጋግጣሉ።</p>
               </div>
 
               <div className="space-y-2 pt-2">
