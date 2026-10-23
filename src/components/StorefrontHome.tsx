@@ -1,4 +1,4 @@
-// src/components/StorefrontHome.tsx: Customer Storefront with Marketing Pictures, CBE Birr & Telebirr Promotion, and App Links
+// src/components/StorefrontHome.tsx: Customer Storefront with Marketing Pictures, CBE Birr & Telebirr Advertisement Banner
 import React from 'react';
 import { 
   Link as LinkIcon, 
@@ -8,11 +8,8 @@ import {
   Truck, 
   ShieldCheck, 
   Sparkles, 
-  ExternalLink, 
-  Download,
   Zap,
-  Check,
-  Percent
+  Check
 } from 'lucide-react';
 import { CATEGORIES } from '../data/categories';
 
@@ -30,33 +27,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   const workerUsername = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
     || 'korcha_support';
   const supportUrl = `https://t.me/${workerUsername}`;
-
-  const marketplaces = [
-    {
-      name: 'Shein',
-      webUrl: 'https://www.shein.com',
-      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.zzkko',
-      appStoreUrl: 'https://apps.apple.com/app/shein-online-fashion/id878577184',
-      color: 'from-black to-stone-800',
-      desc: 'አልባሳትና ፋሽን',
-    },
-    {
-      name: 'Amazon',
-      webUrl: 'https://www.amazon.com',
-      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.amazon.mShop.android.shopping',
-      appStoreUrl: 'https://apps.apple.com/app/amazon-shopping/id297606951',
-      color: 'from-orange-600 to-amber-600',
-      desc: 'የቤትና የተለያዩ እቃዎች',
-    },
-    {
-      name: 'AliExpress',
-      webUrl: 'https://www.aliexpress.com',
-      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.alibaba.aliexpresshd',
-      appStoreUrl: 'https://apps.apple.com/app/aliexpress-shopping-app/id436672029',
-      color: 'from-red-600 to-rose-600',
-      desc: 'ኤሌክትሮኒክስና መለዋወጫ',
-    },
-  ];
 
   return (
     <div className="space-y-5 pb-12 animate-fade-in max-w-md mx-auto">
@@ -100,7 +70,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-600/20 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      {/* MARKETING PROMOTION: Telebirr & CBE Birr Payment Options */}
+      {/* ADVERTISEMENT BANNER: Telebirr & CBE Birr Payment Options (Not in menu) */}
       <div className="rounded-3xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/60 p-4 space-y-3 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -108,6 +78,9 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               ETB
             </span>
             <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md inline-block mb-0.5">
+                📢 ማስታወቂያ (Payment Advertisement)
+              </span>
               <h3 className="font-extrabold text-xs text-stone-900 leading-tight">
                 በ Telebirr ወይም CBE Birr ይክፈሉ!
               </h3>
@@ -121,45 +94,31 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
           </span>
         </div>
 
-        {/* Dual Marketing Payment Cards */}
+        {/* Dual Marketing Payment Advertisement Cards */}
         <div className="grid grid-cols-2 gap-2">
-          {/* Telebirr Card */}
-          <button
-            onClick={() => onOpenQuoteModal('link', 'telebirr')}
-            className="p-3 rounded-2xl bg-white hover:bg-amber-50/50 border border-amber-200/80 shadow-2xs text-left transition-all group active:scale-98 cursor-pointer"
-          >
+          {/* Telebirr Ad Card */}
+          <div className="p-3 rounded-2xl bg-white border border-amber-200/80 shadow-2xs text-left">
             <div className="flex items-center justify-between mb-1.5">
               <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-black text-[10px]">
-                ቴሌብር
+                ቴሌብር (Telebirr)
               </span>
-              <Zap className="w-3.5 h-3.5 text-amber-600 group-hover:scale-110 transition-transform" />
+              <Zap className="w-3.5 h-3.5 text-amber-600" />
             </div>
             <p className="font-bold text-xs text-stone-900">Telebirr Instant</p>
             <p className="text-[10px] text-stone-500 mt-0.5">ቅጽበታዊ ማረጋገጫ • 40% ቅድመ ክፍያ</p>
-            <div className="mt-2 text-[10px] font-bold text-amber-700 flex items-center space-x-1">
-              <span>በቴሌብር እዘዝ</span>
-              <span className="group-hover:translate-x-0.5 transition-transform">→</span>
-            </div>
-          </button>
+          </div>
 
-          {/* CBE Birr Card */}
-          <button
-            onClick={() => onOpenQuoteModal('link', 'cbe_birr')}
-            className="p-3 rounded-2xl bg-white hover:bg-purple-50/50 border border-purple-200/80 shadow-2xs text-left transition-all group active:scale-98 cursor-pointer"
-          >
+          {/* CBE Birr Ad Card */}
+          <div className="p-3 rounded-2xl bg-white border border-purple-200/80 shadow-2xs text-left">
             <div className="flex items-center justify-between mb-1.5">
               <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 font-black text-[10px]">
-                CBE Birr
+                CBE Birr (ንግድ ባንክ)
               </span>
-              <CreditCard className="w-3.5 h-3.5 text-purple-600 group-hover:scale-110 transition-transform" />
+              <CreditCard className="w-3.5 h-3.5 text-purple-600" />
             </div>
             <p className="font-bold text-xs text-stone-900">CBE Birr / CBE</p>
             <p className="text-[10px] text-stone-500 mt-0.5">በኢትዮጵያ ንግድ ባንክ • ደህንነቱ የተጠበቀ</p>
-            <div className="mt-2 text-[10px] font-bold text-purple-700 flex items-center space-x-1">
-              <span>በ CBE እዘዝ</span>
-              <span className="group-hover:translate-x-0.5 transition-transform">→</span>
-            </div>
-          </button>
+          </div>
         </div>
 
         {/* Marketing Feature Bullets */}
@@ -176,63 +135,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             <Check className="w-3 h-3 text-emerald-600" />
             <span>ቀጥታ ደረሰኝ</span>
           </div>
-        </div>
-      </div>
-
-      {/* Global Marketplace Browsing Cards */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between px-1">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
-            ዓለም አቀፍ ገበያዎች (Global Sites & Apps)
-          </h3>
-          <span className="text-[11px] text-amber-700 font-semibold">ሊንኩን ኮፒ አድርገው ይዘዙ</span>
-        </div>
-
-        <div className="grid grid-cols-3 gap-2">
-          {marketplaces.map((m) => (
-            <div
-              key={m.name}
-              className="p-3 rounded-2xl bg-white border border-stone-200/80 shadow-2xs flex flex-col justify-between space-y-2 text-center"
-            >
-              <a
-                href={m.webUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block"
-              >
-                <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${m.color} text-white font-extrabold text-sm flex items-center justify-center mx-auto mb-1.5 shadow-xs group-hover:scale-105 transition-transform`}>
-                  {m.name[0]}
-                </div>
-                <p className="font-bold text-xs text-stone-900 group-hover:text-amber-700 flex items-center justify-center space-x-1">
-                  <span>{m.name}</span>
-                  <ExternalLink className="w-2.5 h-2.5 text-stone-400" />
-                </p>
-                <p className="text-[10px] text-stone-400 line-clamp-1">{m.desc}</p>
-              </a>
-
-              {/* Play Store & App Store Buttons */}
-              <div className="pt-1.5 border-t border-stone-100 flex items-center justify-center space-x-1 text-[9px]">
-                <a
-                  href={m.playStoreUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold border border-emerald-200/60 transition-colors"
-                  title="Google Play Store App"
-                >
-                  Play Store
-                </a>
-                <a
-                  href={m.appStoreUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-1.5 py-0.5 rounded bg-sky-50 text-sky-700 hover:bg-sky-100 font-bold border border-sky-200/60 transition-colors"
-                  title="Apple App Store App"
-                >
-                  App Store
-                </a>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 

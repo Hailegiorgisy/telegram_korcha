@@ -98,8 +98,7 @@ function clearSession(userId) {
 function getMainMenuKeyboard() {
   return Markup.keyboard([
     ['🔗 ሊንክ ያስገቡ (Insert Link)', '📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)'],
-    ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💳 የክፍያ አማራጮች (Telebirr/CBE)'],
-    ['💬 ከአስተናጋጅ ጋር አውራ (@' + WORKER_USERNAME + ')'],
+    ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከአስተናጋጅ ጋር አውራ (@' + WORKER_USERNAME + ')'],
     [Markup.button.webApp('🛍️ ሚኒ አፑን ክፈት (Open Mini App)', WEB_APP_URL)],
   ]).resize();
 }
@@ -140,7 +139,7 @@ async function finalizeQuoteRequest(ctx, data, phone) {
 🏷️ <b>የጥያቄ ኮድ:</b> <code>${escapeHtml(quoteCode)}</code>
 📱 <b>ስልክ ቁጥር:</b> <code>${escapeHtml(phone)}</code>
 🛍️ <b>ዓይነት:</b> ${data.sourceType === 'link' ? 'የእቃ ሊንክ' : 'ስክሪንሾት / ፎቶ'}
-📝 <b>ዝርዝር:</b> ${escapeHtml(data.details || 'ያልተገለጸ')}
+${data.marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(data.marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(data.details || 'ያልተገለጸ')}
 ━━━━━━━━━━━━━━━━━━━━
 
 👨‍💼 <b>ቀጣይ ሂደት፡</b>
@@ -173,7 +172,7 @@ async function finalizeQuoteRequest(ctx, data, phone) {
 👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
 📱 <b>ስልክ:</b> <code>${escapeHtml(phone)}</code>
 📌 <b>ዓይነት:</b> ${escapeHtml(data.sourceType.toUpperCase())}
-📝 <b>ዝርዝር:</b> ${escapeHtml(data.details)}
+${data.marketplace ? `🌐 <b>የተመረጠ ገበያ:</b> ${escapeHtml(data.marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(data.details)}
 🔗 <b>ሊንክ:</b> ${linkHtml}
 ━━━━━━━━━━━━━━━━━━━━
 👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
@@ -338,7 +337,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       session.data = { sourceType: 'link' };
 
       await ctx.replyWithHTML(
-        `🔗 <b>የእቃውን ሊንክ ያስገቡ፡</b>\n\n📌 <b>ምሳሌ (Placeholder):</b>\n<code>https://www.shein.com/item/12345...</code>\nወይም\n<code>https://www.Amazon.com/goods...</code>\n\nእባክዎ ሊንኩን እዚህ ይላኩልን 👇`,
+        `🔗 <b>የእቃውን ሊንክ ያስገቡ፡</b>\n\n📌 <b>ምሳሌ (Placeholder):</b>\n<code>https://www.shein.com/item/12345...</code>\nወይም\n<code>https://www.amazon.com/dp/...</code>\n\nእባክዎ ሊንኩን እዚህ ይላኩልን 👇`,
         Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
       );
     });
@@ -444,14 +443,14 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       }
     });
 
-    // Photo Message Handler
+    // Photo Message Handler: Customer sends screenshot, then chooses marketplace
     bot.on('photo', async (ctx) => {
       const session = getSession(ctx.from.id);
       const photos = ctx.message.photo;
       const highestResPhoto = photos[photos.length - 1];
       const fileId = highestResPhoto.file_id;
 
-      session.state = 'AWAITING_DETAILS';
+      session.state = 'AWAITING_MARKETPLACE';
       session.data = {
         ...session.data,
         sourceType: 'screenshot',
@@ -459,7 +458,33 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       };
 
       await ctx.replyWithHTML(
-        `✅ <b>ፎቶው ደርሶናል!</b>\n\nአሁን <b>የእቃውን ዝርዝር መረጃ</b> ይጻፉልን፡\n\n🔹 <b>መጠን / ሳይዝ (Size)</b> (ምሳሌ: M, L, 42, 100ml)\n🔹 <b>ቀለም (Color)</b> (ምሳሌ: ጥቁር, ነጭ, Black)\n🔹 <b>ብዛት / ቁጥር (Quantity)</b> (ምሳሌ: 1, 2)\n🔹 <b>ተጨማሪ ማስታወሻ</b> ካለ\n\nእባክዎ ዝርዝሩን በአንድ መልዕክት ጽፈው ይላኩ 👇`,
+        `✅ <b>ፎቶው/ስክሪንሾቱ ደርሶናል!</b>\n\n📌 <b>ይህ ስክሪንሾት ከየትኛው ገበያ የተወሰደ ነው?</b>\n(Which marketplace is this screenshot from?)`,
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback('🛍️ Shein', 'market:Shein'),
+            Markup.button.callback('📦 Amazon', 'market:Amazon')
+          ],
+          [
+            Markup.button.callback('🌐 AliExpress', 'market:AliExpress'),
+            Markup.button.callback('✨ ሌላ / Other', 'market:Other')
+          ]
+        ])
+      );
+    });
+
+    // Marketplace selection callback handler (triggers after screenshot insertion)
+    bot.action(/^market:(.+)$/, async (ctx) => {
+      try {
+        await ctx.answerCbQuery();
+      } catch (e) {}
+
+      const market = ctx.match[1];
+      const session = getSession(ctx.from.id);
+      session.data.marketplace = market;
+      session.state = 'AWAITING_DETAILS';
+
+      await ctx.replyWithHTML(
+        `✅ ገበያ ተመርጧል፡ <b>${escapeHtml(market)}</b>\n\nአሁን <b>የእቃውን ዝርዝር መረጃ</b> ይጻፉልን፡\n\n🔹 <b>መጠን / ሳይዝ (Size)</b> (ምሳሌ: M, L, 42, 100ml)\n🔹 <b>ቀለም (Color)</b> (ምሳሌ: ጥቁር, ነጭ, Black)\n🔹 <b>ብዛት / ቁጥር (Quantity)</b> (ምሳሌ: 1, 2)\n🔹 <b>ተጨማሪ ማስታወሻ</b> ካለ\n\nእባክዎ ዝርዝሩን በአንድ መልዕክት ጽፈው ይላኩ 👇`,
         Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
       );
     });
@@ -479,6 +504,16 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 
         return ctx.replyWithHTML(
           `✅ <b>ሊንኩ ደርሶናል!</b>\n\nአሁን <b>የእቃውን ዝርዝር መረጃ</b> ይጻፉልን፡\n\n🔹 <b>መጠን / ሳይዝ (Size)</b> (ምሳሌ: M, L, 42)\n🔹 <b>ቀለም (Color)</b> (ምሳሌ: ጥቁር, ነጭ)\n🔹 <b>ብዛት / ቁጥር (Quantity)</b> (ምሳሌ: 1)\n🔹 <b>ተጨማሪ ማስታወሻ</b> ካለ\n\nእባክዎ ዝርዝሩን በአንድ መልዕክት ጽፈው ይላኩ 👇`,
+          Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+        );
+      }
+
+      // Fallback: Awaiting Marketplace via Text
+      if (session.state === 'AWAITING_MARKETPLACE') {
+        session.data.marketplace = text;
+        session.state = 'AWAITING_DETAILS';
+        return ctx.replyWithHTML(
+          `✅ ገበያ ተመርጧል፡ <b>${escapeHtml(session.data.marketplace)}</b>\n\nአሁን <b>የእቃውን ዝርዝር መረጃ</b> ይጻፉልን፡\n\n🔹 <b>መጠን / ሳይዝ (Size)</b> (ምሳሌ: M, L, 42)\n🔹 <b>ቀለም (Color)</b> (ምሳሌ: ጥቁር, ነጭ)\n🔹 <b>ብዛት / ቁጥር (Quantity)</b> (ምሳሌ: 1)\n🔹 <b>ተጨማሪ ማስታወሻ</b> ካለ\n\nእባክዎ ዝርዝሩን በአንድ መልዕክት ጽፈው ይላኩ 👇`,
           Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
         );
       }
@@ -783,7 +818,7 @@ app.post('/api/quotes', quoteSubmissionLimiter, (req, res, next) => {
   });
 }, async (req, res) => {
   try {
-    const { sourceType, productUrl, size, color, quantity, details, phone, telegramId } = req.body;
+    const { sourceType, productUrl, size, color, quantity, details, phone, telegramId, marketplace } = req.body;
     const screenshotFile = req.file;
 
     if (!phone || !isValidEthiopianPhone(phone)) {
@@ -791,7 +826,7 @@ app.post('/api/quotes', quoteSubmissionLimiter, (req, res, next) => {
     }
 
     const cleanPhone = normalizePhone(phone);
-    const combinedDetails = `መጠን: ${size || 'N/A'} | ቀለም: ${color || 'N/A'} | ብዛት: ${quantity || '1'} | ማስታወሻ: ${details || 'N/A'}`;
+    const combinedDetails = `${marketplace ? `[ገበያ: ${marketplace}] ` : ''}መጠን: ${size || 'N/A'} | ቀለም: ${color || 'N/A'} | ብዛት: ${quantity || '1'} | ማስታወሻ: ${details || 'N/A'}`;
     const quoteCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
 
     await createQuote({
@@ -817,7 +852,7 @@ app.post('/api/quotes', quoteSubmissionLimiter, (req, res, next) => {
 ━━━━━━━━━━━━━━━━━━━━
 🏷️ <b>Quote:</b> <code>${escapeHtml(quoteCode)}</code>
 📱 <b>ስልክ:</b> <code>${escapeHtml(cleanPhone)}</code>
-📝 <b>ዝርዝር:</b> ${escapeHtml(combinedDetails)}
+${marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(combinedDetails)}
 🔗 <b>ሊንክ:</b> ${linkHtml}
 ━━━━━━━━━━━━━━━━━━━━
 👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>

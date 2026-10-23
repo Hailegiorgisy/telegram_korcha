@@ -1,4 +1,4 @@
-// src/components/LinkOrScreenshotQuoteModal.tsx: Guided Multi-step Quote Flow with Payment Marketing Selection
+// src/components/LinkOrScreenshotQuoteModal.tsx: Guided Multi-step Quote Flow with Post-Screenshot Marketplace Selection & Payment Marketing
 import React, { useState, useEffect } from 'react';
 import { 
   X, 
@@ -35,6 +35,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
   const [productUrl, setProductUrl] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [marketplace, setMarketplace] = useState<string>('Shein');
 
   // Step 2: Product Details (size, color, quantity, notes)
   const [size, setSize] = useState('');
@@ -117,12 +118,18 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
     try {
       const formData = new FormData();
       formData.append('sourceType', sourceType);
-      if (sourceType === 'link') formData.append('productUrl', productUrl);
-      if (screenshotFile) formData.append('screenshot', screenshotFile);
+      if (sourceType === 'link') {
+        formData.append('productUrl', productUrl);
+      }
+      if (screenshotFile) {
+        formData.append('screenshot', screenshotFile);
+        formData.append('marketplace', marketplace);
+      }
       formData.append('size', size);
       formData.append('color', color);
       formData.append('quantity', quantity);
-      formData.append('details', `${details || ''} [የተመረጠ የክፍያ መንገድ: ${paymentMethod === 'telebirr' ? 'Telebirr (ቴሌብር)' : 'CBE Birr / ንግድ ባንክ'}]`);
+      const combinedNote = `${sourceType === 'screenshot' ? `[ገበያ: ${marketplace}] ` : ''}${details || ''} [የተመረጠ የክፍያ መንገድ: ${paymentMethod === 'telebirr' ? 'Telebirr (ቴሌብር)' : 'CBE Birr / ንግድ ባንክ'}]`;
+      formData.append('details', combinedNote);
       formData.append('phone', normalizeEthiopianPhone(phoneNumber) || phoneNumber);
 
       // Submit to backend
@@ -152,6 +159,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
     setProductUrl('');
     setScreenshotFile(null);
     setScreenshotPreview(null);
+    setMarketplace('Shein');
     setSize('');
     setColor('');
     setQuantity('1');
@@ -254,6 +262,36 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                       </div>
                     )}
                   </div>
+
+                  {/* List of marketplaces appears only AFTER screenshot is inserted */}
+                  {screenshotPreview && (
+                    <div className="pt-2 space-y-1.5 animate-fade-in text-left">
+                      <label className="block text-xs font-bold text-stone-700">
+                        ስክሪንሾቱ ከየትኛው ገበያ የተወሰደ ነው? (Marketplace)
+                      </label>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[
+                          { id: 'Shein', label: 'Shein' },
+                          { id: 'Amazon', label: 'Amazon' },
+                          { id: 'AliExpress', label: 'AliExpress' },
+                          { id: 'Other', label: 'ሌላ' },
+                        ].map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => setMarketplace(m.id)}
+                            className={`py-2 px-1 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                              marketplace === m.id
+                                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                            }`}
+                          >
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -349,53 +387,61 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
           {/* STEP 3: Payment Marketing Option & Phone Number */}
           {step === 3 && (
             <div className="space-y-4">
-              {/* Payment Method Selector as Marketing Feature */}
-              <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1.5 flex items-center justify-between">
-                  <span>የሚመርጡት የክፍያ አማራጭ (Payment Option)</span>
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded-full">100% በብር</span>
+              {/* Payment Method Marketing Showcase */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-stone-700">
+                  የክፍያ መንገድ ይምረጡ (Payment Method)
                 </label>
+                
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
+                  {/* Telebirr Option */}
+                  <div
                     onClick={() => setPaymentMethod('telebirr')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-xl border-2 transition-all cursor-pointer ${
                       paymentMethod === 'telebirr'
-                        ? 'border-amber-500 bg-amber-50/80 shadow-xs ring-2 ring-amber-400/30'
-                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
+                        ? 'border-amber-500 bg-amber-50/60 shadow-xs'
+                        : 'border-stone-200 bg-white hover:border-stone-300'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-extrabold text-xs text-amber-950 flex items-center space-x-1">
-                        <Zap className="w-3.5 h-3.5 text-amber-600 inline mr-0.5" />
-                        <span>ቴሌብር</span>
-                      </span>
-                      <span className="text-[9px] font-bold text-amber-800 bg-amber-200/70 px-1 rounded">ፈጣን</span>
+                      <span className="font-extrabold text-xs text-stone-900">ቴሌብር (Telebirr)</span>
+                      <Zap className={`w-3.5 h-3.5 ${paymentMethod === 'telebirr' ? 'text-amber-600' : 'text-stone-400'}`} />
                     </div>
-                    <p className="text-[10px] text-stone-600 font-medium">40% ቅድመ ክፍያ • 0% ተጨማሪ ወጪ</p>
-                  </button>
+                    <p className="text-[10px] text-stone-500">40% ቅድመ ክፍያ</p>
+                    <div className="mt-1.5 text-[9px] font-bold text-amber-700 bg-amber-100/70 px-1.5 py-0.5 rounded-md inline-block">
+                      0% ተጨማሪ ክፍያ
+                    </div>
+                  </div>
 
-                  <button
-                    type="button"
+                  {/* CBE Birr Option */}
+                  <div
                     onClick={() => setPaymentMethod('cbe_birr')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-xl border-2 transition-all cursor-pointer ${
                       paymentMethod === 'cbe_birr'
-                        ? 'border-purple-500 bg-purple-50/80 shadow-xs ring-2 ring-purple-400/30'
-                        : 'border-stone-200 bg-stone-50 hover:bg-stone-100'
+                        ? 'border-purple-600 bg-purple-50/60 shadow-xs'
+                        : 'border-stone-200 bg-white hover:border-stone-300'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-extrabold text-xs text-purple-950 flex items-center space-x-1">
-                        <CreditCard className="w-3.5 h-3.5 text-purple-600 inline mr-0.5" />
-                        <span>CBE Birr</span>
-                      </span>
-                      <span className="text-[9px] font-bold text-purple-800 bg-purple-200/70 px-1 rounded">ባንክ</span>
+                      <span className="font-extrabold text-xs text-stone-900">CBE Birr / ንግድ ባንክ</span>
+                      <CreditCard className={`w-3.5 h-3.5 ${paymentMethod === 'cbe_birr' ? 'text-purple-600' : 'text-stone-400'}`} />
                     </div>
-                    <p className="text-[10px] text-stone-600 font-medium">በኢትዮጵያ ንግድ ባንክ • የታመነ</p>
-                  </button>
+                    <p className="text-[10px] text-stone-500">10001116390</p>
+                    <div className="mt-1.5 text-[9px] font-bold text-purple-700 bg-purple-100/70 px-1.5 py-0.5 rounded-md inline-block">
+                      በሞባይል ባንኪንግ
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-300/40 text-[10px] text-amber-900 flex items-start space-x-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p>
+                    <b>100% በብር ይክፈሉ!</b> 40% ቅድመ ክፍያ ብቻ ይከፍላሉ፣ ቀሪውን 60% እቃው አዲስ አበባ ደርሶ ሲረከቡ ይከፍላሉ።
+                  </p>
                 </div>
               </div>
 
+              {/* Phone Number Input with Ethiopian Format Check */}
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1.5">
                   የመገናኛ ስልክ ቁጥር (Phone Number)
