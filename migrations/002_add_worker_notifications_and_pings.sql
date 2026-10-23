@@ -1,4 +1,4 @@
--- 002_add_worker_notifications_and_pings.sql: Worker Notifications, Follow-up Pings & Direct Responses
+-- 002_add_worker_notifications_and_pings.sql: Worker Notifications, Follow-up Pings & Continuous Two-Way Chat Messages
 
 -- 1. Add worker tracking, response fields, and telegram IDs to orders
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_worker VARCHAR(100) DEFAULT 'korcha_support';
@@ -30,3 +30,18 @@ CREATE TABLE IF NOT EXISTS inquiry_pings (
 CREATE INDEX IF NOT EXISTS idx_inquiry_pings_code ON inquiry_pings(reference_code);
 CREATE INDEX IF NOT EXISTS idx_inquiry_pings_phone ON inquiry_pings(customer_phone);
 CREATE INDEX IF NOT EXISTS idx_inquiry_pings_created ON inquiry_pings(created_at DESC);
+
+-- 4. Continuous Two-Way Chat Thread for Orders & Quotes
+CREATE TABLE IF NOT EXISTS ticket_messages (
+    id SERIAL PRIMARY KEY,
+    ticket_code VARCHAR(50) NOT NULL,
+    sender_role VARCHAR(20) NOT NULL, -- 'customer' or 'worker'
+    sender_name VARCHAR(100),
+    sender_telegram_id BIGINT,
+    customer_phone VARCHAR(50),
+    message_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_code ON ticket_messages(ticket_code);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_created ON ticket_messages(created_at ASC);

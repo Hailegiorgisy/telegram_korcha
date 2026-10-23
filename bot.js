@@ -21,6 +21,8 @@ import {
   recordOrderLookup,
   respondToCustomerPing,
   getCustomerPings,
+  addTicketMessage,
+  getTicketMessages,
   syncFallbackToPostgres,
   startReconciliationWorker
 } from './db.js';
@@ -85,13 +87,18 @@ const userSessions = new Map();
 
 function getSession(userId) {
   if (!userSessions.has(userId)) {
-    userSessions.set(userId, { state: 'IDLE', data: {} });
+    userSessions.set(userId, { state: 'IDLE', data: {}, activeTicket: null });
   }
   return userSessions.get(userId);
 }
 
 function clearSession(userId) {
-  userSessions.set(userId, { state: 'IDLE', data: {} });
+  const existing = userSessions.get(userId);
+  userSessions.set(userId, { state: 'IDLE', data: {}, activeTicket: existing?.activeTicket || null });
+}
+
+function resetSessionCompletely(userId) {
+  userSessions.set(userId, { state: 'IDLE', data: {}, activeTicket: null });
 }
 
 // Main Reply Keyboard with Payment Marketing Button
@@ -138,6 +145,16 @@ async function finalizeQuoteRequest(ctx, data, phone) {
         screenshotUrl: safeData.photoFileId || null,
         details: safeData.details || (safeData.marketplace ? `[ገበያ: ${safeData.marketplace}]` : 'N/A'),
       });
+
+      // Record initial customer message in continuous ticket chat thread
+      await addTicketMessage({
+        ticketCode: quoteCode,
+        senderRole: 'customer',
+        senderName: username,
+        senderTelegramId: userId,
+        customerPhone: cleanPhone,
+        messageText: safeData.details || (safeData.marketplace ? `[ገበያ: ${safeData.marketplace}]` : 'የእቃ ዋጋ ጥያቄ ተመዝግቧል'),
+      });
     } catch (quoteErr) {
       console.warn('[Quote Creation Warning]', quoteErr.message);
     }
@@ -175,8 +192,18 @@ ${safeData.marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(safe
       );
     }
 
-    await ctx.reply('🏠 ወደ ዋና ገጽ ተመልሰዋል (Main Menu) — ከታች ካሉት አማራጮች ይምረጡ፡', getMainMenuKeyboard());
-    clearSession(userId);
+    // Activate continuous two-way ticket chat session for this customer
+    const userSession = getSession(userId);
+    userSession.activeTicket = quoteCode;
+    userSession.data.phone = cleanPhone;
+
+    await ctx.reply(
+      `💬 ለትኬት ${quoteCode} ተጨማሪ መልዕክት ወይም ጥያቄ ለመላክ በቀጥታ እዚህ መጻፍ ይችላሉ። ሰራተኛችን ወዲያውኑ መልስ ይሰጥዎታል። (ውይይቱን ለመጨረስ /menu ይጫኑ)፡`,
+      Markup.keyboard([
+        [`💬 ለትኬት ${quoteCode} መልስ ጻፍ`],
+        ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+      ]).resize()
+    );
 
     // 4. Notify Worker in TELEGRAM_WORKER_CHAT_ID (SAFELY ISOLATED)
     // Internal worker notifications MUST NEVER throw into the customer-facing flow
@@ -330,20 +357,37 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
           workerUsername: workerName,
         });
 
-        // 2. Direct message customer on Telegram Bot if customer telegram ID exists
+        // 2. Append worker message to ticket chat thread for continuous history
+        await addTicketMessage({
+          ticketCode: code,
+          senderRole: 'worker',
+          senderName: workerName,
+          messageText: replyMessage,
+        });
+
+        // 3. Direct message customer on Telegram Bot with active reply session
         let deliveredToTelegram = false;
         const targetTelegramId = order?.customer_telegram_id || quote?.customer_telegram_id;
 
         if (targetTelegramId) {
+          const targetSession = getSession(targetTelegramId);
+          targetSession.activeTicket = code;
+
           const directMsg = `
-📩 <b>ከኮርቻ ሰራተኛ የተሰጠ ምላሽ (Message from Support):</b>
+💬 <b>ከኮርቻ ሰራተኛ የተሰጠ መልዕክት (Support Reply):</b>
 ━━━━━━━━━━━━━━━━━━━━
-🏷️ <b>ኮድ:</b> <code>${escapeHtml(code)}</code>
-📝 <b>መልዕክት:</b> ${escapeHtml(replyMessage)}
+🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(code)}</code>
+📝 "${escapeHtml(replyMessage)}"
 ━━━━━━━━━━━━━━━━━━━━
-👉 ተጨማሪ ጥያቄ ካለዎት እዚህ መልስ መላክ ይችላሉ።
-`;
-          await bot.telegram.sendMessage(targetTelegramId, directMsg, { parse_mode: 'HTML' });
+👉 ለሰራተኛው መልስ ለመስጠት እዚህ በቀጥታ ይጻፉ። ውይይቱ ያለማቋረጥ የሚቀጥል ሲሆን ለመጨረስ /menu ይጫኑ።
+`.trim();
+          await bot.telegram.sendMessage(targetTelegramId, directMsg, {
+            parse_mode: 'HTML',
+            ...Markup.keyboard([
+              [`💬 ለትኬት ${code} መልስ ጻፍ`],
+              ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+            ]).resize()
+          });
           deliveredToTelegram = true;
         }
 
@@ -406,9 +450,56 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       );
     });
 
+    // Trigger: Resume / Continue Chat on Specific Ticket (/chat <ticketCode>)
+    bot.hears(/^\/chat\s+([A-Za-z0-9\-]+)$/, async (ctx) => {
+      const code = ctx.match[1].trim();
+      const session = getSession(ctx.from.id);
+      session.activeTicket = code;
+
+      const messages = await getTicketMessages(code);
+      let historyText = '';
+      if (messages.length > 0) {
+        historyText = '\n\n📜 <b>የቀደሙ መልዕክቶች (Recent Chat):</b>\n' + messages.slice(-3).map(m => 
+          `${m.sender_role === 'worker' ? '👨‍💼 ሰራተኛ' : '👤 እርስዎ'}: "${escapeHtml(m.message_text)}"`
+        ).join('\n');
+      }
+
+      await ctx.replyWithHTML(
+        `💬 ከሰራተኛ ጋር በትኬት <code>${escapeHtml(code)}</code> የቀጥታ ውይይት ተጀምሯል!${historyText}\n\nመልዕክትዎን እዚህ ይጻፉልን 👇`,
+        Markup.keyboard([
+          [`💬 ለትኬት ${code} መልስ ጻፍ`],
+          ['🏠 ወደ ዋና ገጽ (Main Menu)']
+        ]).resize()
+      );
+    });
+
+    // Action: Chat on this ticket button from tracking card
+    bot.action(/^chat_ticket:(.+)$/, async (ctx) => {
+      await ctx.answerCbQuery();
+      const code = ctx.match[1];
+      const session = getSession(ctx.from.id);
+      session.activeTicket = code;
+
+      const messages = await getTicketMessages(code);
+      let historyText = '';
+      if (messages.length > 0) {
+        historyText = '\n\n📜 <b>የቀደሙ መልዕክቶች (Recent Chat):</b>\n' + messages.slice(-3).map(m => 
+          `${m.sender_role === 'worker' ? '👨‍💼 ሰራተኛ' : '👤 እርስዎ'}: "${escapeHtml(m.message_text)}"`
+        ).join('\n');
+      }
+
+      await ctx.replyWithHTML(
+        `💬 ከሰራተኛ ጋር በትኬት <code>${escapeHtml(code)}</code> የቀጥታ ውይይት ተጀምሯል!${historyText}\n\nመልዕክትዎን እዚህ ይጻፉልን 👇`,
+        Markup.keyboard([
+          [`💬 ለትኬት ${code} መልስ ጻፍ`],
+          ['🏠 ወደ ዋና ገጽ (Main Menu)']
+        ]).resize()
+      );
+    });
+
     // Trigger: 🏠 ወደ ዋና ሜኑ / ዋና ገጽ (Point 6)
     bot.hears(['ወደ ዋና ሜኑ', 'ዋና ሜኑ', 'ዋና ገጽ', '/menu', 'menu', 'home', 'Home'], async (ctx) => {
-      clearSession(ctx.from.id);
+      resetSessionCompletely(ctx.from.id);
       await ctx.reply('🏠 ወደ ዋና ገጽ ተመልሰዋል (Main Menu) — ከታች ካሉት አማራጮች ይምረጡ፡', getMainMenuKeyboard());
     });
 
@@ -523,6 +614,74 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     bot.on('text', async (ctx, next) => {
       const text = ctx.message.text.trim();
       const session = getSession(ctx.from.id);
+
+      // CONTINUOUS TWO-WAY TICKET CHAT: Route message directly to worker if customer is in an active ticket
+      if (session.activeTicket && session.state === 'IDLE') {
+        // Exit ticket chat on menu or cancel commands
+        if (text === '🏠 ወደ ዋና ገጽ (Main Menu)' || text === 'ወደ ዋና ሜኑ' || text === 'ዋና ሜኑ' || text === 'ዋና ገጽ' || text === '/menu' || text === 'menu' || text === '❌ ሰርዝ (Cancel)' || text === '/cancel') {
+          const exitingCode = session.activeTicket;
+          resetSessionCompletely(ctx.from.id);
+          return ctx.reply(`✅ ከትኬት ${exitingCode} ውይይት ወጥተዋል። ወደ ዋና ገጽ ተመልሰዋል።`, getMainMenuKeyboard());
+        }
+
+        // Quick reply prompt button pressed
+        if (text.startsWith('💬 ለትኬት')) {
+          return ctx.replyWithHTML(
+            `✍️ እባክዎ ለትኬት <code>${escapeHtml(session.activeTicket)}</code> የሚልኩትን መልዕክት ጽፈው ይላኩልን 👇`
+          );
+        }
+
+        // Only handle as ticket message if not submitting a new link or tracking
+        if (!text.startsWith('http://') && !text.startsWith('https://') && text !== '🔗 ሊንክ ያስገቡ (Insert Link)' && text !== '📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)' && text !== '📦 የትዕዛዝ ሁኔታ መከታተያ') {
+          const ticketCode = session.activeTicket;
+          const custPhone = session.data?.phone || null;
+
+          // 1. Record customer message in continuous ticket thread
+          await addTicketMessage({
+            ticketCode,
+            senderRole: 'customer',
+            senderName: username,
+            senderTelegramId: userId,
+            customerPhone: custPhone,
+            messageText: text,
+          });
+
+          // 2. Acknowledge receipt to customer
+          await ctx.replyWithHTML(
+            `✅ <b>መልዕክትዎ ለትኬት <code>${escapeHtml(ticketCode)}</code> ለሰራተኛ ተልኳል!</b>\n\n📝 "${escapeHtml(text)}"\n\n👉 ሰራተኛችን በአጭር ጊዜ ውስጥ መልስ ይሰጥዎታል። መልዕክት መጻፍዎን መቀጠል ይችላሉ (ውይይቱን ለመጨረስ /menu ይጫኑ)።`,
+            Markup.keyboard([
+              [`💬 ለትኬት ${ticketCode} መልስ ጻፍ`],
+              ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+            ]).resize()
+          );
+
+          // 3. Dispatch alert to worker chat with direct /reply command
+          if (WORKER_CHAT_ID && bot) {
+            const workerTicketAlert = `
+💬 <b>አዲስ የደንበኛ መልዕክት ለትኬት (Customer Ticket Reply)!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(ticketCode)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
+📝 <b>መልዕክት:</b> "${escapeHtml(text)}"
+⏰ <b>ሰዓት:</b> <code>${new Date().toLocaleTimeString()}</code>
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ለደንበኛው በቀጥታ መልስ ለመስጠት፡</b>
+<code>/reply ${ticketCode} <የእርስዎ ምላሽ እዚህ ይጻፉ></code>
+`.trim();
+
+            const buttons = [];
+            if (ctx.from?.username) {
+              buttons.push([Markup.button.url('💬 የደንበኛ ቴሌግራም', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)]);
+            }
+
+            await bot.telegram.sendMessage(WORKER_CHAT_ID, workerTicketAlert, {
+              parse_mode: 'HTML',
+              ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
+            }).catch(() => {});
+          }
+          return;
+        }
+      }
 
       // Check if text is a direct URL
       if (session.state === 'IDLE' && (text.startsWith('http://') || text.startsWith('https://'))) {
@@ -684,6 +843,7 @@ ${workerNoteDisplay}━━━━━━━━━━━━━━━━━━━━
             await ctx.replyWithHTML(
               msg,
               Markup.inlineKeyboard([
+                [Markup.button.callback('💬 ከሰራተኛ ጋር በዚህ ትኬት አውራ (Chat on Ticket)', `chat_ticket:${ord.order_code}`)],
                 [Markup.button.callback('🔔 ሁኔታ እንዲጣራልኝ እፈልጋለሁ (Ping Support)', `ping_order:${ord.order_code}`)],
                 [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)]
               ])
@@ -1062,6 +1222,77 @@ app.post('/api/orders/:code/ping', customerPingLimiter, async (req, res) => {
   }
 });
 
+// GET /api/orders/:code/messages: Fetch full continuous chat thread for this ticket
+app.get('/api/orders/:code/messages', async (req, res) => {
+  try {
+    const code = req.params.code;
+    const messages = await getTicketMessages(code);
+    res.json({ success: true, messages });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/orders/:code/messages: Send customer message from TMA
+app.post('/api/orders/:code/messages', async (req, res) => {
+  try {
+    const code = req.params.code;
+    const { messageText, senderName, telegramId, phone } = req.body;
+
+    if (!messageText || !messageText.trim()) {
+      return res.status(400).json({ success: false, error: 'Message text is required' });
+    }
+
+    const order = await getOrderByCode(code);
+    const quote = await getQuoteByCode(code);
+    const cleanPhone = normalizePhone(phone || order?.customer_phone || quote?.customer_phone || null);
+
+    // 1. Save customer message to ticket chat thread
+    const savedMsg = await addTicketMessage({
+      ticketCode: code,
+      senderRole: 'customer',
+      senderName: senderName || 'Customer',
+      senderTelegramId: telegramId || order?.customer_telegram_id || quote?.customer_telegram_id || null,
+      customerPhone: cleanPhone,
+      messageText: messageText.trim(),
+    });
+
+    // 2. Also record in inquiry_pings for history audit
+    await recordCustomerPing({
+      referenceCode: code,
+      customerPhone: cleanPhone || 'TMA User',
+      customerName: senderName || null,
+      customerTelegramId: telegramId || null,
+      pingType: 'direct_chat',
+      customerNote: messageText.trim(),
+      assignedWorker: order?.assigned_worker || WORKER_USERNAME,
+    });
+
+    // 3. Notify worker in TELEGRAM_WORKER_CHAT_ID with direct /reply command
+    if (WORKER_CHAT_ID && bot) {
+      const workerAlert = `
+💬 <b>አዲስ የደንበኛ መልዕክት ከ Mini App (TMA Chat)!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(senderName || 'Customer')}
+📱 <b>ስልክ:</b> <code>${escapeHtml(cleanPhone || 'N/A')}</code>
+📝 <b>መልዕክት:</b> "${escapeHtml(messageText.trim())}"
+⏰ <b>ሰዓት:</b> <code>${new Date().toLocaleTimeString()}</code>
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ለደንበኛው በቀጥታ መልስ ለመስጠት፡</b>
+<code>/reply ${code} <የእርስዎ ምላሽ እዚህ ይጻፉ></code>
+`.trim();
+
+      await bot.telegram.sendMessage(WORKER_CHAT_ID, workerAlert, { parse_mode: 'HTML' }).catch(() => {});
+    }
+
+    res.json({ success: true, message: savedMsg });
+  } catch (err) {
+    console.error('[TMA Ticket Message Error]', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /api/orders/:code/respond: Worker responds to customer inquiry or updates status with response note
 // Direct push to customer on Telegram Bot + Mini App visibility
 app.post('/api/orders/:code/respond', async (req, res) => {
@@ -1075,6 +1306,14 @@ app.post('/api/orders/:code/respond', async (req, res) => {
 
     const order = await getOrderByCode(code);
     const quote = await getQuoteByCode(code);
+
+    // Save worker response to ticket chat thread
+    await addTicketMessage({
+      ticketCode: code,
+      senderRole: 'worker',
+      senderName: workerUsername || WORKER_USERNAME,
+      messageText: responseText,
+    });
 
     const result = await respondToCustomerPing({
       referenceCode: code,

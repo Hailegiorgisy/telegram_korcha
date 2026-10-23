@@ -37,6 +37,7 @@ export function App() {
   const [pingSuccess, setPingSuccess] = useState<Record<string, boolean>>({});
   const [replyInput, setReplyInput] = useState<Record<string, string>>({});
   const [isSendingReply, setIsSendingReply] = useState<Record<string, boolean>>({});
+  const [ticketChatMessages, setTicketChatMessages] = useState<Record<string, any[]>>({});
 
   const workerUsername = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
     || 'korcha_support';
@@ -62,6 +63,7 @@ export function App() {
         const data = await res.json();
         if (data.success && data.orders) {
           setUserOrders(data.orders);
+          fetchMessagesForOrders(data.orders);
         }
       } catch (_) {
         // silent background poll
@@ -80,6 +82,23 @@ export function App() {
     setIsQuoteModalOpen(true);
   };
 
+  const fetchMessagesForOrders = async (orders: any[]) => {
+    if (!orders || orders.length === 0) return;
+    const newMessages: Record<string, any[]> = {};
+    await Promise.all(
+      orders.map(async (ord) => {
+        try {
+          const res = await fetch(`/api/orders/${encodeURIComponent(ord.order_code)}/messages`);
+          const data = await res.json();
+          if (data.success && data.messages) {
+            newMessages[ord.order_code] = data.messages;
+          }
+        } catch (_) {}
+      })
+    );
+    setTicketChatMessages(prev => ({ ...prev, ...newMessages }));
+  };
+
   const handleSearchOrders = async (silent = false) => {
     if (!searchPhone && !searchCode) {
       alert('እባክዎ ስልክ ቁጥር ወይም የትዕዛዝ ኮድ ያስገቡ');
@@ -93,6 +112,7 @@ export function App() {
       const data = await res.json();
       if (data.success && data.orders) {
         setUserOrders(data.orders);
+        fetchMessagesForOrders(data.orders);
       } else {
         setUserOrders([]);
       }
@@ -108,29 +128,43 @@ export function App() {
     if (!messageText) return;
 
     setIsSendingReply(prev => ({ ...prev, [orderCode]: true }));
+    const tmaUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+
+    // Optimistic UI append for instant response feel
+    const optimisticMsg = {
+      id: Date.now(),
+      ticket_code: orderCode,
+      sender_role: 'customer',
+      sender_name: tmaUser?.first_name || 'እርስዎ',
+      message_text: messageText,
+      created_at: new Date().toISOString(),
+    };
+    setTicketChatMessages(prev => ({
+      ...prev,
+      [orderCode]: [...(prev[orderCode] || []), optimisticMsg],
+    }));
+    setReplyInput(prev => ({ ...prev, [orderCode]: '' }));
+
     try {
-      const res = await fetch(`/api/orders/${encodeURIComponent(orderCode)}/ping`, {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderCode)}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          messageText,
           phone: searchPhone || phone,
-          note: messageText,
+          senderName: tmaUser?.first_name || 'Customer',
+          telegramId: tmaUser?.id || null,
         }),
       });
       const data = await res.json();
       if (data.success) {
-        setReplyInput(prev => ({ ...prev, [orderCode]: '' }));
         setPingSuccess(prev => ({ ...prev, [orderCode]: true }));
         if (window.Telegram?.WebApp?.HapticFeedback) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         }
-        // Refresh orders immediately to update timeline
-        handleSearchOrders(true);
-      } else {
-        alert(data.error || 'ስህተት ተከስቷል');
       }
     } catch (err) {
-      alert('መልዕክቱን መላክ አልተቻለም። እባክዎ እንደገና ይሞክሩ።');
+      console.warn('[Ticket Message Send Warning]', err);
     } finally {
       setIsSendingReply(prev => ({ ...prev, [orderCode]: false }));
     }
@@ -277,30 +311,61 @@ export function App() {
                         </span>
                       </div>
 
-                      {/* FEATURE 1 & 3: Direct Worker Response Box */}
-                      {(ord.latest_worker_note || ord.worker_response) ? (
-                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 rounded-xl p-3 space-y-1.5 shadow-2xs">
-                          <div className="flex items-center justify-between text-[11px] font-bold text-amber-950">
-                            <span className="flex items-center space-x-1.5">
-                              <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
-                              <span>ከአስተጋጅ የተሰጠ የቀጥታ ምላሽ (Support Response):</span>
-                            </span>
-                            <span className="text-[10px] text-amber-700 bg-amber-200/60 px-1.5 py-0.2 rounded-full">ቀጥታ</span>
-                          </div>
-                          <p className="text-xs text-stone-900 font-semibold pl-5 leading-relaxed bg-white/70 p-2 rounded-lg border border-amber-100">
-                            "{ord.latest_worker_note || ord.worker_response}"
-                          </p>
+                      {/* CONTINUOUS TWO-WAY TICKET CHAT THREAD */}
+                      <div className="pt-2 border-t border-stone-100 space-y-2.5">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-stone-700">
+                          <span className="flex items-center space-x-1.5">
+                            <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                            <span>የትኬት ውይይት (Ticket #{ord.order_code} Chat)</span>
+                          </span>
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
+                            የቀጥታ ውይይት (Active)
+                          </span>
                         </div>
-                      ) : (
-                        <div className="bg-stone-50 rounded-xl p-2.5 text-[11px] text-stone-500 flex items-center space-x-1.5">
-                          <Clock className="w-3.5 h-3.5 text-stone-400" />
-                          <span>ጥያቄዎ በመገምገም ላይ ነው። ሰራተኛችን መልስ ሲጽፉ ወዲያውኑ እዚህ ይታያል።</span>
-                        </div>
-                      )}
 
-                      {/* Direct Two-Way Message Box: Send Question or Message directly from TMA */}
-                      <div className="pt-2 border-t border-stone-100 space-y-2">
-                        <div className="flex space-x-1.5">
+                        {/* Scrollable Conversation Bubble History */}
+                        <div className="space-y-2 max-h-56 overflow-y-auto p-2.5 rounded-2xl bg-stone-50 border border-stone-200/80">
+                          {(!ticketChatMessages[ord.order_code] || ticketChatMessages[ord.order_code].length === 0) ? (
+                            (ord.latest_worker_note || ord.worker_response) ? (
+                              <div className="rounded-xl p-2.5 bg-amber-100/70 border border-amber-200 text-xs text-amber-950">
+                                <p className="text-[10px] font-bold text-amber-900 mb-0.5">👨‍💼 ሰራተኛ (@{workerUsername}):</p>
+                                <p className="font-medium whitespace-pre-wrap">{ord.latest_worker_note || ord.worker_response}</p>
+                              </div>
+                            ) : (
+                              <div className="text-center py-2 text-[11px] text-stone-400">
+                                እስካሁን የተላከ መልዕክት የለም። ከሰራተኛ ጋር ለመነጋገር ከታች ይጻፉ።
+                              </div>
+                            )
+                          ) : (
+                            ticketChatMessages[ord.order_code].map((msg, idx) => (
+                              <div
+                                key={msg.id || idx}
+                                className={`flex flex-col ${
+                                  msg.sender_role === 'worker' ? 'items-start' : 'items-end'
+                                }`}
+                              >
+                                <div
+                                  className={`max-w-[88%] rounded-2xl px-3 py-2 text-xs leading-relaxed shadow-2xs ${
+                                    msg.sender_role === 'worker'
+                                      ? 'bg-amber-100/90 text-amber-950 rounded-tl-xs border border-amber-200'
+                                      : 'bg-stone-900 text-white rounded-tr-xs'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between text-[9px] mb-1 font-bold opacity-75">
+                                    <span>{msg.sender_role === 'worker' ? `👨‍💼 ሰራተኛ` : '👤 እርስዎ'}</span>
+                                    <span className="ml-2 font-normal">
+                                      {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                                    </span>
+                                  </div>
+                                  <p className="font-medium whitespace-pre-wrap">{msg.message_text}</p>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        {/* Continuous Message Input */}
+                        <div className="flex space-x-1.5 pt-0.5">
                           <input
                             type="text"
                             value={replyInput[ord.order_code] || ''}
@@ -309,14 +374,14 @@ export function App() {
                               if (e.key === 'Enter') handleSendCustomerMessage(ord.order_code, ord.customer_phone);
                             }}
                             placeholder="ለሰራተኛ መልዕክት ወይም ጥያቄ ይጻፉ..."
-                            className="flex-1 px-3 py-1.5 text-xs rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 outline-hidden"
+                            className="flex-1 px-3 py-2 text-xs rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 outline-hidden bg-white"
                           />
                           <button
                             onClick={() => handleSendCustomerMessage(ord.order_code, ord.customer_phone)}
                             disabled={isSendingReply[ord.order_code] || !(replyInput[ord.order_code] || '').trim()}
-                            className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold text-xs flex items-center space-x-1 transition-all cursor-pointer"
+                            className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold text-xs flex items-center space-x-1 shadow-xs transition-all cursor-pointer"
                           >
-                            <Send className="w-3 h-3" />
+                            <Send className="w-3.5 h-3.5" />
                             <span>{isSendingReply[ord.order_code] ? '...' : 'ላክ'}</span>
                           </button>
                         </div>

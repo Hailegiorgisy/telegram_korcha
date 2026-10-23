@@ -20,6 +20,7 @@ const inMemoryStore = {
   orders: new Map(),
   orderHistory: [],
   pings: [],
+  ticketMessages: [],
   idCounter: 1000,
 };
 
@@ -69,6 +70,30 @@ export async function runMigrations() {
         }
       }
     }
+    // 5. Sync in-memory ticket messages
+    if (inMemoryStore.ticketMessages) {
+      for (const msg of inMemoryStore.ticketMessages) {
+        if (msg.syncedToPg) continue;
+        const q = `
+          INSERT INTO ticket_messages (
+            ticket_code, sender_role, sender_name, sender_telegram_id, customer_phone, message_text, created_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT DO NOTHING;
+        `;
+        await client.query(q, [
+          msg.ticket_code,
+          msg.sender_role,
+          msg.sender_name || null,
+          msg.sender_telegram_id || null,
+          msg.customer_phone || null,
+          msg.message_text,
+          msg.created_at || new Date()
+        ]);
+        msg.syncedToPg = true;
+      }
+    }
+
     await client.query('COMMIT');
     isPostgresAvailable = true;
     hasCheckedPostgres = true;
@@ -575,7 +600,72 @@ export async function getCustomerPings(referenceCode) {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
-// 12. FALLBACK RECONCILIATION ENGINE: Syncs volatile in-memory fallback data to PostgreSQL upon reconnect
+// 12. Add Ticket Message (Continuous two-way conversation thread)
+export async function addTicketMessage({
+  ticketCode,
+  senderRole, // 'customer' or 'worker'
+  senderName = null,
+  senderTelegramId = null,
+  customerPhone = null,
+  messageText,
+}) {
+  const now = new Date().toISOString();
+  if (await checkPG()) {
+    try {
+      const q = `
+        INSERT INTO ticket_messages (
+          ticket_code, sender_role, sender_name, sender_telegram_id, customer_phone, message_text
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING *;
+      `;
+      const { rows } = await pool.query(q, [
+        ticketCode, senderRole, senderName, senderTelegramId, customerPhone, messageText
+      ]);
+      return rows[0];
+    } catch (e) {
+      console.warn('[DB Fallback] addTicketMessage fallback:', e.message);
+    }
+  }
+
+  // Fallback
+  const msgRecord = {
+    id: ++inMemoryStore.idCounter,
+    ticket_code: ticketCode,
+    sender_role: senderRole,
+    sender_name: senderName,
+    sender_telegram_id: senderTelegramId,
+    customer_phone: customerPhone,
+    message_text: messageText,
+    syncedToPg: false,
+    created_at: now,
+  };
+  if (!inMemoryStore.ticketMessages) inMemoryStore.ticketMessages = [];
+  inMemoryStore.ticketMessages.push(msgRecord);
+  return msgRecord;
+}
+
+// 13. Get Ticket Messages (Chronological conversation history)
+export async function getTicketMessages(ticketCode) {
+  if (await checkPG()) {
+    try {
+      const { rows } = await pool.query(
+        'SELECT * FROM ticket_messages WHERE ticket_code = $1 ORDER BY created_at ASC',
+        [ticketCode]
+      );
+      return rows;
+    } catch (e) {
+      console.warn('[DB Fallback] getTicketMessages fallback:', e.message);
+    }
+  }
+
+  if (!inMemoryStore.ticketMessages) inMemoryStore.ticketMessages = [];
+  return inMemoryStore.ticketMessages
+    .filter(m => m.ticket_code === ticketCode)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+}
+
+// 14. FALLBACK RECONCILIATION ENGINE: Syncs volatile in-memory fallback data to PostgreSQL upon reconnect
 export async function syncFallbackToPostgres() {
   if (isReconciling) return { status: 'in_progress' };
   isReconciling = true;
@@ -718,6 +808,30 @@ export async function syncFallbackToPostgres() {
       ]);
       ping.syncedToPg = true;
       syncedPings++;
+    }
+
+    // 5. Sync in-memory ticket messages
+    if (inMemoryStore.ticketMessages) {
+      for (const msg of inMemoryStore.ticketMessages) {
+        if (msg.syncedToPg) continue;
+        const q = `
+          INSERT INTO ticket_messages (
+            ticket_code, sender_role, sender_name, sender_telegram_id, customer_phone, message_text, created_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT DO NOTHING;
+        `;
+        await client.query(q, [
+          msg.ticket_code,
+          msg.sender_role,
+          msg.sender_name || null,
+          msg.sender_telegram_id || null,
+          msg.customer_phone || null,
+          msg.message_text,
+          msg.created_at || new Date()
+        ]);
+        msg.syncedToPg = true;
+      }
     }
 
     await client.query('COMMIT');
