@@ -47,6 +47,8 @@ const WORKER_CHAT_ID = process.env.TELEGRAM_WORKER_CHAT_ID;
 const WORKER_USERNAME = (process.env.WORKER_TELEGRAM_USERNAME || 'korcha_support').replace(/^@/, '');
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || 'https://telegram.korcha.com.et';
 const PORT = process.env.PORT || 3000;
+const TELEBIRR_PHONE = process.env.TELEBIRR_PHONE || process.env.VITE_TELEBIRR_PHONE || '+251-996237800';
+const CBE_ACCOUNT = process.env.CBE_ACCOUNT || process.env.VITE_CBE_ACCOUNT || '10001116390';
 
 // Helper: Escape HTML entities to prevent Telegram parse errors
 function escapeHtml(text) {
@@ -229,7 +231,7 @@ ${safeData.marketplace ? `🌐 <b>የተመረጠ ገበያ:</b> ${escapeHtml(sa
 🔗 <b>ሊንክ:</b> ${linkHtml}
 ━━━━━━━━━━━━━━━━━━━━
 👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
-<code>/reply ${quoteCode} ዋጋው 1,500 ብር ነው። 40% ቅድመ ክፍያ 600 ብር በቴሌብር ይክፈሉ።</code>
+<code>/reply ${quoteCode} ዋጋው 3,000 ብር ነው። 40% ቅድመ ክፍያ 1,200 ብር ነው። ከተስማሙ የዋጋው 40% በቴሌብር (${escapeHtml(TELEBIRR_PHONE)}) ወይንም በ CBE (${escapeHtml(CBE_ACCOUNT)}) ያስገቡ:: ዕቃዎት በ10-14 ቀን ይደርሳል:: (እቃው ከ Shelf ከሆነ በአንድ ቀን ውስጥ ይደርሳል)::</code>
 `.trim();
 
         // Note: Telegram inline keyboard buttons only accept http/https/tg links (never tel: or invalid links)
@@ -311,11 +313,11 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 
 ⚡ <b>የክፍያ አማራጮች፡</b>
 1️⃣ <b>ቴሌብር (Telebirr):</b>
-📱 ስልክ፡ <code>+251-996237800</code>
+📱 ስልክ፡ <code>${escapeHtml(TELEBIRR_PHONE)}</code>
 🔹 40% ቅድመ ክፍያ • ፈጣን ማረጋገጫ
 
 2️⃣ <b>የኢትዮጵያ ንግድ ባንክ (CBE / CBE Birr):</b>
-🏦 ሂሳብ ቁጥር፡ <code>10001116390</code>
+🏦 ሂሳብ ቁጥር፡ <code>${escapeHtml(CBE_ACCOUNT)}</code>
 🔹 በሞባይል ባንኪንግ ወይም በቅርንጫፍ • አስተማማኝ
 
 🛡️ <b>የኮርቻ የክፍያ ዋስትና፡</b>
@@ -1340,7 +1342,7 @@ ${marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(marketplace)}
 🔗 <b>ሊንክ:</b> ${linkHtml}
 ━━━━━━━━━━━━━━━━━━━━
 👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
-<code>/reply ${quoteCode} ዋጋው ... ብር ነው።</code>
+<code>/reply ${quoteCode} ዋጋው 3,000 ብር ነው። 40% ቅድመ ክፍያ 1,200 ብር ነው። ከተስማሙ የዋጋው 40% በቴሌብር (${escapeHtml(TELEBIRR_PHONE)}) ወይንም በ CBE (${escapeHtml(CBE_ACCOUNT)}) ያስገቡ:: ዕቃዎት በ10-14 ቀን ይደርሳል:: (እቃው ከ Shelf ከሆነ በአንድ ቀን ውስጥ ይደርሳል)::</code>
 `;
       try {
         const workerButtons = [];
