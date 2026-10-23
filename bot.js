@@ -37,7 +37,7 @@ if (!fs.existsSync(uploadsDir)) {
 // Environment Variables & Dynamic Configurations
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WORKER_CHAT_ID = process.env.TELEGRAM_WORKER_CHAT_ID;
-const WORKER_USERNAME = process.env.WORKER_TELEGRAM_USERNAME || 'korcha_support';
+const WORKER_USERNAME = (process.env.WORKER_TELEGRAM_USERNAME || 'korcha_support').replace(/^@/, '');
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || 'https://telegram.korcha.com.et';
 const PORT = process.env.PORT || 3000;
 
@@ -105,41 +105,51 @@ function getMainMenuKeyboard() {
 
 // Helper: Finalize and Save Quote Request to DB & Notify Worker
 async function finalizeQuoteRequest(ctx, data, phone) {
-  const userId = ctx.from.id;
-  const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+  const userId = ctx.from?.id;
+  const username = ctx.from?.username ? `@${ctx.from.username}` : (ctx.from?.first_name || 'Customer');
   const quoteCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
+  const cleanPhone = normalizePhone(phone);
+  const safeData = data || {};
+  const sourceType = (safeData.sourceType === 'screenshot' || safeData.photoFileId) ? 'screenshot' : 'link';
 
   try {
-    // 1. Save customer to DB
-    const customer = await upsertCustomer({
-      telegramId: userId,
-      telegramUsername: ctx.from.username,
-      firstName: ctx.from.first_name,
-      phone: phone,
-    });
+    // 1. Save customer to DB (fail-safe)
+    let customer = null;
+    try {
+      customer = await upsertCustomer({
+        telegramId: userId,
+        telegramUsername: ctx.from?.username || null,
+        firstName: ctx.from?.first_name || null,
+        phone: cleanPhone,
+      });
+    } catch (custErr) {
+      console.warn('[Customer Upsert Warning]', custErr.message);
+    }
 
-    // 2. Save quote to DB with customer telegram ID
-    await createQuote({
-      quoteCode,
-      customerId: customer ? customer.id : null,
-      customerTelegramId: userId,
-      customerPhone: phone,
-      sourceType: data.sourceType,
-      productUrl: data.productUrl,
-      screenshotUrl: data.photoFileId,
-      details: data.details,
-    });
-
-    clearSession(userId);
+    // 2. Save quote to DB with customer telegram ID (fail-safe)
+    try {
+      await createQuote({
+        quoteCode,
+        customerId: customer ? customer.id : null,
+        customerTelegramId: userId,
+        customerPhone: cleanPhone,
+        sourceType,
+        productUrl: safeData.productUrl || null,
+        screenshotUrl: safeData.photoFileId || null,
+        details: safeData.details || (safeData.marketplace ? `[ገበያ: ${safeData.marketplace}]` : 'N/A'),
+      });
+    } catch (quoteErr) {
+      console.warn('[Quote Creation Warning]', quoteErr.message);
+    }
 
     // 3. User Confirmation Message
     const confirmationText = `
 🎉 <b>ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!</b>
 ━━━━━━━━━━━━━━━━━━━━
 🏷️ <b>የጥያቄ ኮድ:</b> <code>${escapeHtml(quoteCode)}</code>
-📱 <b>ስልክ ቁጥር:</b> <code>${escapeHtml(phone)}</code>
-🛍️ <b>ዓይነት:</b> ${data.sourceType === 'link' ? 'የእቃ ሊንክ' : 'ስክሪንሾት / ፎቶ'}
-${data.marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(data.marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(data.details || 'ያልተገለጸ')}
+📱 <b>ስልክ ቁጥር:</b> <code>${escapeHtml(cleanPhone)}</code>
+🛍️ <b>ዓይነት:</b> ${sourceType === 'link' ? 'የእቃ ሊንክ' : 'ስክሪንሾት / ፎቶ'}
+${safeData.marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(safeData.marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(safeData.details || 'ያልተገለጸ')}
 ━━━━━━━━━━━━━━━━━━━━
 
 👨‍💼 <b>ቀጣይ ሂደት፡</b>
@@ -149,54 +159,75 @@ ${data.marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(data.mar
 
 👉 ጥያቄ ካለዎት በቀጥታ ከአስተናጋጅ ጋር ይገናኙ፡
 <b><a href="https://t.me/${escapeHtml(WORKER_USERNAME)}">@${escapeHtml(WORKER_USERNAME)}</a></b>
-`;
+`.trim();
 
-    await ctx.replyWithHTML(
-      confirmationText,
-      Markup.inlineKeyboard([
-        Markup.button.url(`💬 ከአስተናጋጅ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)
-      ])
-    );
+    try {
+      await ctx.replyWithHTML(
+        confirmationText,
+        Markup.inlineKeyboard([
+          Markup.button.url(`💬 ከአስተናጋጅ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)
+        ])
+      );
+    } catch (htmlErr) {
+      console.warn('[Confirmation HTML Send Warning]', htmlErr.message);
+      await ctx.reply(
+        `🎉 ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል!\n\n🏷️ የጥያቄ ኮድ: ${quoteCode}\n📱 ስልክ ቁጥር: ${cleanPhone}\n\nአስተናጋጃችን በቅርቡ ያነጋግርዎታል: @${WORKER_USERNAME}`
+      );
+    }
+
     await ctx.reply('ዋና ሜኑ፡', getMainMenuKeyboard());
+    clearSession(userId);
 
-    // 4. Notify Worker in TELEGRAM_WORKER_CHAT_ID with Action Buttons & Direct Reply Guide
+    // 4. Notify Worker in TELEGRAM_WORKER_CHAT_ID (SAFELY ISOLATED)
+    // Internal worker notifications MUST NEVER throw into the customer-facing flow
     if (WORKER_CHAT_ID && bot) {
-      const linkHtml = data.productUrl 
-        ? `<a href="${escapeHtml(data.productUrl)}">${escapeHtml(data.productUrl)}</a>` 
-        : 'N/A';
+      try {
+        const linkHtml = safeData.productUrl 
+          ? `<a href="${escapeHtml(safeData.productUrl)}">${escapeHtml(safeData.productUrl)}</a>` 
+          : 'N/A';
 
-      const workerNotification = `
+        const workerNotification = `
 🔔 <b>አዲስ የእቃ ዋጋ ጥያቄ ደርሷል!</b>
 ━━━━━━━━━━━━━━━━━━━━
 🏷️ <b>Quote Code:</b> <code>${escapeHtml(quoteCode)}</code>
 👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
-📱 <b>ስልክ:</b> <code>${escapeHtml(phone)}</code>
-📌 <b>ዓይነት:</b> ${escapeHtml(data.sourceType.toUpperCase())}
-${data.marketplace ? `🌐 <b>የተመረጠ ገበያ:</b> ${escapeHtml(data.marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(data.details)}
+📱 <b>ስልክ:</b> <code>${escapeHtml(cleanPhone)}</code>
+📌 <b>ዓይነት:</b> ${escapeHtml(sourceType.toUpperCase())}
+${safeData.marketplace ? `🌐 <b>የተመረጠ ገበያ:</b> ${escapeHtml(safeData.marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(safeData.details || 'N/A')}
 🔗 <b>ሊንክ:</b> ${linkHtml}
 ━━━━━━━━━━━━━━━━━━━━
 👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
 <code>/reply ${quoteCode} ዋጋው 1,500 ብር ነው። 40% ቅድመ ክፍያ 600 ብር በቴሌብር ይክፈሉ።</code>
-`;
-      const intlPhone = phone.startsWith('0') ? `+251${phone.slice(1)}` : phone;
-      const workerButtons = [
-        [
-          Markup.button.url('💬 በቴሌግራም መልስ (Reply)', `https://t.me/${intlPhone.replace('+', '')}`),
-          Markup.button.url('📞 ደውል (Call)', `tel:${phone}`)
-        ]
-      ];
+`.trim();
 
-      if (data.photoFileId) {
-        await bot.telegram.sendPhoto(WORKER_CHAT_ID, data.photoFileId, {
-          caption: workerNotification,
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard(workerButtons)
-        });
-      } else {
-        await bot.telegram.sendMessage(WORKER_CHAT_ID, workerNotification, {
-          parse_mode: 'HTML',
-          ...Markup.inlineKeyboard(workerButtons)
-        });
+        // Note: Telegram inline keyboard buttons only accept http/https/tg links (never tel: or invalid links)
+        const workerButtons = [];
+        if (ctx.from?.username) {
+          workerButtons.push([
+            Markup.button.url('💬 በቴሌግራም መልስ (Reply)', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)
+          ]);
+        }
+        const workerKeyboard = workerButtons.length > 0 ? Markup.inlineKeyboard(workerButtons) : undefined;
+
+        if (safeData.photoFileId) {
+          // Telegram photo caption limit is 1024 characters
+          const safeCaption = workerNotification.length > 1000 
+            ? workerNotification.substring(0, 997) + '...' 
+            : workerNotification;
+
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, safeData.photoFileId, {
+            caption: safeCaption,
+            parse_mode: 'HTML',
+            ...(workerKeyboard || {})
+          });
+        } else {
+          await bot.telegram.sendMessage(WORKER_CHAT_ID, workerNotification, {
+            parse_mode: 'HTML',
+            ...(workerKeyboard || {})
+          });
+        }
+      } catch (workerErr) {
+        console.warn('[Worker Notification Delivery Warning] Could not send to worker chat:', workerErr.message);
       }
     }
   } catch (err) {
@@ -421,21 +452,14 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 <code>/reply ${orderCode} እቃዎ አዲስ አበባ ኤርፖርት ደርሷል</code>
 `;
           const buttons = [];
-          const row = [];
           if (ctx.from.username) {
-            row.push(Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${ctx.from.username}`));
-          } else if (intlPhone) {
-            row.push(Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${intlPhone.replace('+', '')}`));
+            buttons.push([Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)]);
           }
-          if (phone) {
-            row.push(Markup.button.url('📞 ደውል', `tel:${phone}`));
-          }
-          if (row.length > 0) buttons.push(row);
 
           await bot.telegram.sendMessage(WORKER_CHAT_ID, pingAlert, {
             parse_mode: 'HTML',
             ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
-          });
+          }).catch(e => console.warn('[Ping Alert Warning]', e.message));
         }
       } catch (err) {
         console.error('[Bot Ping Order Error]', err);
@@ -592,19 +616,14 @@ ${orders.length > 0 ? `📊 <b>ሁኔታ:</b> <code>${escapeHtml(orders[0].statu
 <code>/reply ${orders.length > 0 ? orders[0].order_code : text} ሰላም፣ እቃዎ ...</code>
 `;
             const buttons = [];
-            const row = [];
             if (ctx.from.username) {
-              row.push(Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${ctx.from.username}`));
+              buttons.push([Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)]);
             }
-            if (isValidEthiopianPhone(text)) {
-              row.push(Markup.button.url('📞 ደውል', `tel:${normalizePhone(text)}`));
-            }
-            if (row.length > 0) buttons.push(row);
 
             await bot.telegram.sendMessage(WORKER_CHAT_ID, lookupAlert, {
               parse_mode: 'HTML',
               ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
-            });
+            }).catch(e => console.warn('[Lookup Alert Warning]', e.message));
           }
 
           if (orders.length === 0) {
@@ -858,25 +877,30 @@ ${marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(marketplace)}
 👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
 <code>/reply ${quoteCode} ዋጋው ... ብር ነው።</code>
 `;
-      const intlPhone = cleanPhone.startsWith('0') ? `+251${cleanPhone.slice(1)}` : cleanPhone;
-      const workerKeyboard = Markup.inlineKeyboard([
-        [
-          Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${intlPhone.replace('+', '')}`),
-          Markup.button.url('📞 ደውል', `tel:${cleanPhone}`)
-        ]
-      ]);
+      try {
+        const workerButtons = [];
+        if (req.body.telegramUsername) {
+          workerButtons.push([
+            Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${req.body.telegramUsername.replace(/^@/, '')}`)
+          ]);
+        }
+        const workerKeyboard = workerButtons.length > 0 ? Markup.inlineKeyboard(workerButtons) : undefined;
 
-      if (screenshotFile) {
-        await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: screenshotFile.path }, {
-          caption: workerMsg,
-          parse_mode: 'HTML',
-          ...workerKeyboard,
-        });
-      } else {
-        await bot.telegram.sendMessage(WORKER_CHAT_ID, workerMsg, {
-          parse_mode: 'HTML',
-          ...workerKeyboard,
-        });
+        if (screenshotFile) {
+          const safeCaption = workerMsg.length > 1000 ? workerMsg.substring(0, 997) + '...' : workerMsg;
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: screenshotFile.path }, {
+            caption: safeCaption,
+            parse_mode: 'HTML',
+            ...(workerKeyboard || {}),
+          });
+        } else {
+          await bot.telegram.sendMessage(WORKER_CHAT_ID, workerMsg, {
+            parse_mode: 'HTML',
+            ...(workerKeyboard || {}),
+          });
+        }
+      } catch (workerErr) {
+        console.warn('[API Quote Worker Notify Warning]', workerErr.message);
       }
     }
 
@@ -928,13 +952,7 @@ app.get('/api/orders/lookup', orderLookupLimiter, async (req, res) => {
 👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
 <code>/reply ${ord.order_code} ሰላም፣ እቃዎ ...</code>
 `;
-        const keyboard = Markup.inlineKeyboard([
-          [
-            Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${intlPhone.replace('+', '')}`),
-            Markup.button.url('📞 ደውል', `tel:${customerPhone}`)
-          ]
-        ]);
-        bot.telegram.sendMessage(WORKER_CHAT_ID, lookupAlert, { parse_mode: 'HTML', ...keyboard }).catch(() => {});
+        bot.telegram.sendMessage(WORKER_CHAT_ID, lookupAlert, { parse_mode: 'HTML' }).catch(() => {});
       } else {
         const lookupMissingAlert = `
 ⚠️ <b>ያልተገኘ የትዕዛዝ ፍለጋ ሙከራ (Unmatched Status Lookup)!</b>
@@ -944,13 +962,8 @@ app.get('/api/orders/lookup', orderLookupLimiter, async (req, res) => {
 ━━━━━━━━━━━━━━━━━━━━
 👉 ደንበኛው ትዕዛዝ አላገኘም፤ እርዳታ ሊያስፈልገው ይችላል።
 `;
-        const keyboard = isValidEthiopianPhone(searchTarget)
-          ? Markup.inlineKeyboard([[Markup.button.url('📞 ለደንበኛው ደውል', `tel:${normalizePhone(searchTarget)}`)]])
-          : null;
-
         bot.telegram.sendMessage(WORKER_CHAT_ID, lookupMissingAlert, {
-          parse_mode: 'HTML',
-          ...(keyboard || {})
+          parse_mode: 'HTML'
         }).catch(() => {});
       }
     }
@@ -1003,19 +1016,8 @@ app.post('/api/orders/:code/ping', customerPingLimiter, async (req, res) => {
 <code>/reply ${code} የእርስዎ ምላሽ እዚህ ይጻፉ</code>
 `;
 
-      const buttons = [];
-      const row = [];
-      if (intlPhone) {
-        row.push(Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${intlPhone.replace('+', '')}`));
-      }
-      if (cleanPhone) {
-        row.push(Markup.button.url('📞 ደውል', `tel:${cleanPhone}`));
-      }
-      if (row.length > 0) buttons.push(row);
-
       bot.telegram.sendMessage(WORKER_CHAT_ID, pingAlert, {
-        parse_mode: 'HTML',
-        ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
+        parse_mode: 'HTML'
       }).catch(() => {});
     }
 
