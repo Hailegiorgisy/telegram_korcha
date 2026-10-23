@@ -40,7 +40,7 @@ export async function runMigrations() {
       );
     `);
 
-    // Ensure shelf_products table exists (spec 3.1 & inventory extension)
+    // Ensure shelf_products table exists with size column
     await client.query(`
       CREATE TABLE IF NOT EXISTS shelf_products (
         id VARCHAR(64) PRIMARY KEY,
@@ -48,6 +48,7 @@ export async function runMigrations() {
         title_en VARCHAR(255),
         category VARCHAR(64) NOT NULL,
         price_etb NUMERIC(12, 2) NOT NULL,
+        size VARCHAR(64),
         description TEXT,
         photo_file_id VARCHAR(255),
         image_url TEXT,
@@ -260,7 +261,7 @@ export async function updateOrderStatus(orderCode, newStatus, changedBy = 'korch
 }
 
 // ----------------------------------------------------
-// ON-HAND SHELF PRODUCT PERSISTENCE (WORKER INVENTORY)
+// ON-HAND SHELF PRODUCT PERSISTENCE & EDITING (STEP 2)
 // ----------------------------------------------------
 export async function createShelfProduct({
   id,
@@ -268,6 +269,7 @@ export async function createShelfProduct({
   titleEn,
   category,
   priceEtb,
+  size,
   description,
   photoFileId,
   image,
@@ -279,13 +281,14 @@ export async function createShelfProduct({
 }) {
   const query = `
     INSERT INTO shelf_products (
-      id, title_am, title_en, category, price_etb, description,
+      id, title_am, title_en, category, price_etb, size, description,
       photo_file_id, image_url, stock_quantity, in_stock, badge, delivery_time, added_by
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT (id) DO UPDATE SET
       title_am = EXCLUDED.title_am,
       price_etb = EXCLUDED.price_etb,
+      size = EXCLUDED.size,
       description = EXCLUDED.description,
       stock_quantity = EXCLUDED.stock_quantity,
       in_stock = EXCLUDED.in_stock
@@ -297,6 +300,7 @@ export async function createShelfProduct({
     titleEn || titleAm,
     category,
     priceEtb,
+    size || null,
     description || null,
     photoFileId || null,
     image || null,
@@ -325,6 +329,7 @@ export async function getShelfProducts(category = null) {
     titleEn: r.title_en,
     category: r.category,
     priceEtb: parseFloat(r.price_etb),
+    size: r.size || null,
     description: r.description,
     photoFileId: r.photo_file_id,
     image: r.image_url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=80',
@@ -335,6 +340,47 @@ export async function getShelfProducts(category = null) {
     addedBy: r.added_by,
     createdAt: r.created_at,
   }));
+}
+
+// Step 2: Update existing shelf item fields
+export async function updateShelfProduct(id, fields = {}) {
+  const allowed = [
+    'title_am',
+    'title_en',
+    'category',
+    'price_etb',
+    'size',
+    'description',
+    'photo_file_id',
+    'image_url',
+    'stock_quantity',
+    'in_stock',
+    'badge',
+    'delivery_time',
+  ];
+  const setClauses = [];
+  const values = [id];
+  let idx = 2;
+
+  for (const [key, val] of Object.entries(fields)) {
+    const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    if (allowed.includes(snakeKey)) {
+      setClauses.push(`${snakeKey} = $${idx}`);
+      values.push(val);
+      idx++;
+    }
+  }
+
+  if (setClauses.length === 0) return null;
+
+  const query = `
+    UPDATE shelf_products
+    SET ${setClauses.join(', ')}
+    WHERE id = $1
+    RETURNING *;
+  `;
+  const { rows } = await pool.query(query, values);
+  return rows[0] || null;
 }
 
 export async function deleteShelfProduct(id) {

@@ -1,4 +1,4 @@
-// bot.js: Telegram Korcha Bot with Staff Portal, Guided Item Uploader, Quote Wizard & REST API
+// bot.js: Telegram Korcha Bot with Staff Portal, Guided Item Uploader, Shelf Editor, Quote Wizard & REST API
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -17,6 +17,7 @@ import {
   getOrdersByPhone,
   createShelfProduct,
   getShelfProducts,
+  updateShelfProduct,
   deleteShelfProduct,
 } from './db.js';
 
@@ -75,7 +76,6 @@ if (BOT_TOKEN && BOT_TOKEN.length > 20) {
 // ----------------------------------------------------
 // SHELF CATEGORIES & ON-HAND INVENTORY STORE (6 EXACT CATEGORIES)
 // ----------------------------------------------------
-// Derive product-assignable categories from canonical CATEGORIES (excluding 'all')
 export const PREDEFINED_CATEGORIES = Array.isArray(CATEGORIES)
   ? CATEGORIES.filter((c) => c.id !== 'all')
   : [
@@ -279,7 +279,7 @@ bot.hears(['➕ አዲስ እቃ መዝግብ (Add Shelf Item)', '/additem'], as
   );
 });
 
-// Worker Trigger: View Current Shelf Inventory
+// Worker Trigger: View Current Shelf Inventory (with Edit shortcuts)
 bot.hears(['📋 መደርደሪያ ተመልከት (View Shelf)', '/viewshelf'], async (ctx) => {
   if (!isWorker(ctx)) {
     return ctx.reply('⚠️ ይህ ትዕዛዝ ለኮርቻ ሰራተኞች ብቻ የተፈቀደ ነው');
@@ -295,13 +295,132 @@ bot.hears(['📋 መደርደሪያ ተመልከት (View Shelf)', '/viewshelf']
   let summary = `📦 *በእጅ ላይ ያሉ እቃዎች ዝርዝር (ጠቅላላ: ${shelfItems.length}):*\n━━━━━━━━━━━━━━━━━━━━\n`;
   shelfItems.slice(0, 15).forEach((item, idx) => {
     summary += `${idx + 1}. *${item.titleAm || item.titleEn}*\n` +
-      `   📂 ምድብ: \`${item.category}\` | 💰 ዋጋ: *${item.priceEtb} ETB*\n` +
+      `   📂 ምድብ: \`${item.category}\` | 💰 ዋጋ: *${item.priceEtb} ETB*` +
+      (item.size ? ` | 📏 ሳይዝ: \`${item.size}\`` : '') + '\n' +
       `   🏷️ ኮድ: \`${item.id}\` | 📦 ብዛት: ${item.stockQuantity || 1}\n` +
+      `   ✏️ ለማረም: \`/editshelf ${item.id}\`\n` +
       `   🗑️ ለማጥፋት: \`/delshelf ${item.id}\`\n\n`;
   });
-  summary += `━━━━━━━━━━━━━━━━━━━━`;
+  summary += `━━━━━━━━━━━━━━━━━━━━\n_ለማረም ወይም ለማጥፋት ከላይ ያሉትን ኮዶች ይንኩ።_`;
 
   await ctx.replyWithMarkdown(summary, getWorkerMenuKeyboard());
+});
+
+// Worker Command: Edit Shelf Item (Step 2 Implementation)
+bot.command('editshelf', async (ctx) => {
+  if (!isWorker(ctx)) {
+    return ctx.reply('⚠️ ይህ ትዕዛዝ ለኮርቻ ሰራተኞች ብቻ የተፈቀደ ነው');
+  }
+
+  const parts = ctx.message.text.trim().split(/\s+/);
+  if (parts.length < 2) {
+    return ctx.replyWithMarkdown(
+      `📌 *የማረሚያ አጠቃቀም፡* \`/editshelf <shelf_id>\`\nምሳሌ፡ \`/editshelf shelf-1698000000\`\n\nወይም ሙሉውን ዝርዝር ለማየት '📋 መደርደሪያ ተመልከት' የሚለውን ይጫኑ።`
+    );
+  }
+
+  const targetId = parts[1];
+  const item = shelfItems.find((i) => i.id === targetId);
+
+  if (!item) {
+    return ctx.replyWithMarkdown(`⚠️ እቃው በመደርደሪያው ላይ አልተገኘም (ID: \`${targetId}\`)`);
+  }
+
+  const itemCard = `
+✏️ *እቃውን እያረሙ ነው:*
+━━━━━━━━━━━━━━━━━━━━
+📦 *ስም:* ${item.titleAm || item.titleEn}
+📂 *ምድብ:* ${item.category}
+💰 *ዋጋ:* ${item.priceEtb} ETB
+📏 *መጠን (Size):* ${item.size || 'ያልተገለጸ'}
+📦 *ብዛት:* ${item.stockQuantity || 1}
+━━━━━━━━━━━━━━━━━━━━
+ምን መቀየር ይፈልጋሉ? ከታች አንዱን ይምረጡ 👇
+`;
+
+  const editKeyboard = Markup.inlineKeyboard([
+    [
+      Markup.button.callback('🏷️ ስም (Title)', `edit_title_${item.id}`),
+      Markup.button.callback('📏 ሳይዝ (Size)', `edit_size_${item.id}`),
+    ],
+    [
+      Markup.button.callback('💰 ዋጋ (Price)', `edit_price_${item.id}`),
+      Markup.button.callback('📸 ፎቶ (Photo)', `edit_photo_${item.id}`),
+    ],
+    [
+      Markup.button.callback('📦 ብዛት (Stock)', `edit_stock_${item.id}`),
+      Markup.button.callback('❌ ሰርዝ (Cancel)', 'cancel_edit'),
+    ],
+  ]);
+
+  await ctx.replyWithMarkdown(itemCard, editKeyboard);
+});
+
+// Inline Callback Actions for Shelf Editing (Step 2)
+bot.action(/^edit_(title|size|price|photo|stock)_(.+)$/, async (ctx) => {
+  if (!isWorker(ctx)) {
+    return ctx.answerCbQuery('⚠️ ይህ ለኮርቻ ሰራተኛ ብቻ ነው');
+  }
+
+  const field = ctx.match[1];
+  const targetId = ctx.match[2];
+  const item = shelfItems.find((i) => i.id === targetId);
+
+  if (!item) {
+    await ctx.answerCbQuery('እቃው አልተገኘም');
+    return ctx.reply('⚠️ እቃው አልተገኘም።');
+  }
+
+  await ctx.answerCbQuery();
+  const session = getSession(ctx.from.id);
+  session.data = { editTargetId: targetId, currentItem: item };
+
+  if (field === 'title') {
+    session.state = 'WORKER_EDIT_TITLE';
+    return ctx.replyWithMarkdown(
+      `🏷️ *አዲሱን የእቃ ስም (Title) ያስገቡ፡*\n\nየአሁኑ ስም: \`${item.titleAm || item.titleEn}\``,
+      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+    );
+  }
+
+  if (field === 'size') {
+    session.state = 'WORKER_EDIT_SIZE';
+    return ctx.replyWithMarkdown(
+      `📏 *አዲሱን መጠን (Size) ያስገቡ፡*\n\nየአሁኑ ሳይዝ: \`${item.size || 'N/A'}\`\nምሳሌ: \`M\`, \`L\`, \`42\`, \`Free Size\``,
+      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+    );
+  }
+
+  if (field === 'price') {
+    session.state = 'WORKER_EDIT_PRICE';
+    return ctx.replyWithMarkdown(
+      `💰 *አዲሱን ዋጋ በብር (Price in ETB) ያስገቡ፡*\n\nየአሁኑ ዋጋ: \`${item.priceEtb} ETB\`\nምሳሌ: \`4500\``,
+      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+    );
+  }
+
+  if (field === 'photo') {
+    session.state = 'WORKER_EDIT_PHOTO';
+    return ctx.replyWithMarkdown(
+      `📸 *አዲሱን የእቃ ፎቶ እዚህ ይላኩ፡*`,
+      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+    );
+  }
+
+  if (field === 'stock') {
+    session.state = 'WORKER_EDIT_STOCK';
+    return ctx.replyWithMarkdown(
+      `📦 *ያለውን የእቃ ብዛት (Stock Quantity) ያስገቡ፡*\n\nየአሁኑ ብዛት: \`${item.stockQuantity || 1}\`\n(እቃው ካለቀ 0 ያስገቡ)`,
+      Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+    );
+  }
+});
+
+// Cancel Edit Inline Callback
+bot.action('cancel_edit', async (ctx) => {
+  await ctx.answerCbQuery('ተሰርዟል');
+  clearSession(ctx.from.id);
+  await ctx.reply('ማረም ተሰርዟል።', getWorkerMenuKeyboard());
 });
 
 // Worker Command: Delete Shelf Item
@@ -448,12 +567,13 @@ bot.hears(['📦 የትዕዛዝ ሁኔታ መከታተያ', '/track'], async (c
 });
 
 // ----------------------------------------------------
-// PHOTO MESSAGE HANDLER (WORKER UPLOADS + CUSTOMER QUOTES)
+// PHOTO MESSAGE HANDLER (WORKER UPLOADS + PHOTO EDITING + QUOTES)
 // ----------------------------------------------------
 bot.on('photo', async (ctx, next) => {
   const photos = ctx.message.photo;
   const highestResPhoto = photos[photos.length - 1];
   const fileId = highestResPhoto.file_id;
+  const session = getSession(ctx.from.id);
 
   // 1. Worker Replying to a Customer with a Photo
   if (isWorker(ctx) && ctx.message.reply_to_message) {
@@ -474,12 +594,40 @@ bot.on('photo', async (ctx, next) => {
     }
   }
 
-  // 2. Worker Uploading a Product to the Shelf (Wizard Step 1)
-  const session = getSession(ctx.from.id);
+  // 2. Worker Editing Item Photo (Step 2 Implementation)
+  if (isWorker(ctx) && session.state === 'WORKER_EDIT_PHOTO') {
+    const targetId = session.data.editTargetId;
+    let newImageUrl = null;
+    try {
+      const linkObj = await bot.telegram.getFileLink(fileId);
+      newImageUrl = linkObj.href;
+    } catch (e) {
+      console.warn('[Edit Photo Link Error]', e.message);
+    }
+
+    const item = shelfItems.find((i) => i.id === targetId);
+    if (item) {
+      item.photoFileId = fileId;
+      if (newImageUrl) item.image = newImageUrl;
+    }
+
+    try {
+      await updateShelfProduct(targetId, {
+        photo_file_id: fileId,
+        image_url: newImageUrl,
+      });
+    } catch (dbErr) {
+      console.warn('[DB Edit Photo Error]', dbErr.message);
+    }
+
+    clearSession(ctx.from.id);
+    return ctx.replyWithMarkdown(`✅ *የእቃው ፎቶ በተሳካ ሁኔታ ተቀይሯል!* (ኮድ: \`${targetId}\`)`, getWorkerMenuKeyboard());
+  }
+
+  // 3. Worker Uploading a Product to the Shelf (Wizard Step 1)
   if (isWorker(ctx) && session.state === 'WORKER_ADD_PHOTO') {
     session.data.photoFileId = fileId;
     try {
-      // Resolve publicly accessible file link from Telegram CDN for Mini App rendering
       const linkObj = await bot.telegram.getFileLink(fileId);
       session.data.imageUrl = linkObj.href;
     } catch (linkErr) {
@@ -494,7 +642,7 @@ bot.on('photo', async (ctx, next) => {
     );
   }
 
-  // 3. Customer Uploading Screenshot for a Quote Request
+  // 4. Customer Uploading Screenshot for a Quote Request
   if (session.state === 'AWAITING_PHOTO' || session.state === 'IDLE') {
     session.state = 'AWAITING_DETAILS';
     session.data = {
@@ -549,10 +697,84 @@ bot.on('text', async (ctx, next) => {
       }
     }
 
-    // A.2. Worker Wizard Step 2: Select Category (6 Categories)
+    // A.2. Worker Editing Text Fields (Step 2 Implementation)
+    if (session.state === 'WORKER_EDIT_TITLE') {
+      const targetId = session.data.editTargetId;
+      const item = shelfItems.find((i) => i.id === targetId);
+      if (item) {
+        item.titleAm = text;
+        item.titleEn = text;
+      }
+      try {
+        await updateShelfProduct(targetId, { title_am: text, title_en: text });
+      } catch (dbErr) {
+        console.warn('[DB Edit Title Error]', dbErr.message);
+      }
+      clearSession(userId);
+      return ctx.replyWithMarkdown(`✅ *የእቃው ስም ተቀይሯል:* \`${text}\``, getWorkerMenuKeyboard());
+    }
+
+    if (session.state === 'WORKER_EDIT_SIZE') {
+      const targetId = session.data.editTargetId;
+      const item = shelfItems.find((i) => i.id === targetId);
+      if (item) {
+        item.size = text.toUpperCase();
+      }
+      try {
+        await updateShelfProduct(targetId, { size: text.toUpperCase() });
+      } catch (dbErr) {
+        console.warn('[DB Edit Size Error]', dbErr.message);
+      }
+      clearSession(userId);
+      return ctx.replyWithMarkdown(`✅ *የእቃው መጠን (Size) ተቀይሯል:* \`${text.toUpperCase()}\``, getWorkerMenuKeyboard());
+    }
+
+    if (session.state === 'WORKER_EDIT_PRICE') {
+      const price = parseInt(text.replace(/[^\d]/g, ''), 10);
+      if (isNaN(price) || price <= 0) {
+        return ctx.reply('⚠️ እባክዎ ትክክለኛ የቁጥር ዋጋ ያስገቡ (ምሳሌ: 4500)፦');
+      }
+      const targetId = session.data.editTargetId;
+      const item = shelfItems.find((i) => i.id === targetId);
+      if (item) {
+        item.priceEtb = price;
+      }
+      try {
+        await updateShelfProduct(targetId, { price_etb: price });
+      } catch (dbErr) {
+        console.warn('[DB Edit Price Error]', dbErr.message);
+      }
+      clearSession(userId);
+      return ctx.replyWithMarkdown(`✅ *የእቃው ዋጋ ተቀይሯል:* \`${price} ETB\``, getWorkerMenuKeyboard());
+    }
+
+    if (session.state === 'WORKER_EDIT_STOCK') {
+      const stock = parseInt(text.replace(/[^\d]/g, ''), 10);
+      if (isNaN(stock) || stock < 0) {
+        return ctx.reply('⚠️ እባክዎ ትክክለኛ የብዛት ቁጥር ያስገቡ (ምሳሌ: 5 ወይም 0)፦');
+      }
+      const targetId = session.data.editTargetId;
+      const item = shelfItems.find((i) => i.id === targetId);
+      const inStock = stock > 0;
+      if (item) {
+        item.stockQuantity = stock;
+        item.inStock = inStock;
+      }
+      try {
+        await updateShelfProduct(targetId, { stock_quantity: stock, in_stock: inStock });
+      } catch (dbErr) {
+        console.warn('[DB Edit Stock Error]', dbErr.message);
+      }
+      clearSession(userId);
+      return ctx.replyWithMarkdown(
+        `✅ *የእቃው ብዛት ተቀይሯል:* \`${stock}\` ${inStock ? '(በእጅ ላይ ያለ)' : '(አልቋል)'}`,
+        getWorkerMenuKeyboard()
+      );
+    }
+
+    // A.3. Worker Wizard Step 2: Select Category (6 Categories)
     if (session.state === 'WORKER_SELECT_CATEGORY') {
       let matchedCategory = text;
-      // Match with predefined categories if selected via button
       const cleanText = text.replace(/^[^\w\s\u1200-\u137F]+/u, '').trim();
       const found = PREDEFINED_CATEGORIES.find(
         (c) => text.includes(c.nameAm) || text.toLowerCase().includes(c.nameEn.toLowerCase())
@@ -572,7 +794,7 @@ bot.on('text', async (ctx, next) => {
       );
     }
 
-    // A.3. Worker Wizard Step 3: Enter Title
+    // A.4. Worker Wizard Step 3: Enter Title
     if (session.state === 'WORKER_ENTER_TITLE') {
       session.data.title = text;
       session.state = 'WORKER_ENTER_PRICE';
@@ -583,7 +805,7 @@ bot.on('text', async (ctx, next) => {
       );
     }
 
-    // A.4. Worker Wizard Step 4: Enter Price
+    // A.5. Worker Wizard Step 4: Enter Price
     if (session.state === 'WORKER_ENTER_PRICE') {
       const price = parseInt(text.replace(/[^\d]/g, ''), 10);
       if (isNaN(price) || price <= 0) {
@@ -599,11 +821,10 @@ bot.on('text', async (ctx, next) => {
       );
     }
 
-    // A.5. Worker Wizard Step 5: Save & Publish Item
+    // A.6. Worker Wizard Step 5: Save & Publish Item
     if (session.state === 'WORKER_ENTER_DETAILS') {
       session.data.description = text;
 
-      // Extract size if written e.g. "ሳይዝ: M" or "size: M"
       const sizeMatch = text.match(/(?:ሳይዝ|size)\s*[:፡]?\s*([a-zA-Z0-9]+)/i);
       const parsedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
 
@@ -625,11 +846,9 @@ bot.on('text', async (ctx, next) => {
         createdAt: new Date().toISOString(),
       };
 
-      // 1. In-Memory Store update
       shelfItems.unshift(newItem);
       clearSession(userId);
 
-      // 2. PostgreSQL Persistence (with fail-safe error catch)
       try {
         if (typeof createShelfProduct === 'function') {
           await createShelfProduct(newItem);
@@ -645,7 +864,8 @@ bot.on('text', async (ctx, next) => {
           `💰 *ዋጋ:* ${newItem.priceEtb} ETB\n` +
           (newItem.size ? `📏 *መጠን (Size):* ${newItem.size}\n` : '') +
           `📝 *ዝርዝር:* ${newItem.description}\n` +
-          `🆔 *መለያ ኮድ:* \`${newItem.id}\`\n━━━━━━━━━━━━━━━━━━━━`,
+          `🆔 *መለያ ኮድ:* \`${newItem.id}\`\n━━━━━━━━━━━━━━━━━━━━\n` +
+          `_ለወደፊት ለማረም፦_ \`/editshelf ${newItem.id}\``,
         getWorkerMenuKeyboard()
       );
     }
@@ -920,7 +1140,6 @@ app.get('/health', (req, res) => {
 
 // GET /api/shelf: Return categorized catalog with empty states
 app.get('/api/shelf', async (req, res) => {
-  // If shelf is empty in memory, attempt DB sync
   if (shelfItems.length === 0) {
     await syncShelfFromDB();
   }
@@ -938,7 +1157,7 @@ app.get('/api/shelf', async (req, res) => {
       categoryNameEn: cat.nameEn,
       icon: cat.icon,
       itemCount: items.length,
-      items: items, // Empty array [] if no items available at hand
+      items: items,
     };
   });
 
@@ -983,6 +1202,29 @@ app.post('/api/shelf/add', async (req, res) => {
   }
 
   res.json({ success: true, item: newItem });
+});
+
+// PATCH /api/shelf/:id: Edit shelf product via API (Step 2 Implementation)
+app.patch('/api/shelf/:id', async (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+
+  const itemIndex = shelfItems.findIndex((i) => i.id === id);
+  if (itemIndex === -1) {
+    return res.status(404).json({ success: false, error: 'Item not found' });
+  }
+
+  shelfItems[itemIndex] = { ...shelfItems[itemIndex], ...updates };
+
+  try {
+    if (typeof updateShelfProduct === 'function') {
+      await updateShelfProduct(id, updates);
+    }
+  } catch (dbErr) {
+    console.warn('[DB Shelf API Update Warning]', dbErr.message);
+  }
+
+  res.json({ success: true, item: shelfItems[itemIndex] });
 });
 
 // DELETE /api/shelf/:id: Remove item from shelf
