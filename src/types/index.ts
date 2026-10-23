@@ -1,4 +1,4 @@
-export type Marketplace = 'shein' | 'temu' | 'aliexpress' | 'other';
+export type Marketplace = 'shein' | 'Amazon' | 'aliexpress' | 'other';
 
 export interface PricingResult {
   originalPriceUsd: number;

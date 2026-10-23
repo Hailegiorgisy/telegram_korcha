@@ -1,6 +1,6 @@
 {
   "name": "Korcha - Ethiopian Cross-Border E-Commerce & Telegram Bot",
-  "description": "Door-to-door delivery concierge for Shein, Temu, and AliExpress in Ethiopia with automated Birr estimation (1.88x formula), Telegram bot integration, and Ethio Telecom server deployment.",
+  "description": "Door-to-door delivery concierge for Shein, Amazon, and AliExpress in Ethiopia with automated Birr estimation (1.88x formula), Telegram bot integration, and Ethio Telecom server deployment.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Korcha Marketplace Scraper & Door Price Generator
-- Scrapes product title, image, price from Shein, Temu, AliExpress URLs
+- Scrapes product title, image, price from Shein, Amazon, AliExpress URLs
 - Analyzes screenshots / product images
 - Calculates doorstep price in ETB:
   * HKD to ETB exchange rate: 30 ETB/HKD (or configurable)
@@ -141,8 +141,8 @@ def scrape_url(url: str):
 
     if "shein" in u_lower:
         marketplace = "shein"
-    elif "temu" in u_lower:
-        marketplace = "temu"
+    elif "Amazon" in u_lower:
+        marketplace = "Amazon"
     elif "aliexpress" in u_lower or "ali." in u_lower:
         marketplace = "aliexpress"
 
@@ -228,7 +228,7 @@ def scrape_url(url: str):
                 except ValueError:
                     pass
 
-        if not price_val and marketplace == "temu":
+        if not price_val and marketplace == "Amazon":
             tm = re.search(r'["\']price["\']\s*:\s*(\d{3,5})', html_content)
             if tm:
                 val = int(tm.group(1))
@@ -261,8 +261,8 @@ def scrape_url(url: str):
     if not title:
         if marketplace == "shein":
             title = "የሼይን ፋሽን እቃ (Shein Fashion Product)"
-        elif marketplace == "temu":
-            title = "የቴሙ ምርት (Temu Quality Product)"
+        elif marketplace == "Amazon":
+            title = "የቴሙ ምርት (Amazon Quality Product)"
         elif marketplace == "aliexpress":
             title = "የአሊኤክስፕረስ እቃ (AliExpress Product)"
         else:

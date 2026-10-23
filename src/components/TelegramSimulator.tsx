@@ -129,7 +129,7 @@ const SAMPLE_SCREENSHOTS = [
   },
   {
     id: 'ss-sample-2',
-    name: 'Temu Smart Watch',
+    name: 'Amazon Smart Watch',
     priceUsd: 13.90, // Reviewed from cheapest market (Shein)
     store: 'Shein',
     imgUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
@@ -291,7 +291,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
         `🛍️ <b>የገበያ ቦታዎች (Marketplaces)</b>\n` +
         `1. 👗 Shein (ሺኢን)\n` +
         `2. 📦 AliExpress (አሊኤክስፕረስ)\n` +
-        `3. Temu (ቴሙ) (ይህን የገበያ ቦታ ለመጠቀም ስልኮ ላይ VPN ያብሩ)\n\n` +
+        `3. Amazon (ቴሙ) (ይህን የገበያ ቦታ ለመጠቀም ስልኮ ላይ VPN ያብሩ)\n\n` +
         `📌 <b>እንዴት ማዘዝ ይችላሉ?</b>\n` +
         `• የመረጡትን እቃ ፎቶ ስክሪንሾት አንስቶ በመላክ\n` +
         `ወይም\n` +
@@ -301,7 +301,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
       inlineKeyboard: [
         [
           { text: '👗 Shein አፕ (ዳውንሎድ)', action: 'link_shein' },
-          { text: '🛍️ Temu አፕ (ዳውንሎድ)', action: 'link_temu' },
+          { text: '🛍️ Amazon አፕ (ዳውንሎድ)', action: 'link_Amazon' },
           { text: '📦 AliExpress አፕ (ዳውንሎድ)', action: 'link_ali' },
         ],
         [
@@ -380,12 +380,12 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
           timestamp: timeStr,
           text:
             `🔗 <b>የመረጡትን እቃ ሊንክ ይላኩልን (Paste Link):</b>\n\n` +
-            `ከ <b>Shein</b>፣ <b>Temu</b> ወይም <b>AliExpress</b> ያዩትን እቃ <b>Share ➔ Copy Link</b> አድርገው እዚህ ቻት ላይ ይለጥፉ (Paste)።\n\n` +
+            `ከ <b>Shein</b>፣ <b>Amazon</b> ወይም <b>AliExpress</b> ያዩትን እቃ <b>Share ➔ Copy Link</b> አድርገው እዚህ ቻት ላይ ይለጥፉ (Paste)።\n\n` +
             `👉 <b>ሰራተኛችን የቀጥታ ዋጋውንና ክብደቱን አረጋግጦ ዋጋውን በ5 ደቂቃ ውስጥ አስልቶ ያሳውቅዎታል።</b>`,
           inlineKeyboard: [
             [
               { text: '👗 Shein ናሙና ሞክር', action: 'test_sample_shein' },
-              { text: '⚡ Temu ናሙና ሞክር', action: 'test_sample_temu' },
+              { text: '⚡ Amazon ናሙና ሞክር', action: 'test_sample_Amazon' },
             ],
             [
               { text: '📱 AliExpress ናሙና ሞክር', action: 'test_sample_ali' },
@@ -404,7 +404,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
       return;
     }
 
-    if (action === 'test_sample_temu') {
+    if (action === 'test_sample_Amazon') {
       const p = SAMPLE_PRODUCTS[1];
       setInputVal(p.url);
       submitCustomerProductToWorker(p, 'link');
@@ -573,13 +573,13 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
             `🛍️ <b>የገበያ ቦታዎች (Marketplaces)፦</b>\n` +
             `1. 👗 Shein (ሺኢን)\n` +
             `2. 📦 AliExpress (አሊኤክስፕረስ)\n` +
-            `3. Temu (ቴሙ) (ይህን የገበያ ቦታ ለመጠቀም ስልኮ ላይ VPN ያብሩ)\n\n` +
+            `3. Amazon (ቴሙ) (ይህን የገበያ ቦታ ለመጠቀም ስልኮ ላይ VPN ያብሩ)\n\n` +
             `✈️ <b>የማድረሻ ጊዜ፦</b> በአየር ጭነት በ 10 እስከ 14 የስራ ቀናት ውስጥ አዲስ አበባና አካባቢው ደጃፍዎ ይደርሳል።\n\n` +
             `📦 <b>ትዕዛዝ መከታተል፦</b> የትዕዛዝዎን ሁኔታ በማንኛውም ሰዓት በስልክ ቁጥርዎ ወይም በቲኬት ቁጥርዎ ለማየት <b>"የእኔ ትዕዛዞች"</b> የሚለውን ይጫኑ ወይም በስልክ ቁጥርዎ ይፈልጉ።`,
           inlineKeyboard: [
             [
               { text: '👗 Shein አፕ (ዳውንሎድ)', action: 'link_shein' },
-              { text: '🛍️ Temu አፕ (ዳውንሎድ)', action: 'link_temu' },
+              { text: '🛍️ Amazon አፕ (ዳውንሎድ)', action: 'link_Amazon' },
               { text: '📦 AliExpress አፕ (ዳውንሎድ)', action: 'link_ali' },
             ],
             [
@@ -1148,7 +1148,7 @@ export const TelegramSimulator: React.FC<TelegramSimulatorProps> = ({
                   1
                 </span>
                 <span className="absolute bottom-2 left-3 text-[11px] font-bold text-amber-300">
-                  Shein • Temu • AliExpress
+                  Shein • Amazon • AliExpress
                 </span>
               </div>
               <div className="p-4 flex-1 flex flex-col justify-between space-y-2">

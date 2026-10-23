@@ -29,9 +29,9 @@ export const GITHUB_AUDIT_REPORT = {
       title: 'Single Marketplace vs. Three Marketplaces',
       severity: 'High',
       description:
-        'The repo only had sheinParserService.js. Temu and AliExpress were completely missing from both parser and UI models.',
+        'The repo only had sheinParserService.js. Amazon and AliExpress were completely missing from both parser and UI models.',
       solution:
-        'Implemented a unified 3-marketplace parser supporting Shein, Temu, and AliExpress product URLs, item slugs, and currency normalizations.',
+        'Implemented a unified 3-marketplace parser supporting Shein, Amazon, and AliExpress product URLs, item slugs, and currency normalizations.',
     },
     {
       title: 'Customer Terms Agreement & Worker Dispatch Flow',

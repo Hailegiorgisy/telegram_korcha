@@ -3,8 +3,8 @@ import { SAMPLE_PRODUCTS } from '../data/sampleProducts';
 
 export function detectMarketplace(urlOrText: string): Marketplace {
   const lower = urlOrText.toLowerCase();
-  if (lower.includes('temu.') || lower.includes('/temu') || lower.includes('temu')) {
-    return 'temu';
+  if (lower.includes('Amazon.') || lower.includes('/Amazon') || lower.includes('Amazon')) {
+    return 'Amazon';
   }
   if (lower.includes('aliexpress.') || lower.includes('ali') || lower.includes('aliexpress')) {
     return 'aliexpress';
@@ -95,7 +95,7 @@ export function parseMarketplaceLink(input: string, customPrice?: number): Parse
       fallbackPrice = 15.50;
       imageUrl = 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=600&auto=format&fit=crop&q=80';
     }
-  } else if (marketplace === 'temu') {
+  } else if (marketplace === 'Amazon') {
     if (lowerTitle.includes('earbuds') || lowerTitle.includes('headphone') || lowerTitle.includes('audio')) {
       titleAmharic = 'የቴሙ የብሉቱዝ ጆሮ ማዳመጫ';
       category = 'Electronics';
@@ -110,7 +110,7 @@ export function parseMarketplaceLink(input: string, customPrice?: number): Parse
       availableSizes = ['1 Set'];
     } else {
       titleAmharic = 'የቴሙ ምርት';
-      category = 'Temu Gadgets & Home';
+      category = 'Amazon Gadgets & Home';
       fallbackPrice = 16.00;
       imageUrl = 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=600&auto=format&fit=crop&q=80';
       availableSizes = ['Standard'];

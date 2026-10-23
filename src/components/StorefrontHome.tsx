@@ -41,10 +41,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
       desc: 'አልባሳትና ፋሽን',
     },
     {
-      name: 'Temu',
-      webUrl: 'https://www.temu.com',
-      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.einnovation.temu',
-      appStoreUrl: 'https://apps.apple.com/app/temu-shop-like-a-billionaire/id1641486558',
+      name: 'Amazon',
+      webUrl: 'https://www.amazon.com',
+      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.amazon.mShop.android.shopping',
+      appStoreUrl: 'https://apps.apple.com/app/amazon-shopping/id297606951',
       color: 'from-orange-600 to-amber-600',
       desc: 'የቤትና የተለያዩ እቃዎች',
     },
@@ -74,7 +74,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
           </h2>
 
           <p className="text-xs text-stone-300 leading-relaxed">
-            ከ Shein, Temu ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ስክሪንሾት ያስገቡ። አስተናጋጆቻችን ወጪውን አስልተው ያቀርቡልዎታል።
+            ከ Shein, Amazon ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ስክሪንሾት ያስገቡ። አስተናጋጆቻችን ወጪውን አስልተው ያቀርቡልዎታል።
           </p>
 
           {/* Primary Action Buttons */}

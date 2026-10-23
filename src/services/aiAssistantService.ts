@@ -8,7 +8,7 @@ export interface AIAnalysisResult {
 }
 
 /**
- * Intelligent Ethiopian e-commerce AI assistant for Shein, Temu, and AliExpress products
+ * Intelligent Ethiopian e-commerce AI assistant for Shein, Amazon, and AliExpress products
  */
 export async function getAIProductAdvice(
   product: ParsedProduct,
@@ -80,13 +80,13 @@ export async function askGeneralAIAssistant(prompt: string): Promise<string> {
   if (lower.includes('ጆሮ') || lower.includes('earbud') || lower.includes('ስልክ')) {
     return (
       `🎧 <b>የኮርቻ AI ጋጄት ምክር:</b>\n` +
-      `በ Temu እና AliExpress ላይ የዲጂታል ባትሪ ማሳያ ያላቸው Active Noise Cancelling (ANC) የብሉቱዝ ጆሮ ማዳመጫዎች በከፍተኛ ጥራትና በተመጣጣኝ ዋጋ ይገኛሉ። የፈለጉትን እቃ ሊንክ ይላኩልን!`
+      `በ Amazon እና AliExpress ላይ የዲጂታል ባትሪ ማሳያ ያላቸው Active Noise Cancelling (ANC) የብሉቱዝ ጆሮ ማዳመጫዎች በከፍተኛ ጥራትና በተመጣጣኝ ዋጋ ይገኛሉ። የፈለጉትን እቃ ሊንክ ይላኩልን!`
     );
   }
 
   return (
     `🤖 <b>ሰላም! እኔ የኮርቻ AI ረዳት ነኝ።</b>\n\n` +
-    `ከ Shein፣ Temu ወይም AliExpress የሚፈልጉትን ማንኛውንም እቃ ለመምረጥ፣ የሳይዝ ልኬት ለማወቅ ወይም የበር ላይ ዋጋውን ለማስላት እረዳዎታለሁ።\n` +
+    `ከ Shein፣ Amazon ወይም AliExpress የሚፈልጉትን ማንኛውንም እቃ ለመምረጥ፣ የሳይዝ ልኬት ለማወቅ ወይም የበር ላይ ዋጋውን ለማስላት እረዳዎታለሁ።\n` +
     `የእቃውን ሊንክ ይላኩልኝ ወይም ጥያቄዎን ይጠይቁኝ!`
   );
 }

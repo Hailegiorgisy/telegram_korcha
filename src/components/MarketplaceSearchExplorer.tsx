@@ -46,8 +46,8 @@ export const MarketplaceSearchExplorer: React.FC<MarketplaceSearchExplorerProps>
     if (marketplace === 'shein') {
       return `https://www.shein.com/search?keyword=${encoded}`;
     }
-    if (marketplace === 'temu') {
-      return `https://www.temu.com/search_result.html?search_key=${encoded}`;
+    if (marketplace === 'Amazon') {
+      return `https://www.Amazon.com/search_result.html?search_key=${encoded}`;
     }
     return `https://www.aliexpress.com/wholesale?SearchText=${encoded}`;
   };
@@ -68,7 +68,7 @@ export const MarketplaceSearchExplorer: React.FC<MarketplaceSearchExplorerProps>
               <ShoppingBag className="w-5 h-5" />
             </span>
             <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-              የገበያ ቦታዎች መፈለጊያ (Search Shein • Temu • AliExpress)
+              የገበያ ቦታዎች መፈለጊያ (Search Shein • Amazon • AliExpress)
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
@@ -90,7 +90,7 @@ export const MarketplaceSearchExplorer: React.FC<MarketplaceSearchExplorerProps>
             }`}
           >
             <span className="text-xs sm:text-sm font-bold block">ሁሉም ሱቆች (All)</span>
-            <span className="text-[10px] opacity-80">Shein, Temu, AliExpress</span>
+            <span className="text-[10px] opacity-80">Shein, Amazon, AliExpress</span>
           </button>
 
           <button
@@ -109,16 +109,16 @@ export const MarketplaceSearchExplorer: React.FC<MarketplaceSearchExplorerProps>
           </button>
 
           <button
-            onClick={() => setSelectedMarketplace('temu')}
+            onClick={() => setSelectedMarketplace('Amazon')}
             className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
-              selectedMarketplace === 'temu'
+              selectedMarketplace === 'Amazon'
                 ? 'bg-orange-600 text-white font-bold border-orange-400 shadow-lg shadow-orange-600/20'
                 : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
             }`}
           >
             <div className="flex items-center justify-center gap-1.5">
               <span className="w-5 h-5 rounded-full bg-orange-500/30 flex items-center justify-center text-xs">⚡</span>
-              <span className="text-xs sm:text-sm font-bold">Temu Search</span>
+              <span className="text-xs sm:text-sm font-bold">Amazon Search</span>
             </div>
             <span className="text-[10px] text-orange-300/80">ኤሌክትሮኒክስ፣ የቤት እቃ</span>
           </button>
@@ -175,12 +175,12 @@ export const MarketplaceSearchExplorer: React.FC<MarketplaceSearchExplorerProps>
                 <ExternalLink className="w-3 h-3" />
               </a>
               <a
-                href={`https://www.temu.com/search_result.html?search_key=${encodeURIComponent(searchQuery || 'trending')}`}
+                href={`https://www.Amazon.com/search_result.html?search_key=${encodeURIComponent(searchQuery || 'trending')}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-3 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-orange-300 text-xs font-bold flex items-center gap-1 transition-colors"
               >
-                <span>⚡ Temu</span>
+                <span>⚡ Amazon</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
               <a

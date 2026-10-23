@@ -1,5 +1,5 @@
 export interface MarketplaceAppInfo {
-  key: 'shein' | 'temu' | 'aliexpress';
+  key: 'shein' | 'Amazon' | 'aliexpress';
   name: string;
   amharicName: string;
   androidUrl: string;
@@ -8,7 +8,7 @@ export interface MarketplaceAppInfo {
   description: string;
 }
 
-export const MARKETPLACE_APPS: Record<'shein' | 'temu' | 'aliexpress', MarketplaceAppInfo> = {
+export const MARKETPLACE_APPS: Record<'shein' | 'Amazon' | 'aliexpress', MarketplaceAppInfo> = {
   shein: {
     key: 'shein',
     name: 'Shein',
@@ -18,13 +18,13 @@ export const MARKETPLACE_APPS: Record<'shein' | 'temu' | 'aliexpress', Marketpla
     webUrl: 'https://m.shein.com',
     description: 'ዘመናዊ አልባሳት፣ ጫማዎች፣ ቦርሳዎችና ጌጣጌጥ',
   },
-  temu: {
-    key: 'temu',
-    name: 'Temu',
+  Amazon: {
+    key: 'Amazon',
+    name: 'Amazon',
     amharicName: 'ቴሙ',
-    androidUrl: 'https://play.google.com/store/apps/details?id=com.einnovation.temu',
-    iosUrl: 'https://apps.apple.com/app/temu-shop-like-a-billionaire/id1641486558',
-    webUrl: 'https://www.temu.com',
+    androidUrl: 'https://play.google.com/store/apps/details?id=com.einnovation.Amazon',
+    iosUrl: 'https://apps.apple.com/app/Amazon-shop-like-a-billionaire/id1641486558',
+    webUrl: 'https://www.Amazon.com',
     description: 'የቤትና የኩሽና እቃዎች፣ መገልገያዎችና ኤሌክትሮኒክስ (VPN ያብሩ)',
   },
   aliexpress: {
@@ -42,7 +42,7 @@ export const MARKETPLACE_APPS: Record<'shein' | 'temu' | 'aliexpress', Marketpla
  * Returns the appropriate store URL (Play Store for Android, App Store for iOS)
  * based on device detection or Telegram WebApp platform.
  */
-export function getSmartMarketplaceUrl(marketplace: 'shein' | 'temu' | 'aliexpress'): string {
+export function getSmartMarketplaceUrl(marketplace: 'shein' | 'Amazon' | 'aliexpress'): string {
   const app = MARKETPLACE_APPS[marketplace];
   if (!app) return 'https://m.shein.com';
 

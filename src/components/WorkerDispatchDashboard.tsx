@@ -301,7 +301,7 @@ export const WorkerDispatchDashboard: React.FC<WorkerDispatchDashboardProps> = (
           >
             <option value="all">ሁሉም ሱቆች</option>
             <option value="shein">Shein (ሼይን)</option>
-            <option value="temu">Temu (ቴሙ)</option>
+            <option value="Amazon">Amazon (ቴሙ)</option>
             <option value="aliexpress">AliExpress</option>
           </select>
         </div>

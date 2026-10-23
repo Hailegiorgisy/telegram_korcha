@@ -17,11 +17,11 @@ export const SAMPLE_PRODUCTS: ParsedProduct[] = [
     reviewsCount: 1420,
   },
 
-  // 2. TEMU (Home & Gadgets)
+  // 2. Amazon (Home & Gadgets)
   {
-    id: 'temu-1',
-    marketplace: 'temu',
-    url: 'https://www.temu.com/Wireless-ANC-Noise-Cancelling-Earbuds-p-g891023.html',
+    id: 'Amazon-1',
+    marketplace: 'Amazon',
+    url: 'https://www.Amazon.com/Wireless-ANC-Noise-Cancelling-Earbuds-p-g891023.html',
     title: 'Wireless Active Noise Cancelling Earbuds with LED Digital Display',
     titleAmharic: 'የብሉቱዝ ጆሮ ማዳመጫ ከዲጂታል ስክሪን ጋር',
     category: 'Electronics & Audio',

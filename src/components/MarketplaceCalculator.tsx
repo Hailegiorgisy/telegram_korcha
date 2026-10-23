@@ -265,7 +265,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
             </span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Shein፣ Temu እና AliExpress የዋጋ ማረጋገጫና ማዘዣ
+            Shein፣ Amazon እና AliExpress የዋጋ ማረጋገጫና ማዘዣ
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
             በመረጡት ድረ-ገጽ ላይ እቃዎችን ይመልከቱ፤ ሊንኩን ወይም ስክሪንሾቱን ሲያስገቡ ሰራተኛችን ዋጋውን በ5 ደቂቃ ውስጥ አስልቶ ያሳውቅዎታል።
@@ -322,25 +322,25 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
           </div>
         </div>
 
-        {/* Temu */}
+        {/* Amazon */}
         <div className={`p-3 sm:p-4 rounded-2xl border text-left transition-all ${
-          product.marketplace === 'temu'
+          product.marketplace === 'Amazon'
             ? 'bg-orange-500/15 border-orange-500 ring-2 ring-orange-500/30'
             : 'bg-slate-900 border-slate-800'
         }`}>
           <div className="flex items-center justify-between cursor-pointer" onClick={() => {
-            setProduct((prev) => ({ ...prev, marketplace: 'temu' }));
-            setInputUrlOrText('https://www.temu.com');
+            setProduct((prev) => ({ ...prev, marketplace: 'Amazon' }));
+            setInputUrlOrText('https://www.Amazon.com');
           }}>
             <div className="text-xs sm:text-sm font-black text-orange-300 flex items-center gap-1.5">
-              <span>🛍️ Temu (ቴሙ)</span>
+              <span>🛍️ Amazon (ቴሙ)</span>
             </div>
             <span className="text-[10px] text-orange-400 font-bold bg-orange-500/20 px-2 py-0.5 rounded-full">የቤት/ቴክ</span>
           </div>
           <div className="text-[10px] text-slate-400 mt-1">የቤትና ኩሽና እቃዎች</div>
           <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1 text-[10px]">
             <a
-              href={MARKETPLACE_APPS.temu.androidUrl}
+              href={MARKETPLACE_APPS.Amazon.androidUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
@@ -348,7 +348,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
               📱 Play Store
             </a>
             <a
-              href={MARKETPLACE_APPS.temu.iosUrl}
+              href={MARKETPLACE_APPS.Amazon.iosUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 py-1 px-1 rounded-md bg-slate-950 hover:bg-slate-800 text-slate-300 text-center border border-slate-800 font-medium"
@@ -440,7 +440,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
         {inputMode === 'link' && (
           <form onSubmit={handleEstimateLink} className="space-y-4">
             <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-              የእቃውን ሊንክ እዚህ ይለጥፉ (Shein, Temu, AliExpress URL) *:
+              የእቃውን ሊንክ እዚህ ይለጥፉ (Shein, Amazon, AliExpress URL) *:
             </label>
             <div className="flex flex-col sm:flex-row gap-3">
               <input
@@ -448,7 +448,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
                 required
                 value={inputUrlOrText}
                 onChange={(e) => setInputUrlOrText(e.target.value)}
-                placeholder="https://www.shein.com/... ወይም https://www.temu.com/... ወይም AliExpress"
+                placeholder="https://www.shein.com/... ወይም https://www.Amazon.com/... ወይም AliExpress"
                 className="flex-1 bg-slate-950 border border-slate-700 rounded-2xl px-5 py-3.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
               />
               <button
@@ -507,7 +507,7 @@ export const MarketplaceCalculator: React.FC<PriceEstimationProps> = ({
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              ሰራተኛው በ Shein፣ Temu ወይም AliExpress ላይ ያገኘውን የቀጥታ ዋጋና ክብደት እዚህ በማስገባት ፈጣንና ትክክለኛ የደጃፍ ዋጋ ያሰላል፦
+              ሰራተኛው በ Shein፣ Amazon ወይም AliExpress ላይ ያገኘውን የቀጥታ ዋጋና ክብደት እዚህ በማስገባት ፈጣንና ትክክለኛ የደጃፍ ዋጋ ያሰላል፦
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

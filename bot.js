@@ -222,7 +222,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 👋 <b>እንኳን ወደ ኮርቻ (KORCHA) በደህና መጡ!</b>
 <i>የውጭ ገበያ እቃ አቅራቢ — ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ</i>
 
-ከ <b>Shein, Temu, ወይም AliExpress</b> ላይ የፈለጉትን እቃ ይዘዙ። አስተናጋጆቻችን ወጪውን አስልተው በርዎ ድረስ ያደርሳሉ!
+ከ <b>Shein, Amazon, ወይም AliExpress</b> ላይ የፈለጉትን እቃ ይዘዙ። አስተናጋጆቻችን ወጪውን አስልተው በርዎ ድረስ ያደርሳሉ!
 
 💳 <b>ልዩ የክፍያ ዋስትና፡</b>
 • 100% በብር በ <b>Telebirr</b> ወይም <b>CBE Birr</b> ይክፈሉ
@@ -338,7 +338,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       session.data = { sourceType: 'link' };
 
       await ctx.replyWithHTML(
-        `🔗 <b>የእቃውን ሊንክ ያስገቡ፡</b>\n\n📌 <b>ምሳሌ (Placeholder):</b>\n<code>https://www.shein.com/item/12345...</code>\nወይም\n<code>https://www.temu.com/goods...</code>\n\nእባክዎ ሊንኩን እዚህ ይላኩልን 👇`,
+        `🔗 <b>የእቃውን ሊንክ ያስገቡ፡</b>\n\n📌 <b>ምሳሌ (Placeholder):</b>\n<code>https://www.shein.com/item/12345...</code>\nወይም\n<code>https://www.Amazon.com/goods...</code>\n\nእባክዎ ሊንኩን እዚህ ይላኩልን 👇`,
         Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
       );
     });
@@ -350,7 +350,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       session.data = { sourceType: 'screenshot' };
 
       await ctx.replyWithHTML(
-        `📸 <b>የእቃውን ፎቶ ወይም ስክሪንሾት ይላኩ፡</b>\n\nከ Shein, Temu ወይም AliExpress ላይ የተነሳውን ግልጽ ፎቶ/ስክሪንሾት እዚህ ይላኩልን 👇`,
+        `📸 <b>የእቃውን ፎቶ ወይም ስክሪንሾት ይላኩ፡</b>\n\nከ Shein, Amazon ወይም AliExpress ላይ የተነሳውን ግልጽ ፎቶ/ስክሪንሾት እዚህ ይላኩልን 👇`,
         Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
       );
     });

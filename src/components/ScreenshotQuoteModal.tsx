@@ -36,7 +36,7 @@ export const ScreenshotQuoteModal: React.FC<ScreenshotQuoteModalProps> = ({
 }) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFileName, setImageFileName] = useState<string>('');
-  const [marketplace, setMarketplace] = useState<'shein' | 'temu' | 'aliexpress' | 'other'>('shein');
+  const [marketplace, setMarketplace] = useState<'shein' | 'Amazon' | 'aliexpress' | 'other'>('shein');
   const [notes, setNotes] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>(() => localStorage.getItem('korcha_customer_phone') || '');
   const [customerTelegram, setCustomerTelegram] = useState<string>(() => {
@@ -289,7 +289,7 @@ export const ScreenshotQuoteModal: React.FC<ScreenshotQuoteModalProps> = ({
                 የእቃውን ስክሪንሾት ለሰራተኛው ይላኩ
               </h3>
               <p className="text-xs text-slate-400 mt-1">
-                ከ Shein፣ Temu ወይም AliExpress ያዩትን እቃ ፎቶ እዚህ ይላኩልን፤ ሰራተኛችን ዋጋ አስልቶ በቀጥታ ይልክልዎታል!
+                ከ Shein፣ Amazon ወይም AliExpress ያዩትን እቃ ፎቶ እዚህ ይላኩልን፤ ሰራተኛችን ዋጋ አስልቶ በቀጥታ ይልክልዎታል!
               </p>
             </div>
 
@@ -354,7 +354,7 @@ export const ScreenshotQuoteModal: React.FC<ScreenshotQuoteModalProps> = ({
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { key: 'shein', label: '👗 Shein', color: 'hover:border-pink-500' },
-                  { key: 'temu', label: '🛍️ Temu', color: 'hover:border-orange-500' },
+                  { key: 'Amazon', label: '🛍️ Amazon', color: 'hover:border-orange-500' },
                   { key: 'aliexpress', label: '📦 AliExpress', color: 'hover:border-red-500' },
                   { key: 'other', label: '🌐 ሌላ', color: 'hover:border-amber-500' },
                 ].map((m) => (
