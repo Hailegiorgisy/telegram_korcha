@@ -23,6 +23,11 @@ import {
   getCustomerPings,
   addTicketMessage,
   getTicketMessages,
+  getShelfProducts,
+  getBestSellerProducts,
+  addShelfProduct,
+  updateShelfProduct,
+  deleteShelfProduct,
   syncFallbackToPostgres,
   startReconciliationWorker
 } from './db.js';
@@ -404,6 +409,276 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         await ctx.reply(`❌ ስህተት ተከስቷል: ${err.message}`);
       }
     });
+
+    // WORKER COMMAND: Add Product to Shelf (/addproduct <category> | <name> | <price> | <size> | [photo_url])
+    bot.hears(/^\/addproduct(?:\s+([\s\S]+))?$/, async (ctx) => {
+      const senderId = String(ctx.from.id);
+      const senderChatId = String(ctx.chat.id);
+      const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
+
+      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
+                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+
+      if (!isAuthorized) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኛ (@' + WORKER_USERNAME + ') ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+
+      const input = ctx.match[1] ? ctx.match[1].trim() : '';
+      let photoUrl = '';
+
+      // Check if sent as a reply to a photo message
+      if (ctx.message.reply_to_message && ctx.message.reply_to_message.photo) {
+        const photos = ctx.message.reply_to_message.photo;
+        const fileId = photos[photos.length - 1].file_id;
+        try {
+          const link = await ctx.telegram.getFileLink(fileId);
+          photoUrl = link.href;
+        } catch (_) {
+          photoUrl = fileId;
+        }
+      }
+
+      if (!input) {
+        return ctx.replyWithHTML(
+          `📌 <b>መደርደሪያ ላይ አዲስ እቃ ለመጨመር (Add Product):</b>\n\n` +
+          `<b>አጠቃቀም:</b>\n<code>/addproduct &lt;ምድብ&gt; | &lt;የእቃ ስም&gt; | &lt;ዋጋ በብር&gt; | &lt;መጠን/ሳይዝ&gt; | [የፎቶ ሊንክ]</code>\n\n` +
+          `<b>የምድብ ኮዶች (6 Categories):</b>\n` +
+          `• <code>womens</code> (የሴቶች አልባሳት)\n` +
+          `• <code>kids</code> (የህጻናት)\n` +
+          `• <code>beauty</code> (የመዋቢያ ዕቃዎች)\n` +
+          `• <code>electronics</code> (ኤሌክትሮኒክስ)\n` +
+          `• <code>home</code> (የቤት ውስጥ መገልገያዎች)\n` +
+          `• <code>miscellaneous</code> (ሌሎች)\n\n` +
+          `<b>ምሳሌ:</b>\n<code>/addproduct womens | የሴቶች የሚያምር ቀሚስ | 2800 | M, L, XL | https://...</code>\n\n` +
+          `💡 <i>ምክር: ፎቶውን በቴሌግራም ልከው ፎቶው ላይ reply በማድረግ /addproduct መጠቀም ይችላሉ!</i>`
+        );
+      }
+
+      const parts = input.split('|').map(p => p.trim());
+      const rawCat = parts[0] || 'miscellaneous';
+      const name = parts[1] || 'የተመረጠ እቃ';
+      const price = parseFloat(parts[2]) || 0;
+      const size = parts[3] || 'Standard';
+      if (!photoUrl && parts[4]) photoUrl = parts[4];
+
+      // Map category ID
+      let categoryId = 'miscellaneous';
+      const catLower = rawCat.toLowerCase();
+      if (catLower.includes('women') || catLower.includes('ሴት')) categoryId = 'womens';
+      else if (catLower.includes('kid') || catLower.includes('ህጻን') || catLower.includes('ልጅ')) categoryId = 'kids';
+      else if (catLower.includes('beauty') || catLower.includes('መዋቢያ') || catLower.includes('ውበት')) categoryId = 'beauty';
+      else if (catLower.includes('elect') || catLower.includes('ስልክ') || catLower.includes('ኤሌክትሮ')) categoryId = 'electronics';
+      else if (catLower.includes('home') || catLower.includes('kitchen') || catLower.includes('ቤት')) categoryId = 'home';
+
+      if (!photoUrl) {
+        photoUrl = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=80';
+      }
+
+      try {
+        const prod = await addShelfProduct({
+          categoryId,
+          name,
+          size,
+          priceEtb: price,
+          photoUrl,
+          isBestseller: false,
+          createdBy: senderUsername || WORKER_USERNAME,
+        });
+
+        await ctx.replyWithHTML(
+          `✅ <b>እቃው በተሳካ ሁኔታ መደርደሪያው ላይ ተጨምሯል!</b>\n━━━━━━━━━━━━━━━━━━━━\n` +
+          `🆔 <b>ID:</b> <code>${prod.id}</code>\n` +
+          `📁 <b>ምድብ:</b> <code>${prod.category_id}</code>\n` +
+          `📦 <b>ስም:</b> ${escapeHtml(prod.name)}\n` +
+          `📏 <b>ሳይዝ:</b> ${escapeHtml(prod.size)}\n` +
+          `💰 <b>ዋጋ:</b> ${prod.price_etb} ETB\n━━━━━━━━━━━━━━━━━━━━\n` +
+          `👉 ደንበኞች በሚኒ አፑ ላይ ወዲያውኑ ማየትና መግዛት ይችላሉ!`
+        );
+      } catch (err) {
+        ctx.reply(`❌ ስህተት ተከስቷል: ${err.message}`);
+      }
+    });
+
+    // WORKER COMMAND: Edit Product on Shelf (/editproduct <id> | <field> | <value>)
+    bot.hears(/^\/editproduct\s+(\d+)\s*\|\s*([A-Za-z_]+)\s*\|\s*([\s\S]+)$/, async (ctx) => {
+      const senderId = String(ctx.from.id);
+      const senderChatId = String(ctx.chat.id);
+      const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
+
+      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
+                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+
+      if (!isAuthorized) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኛ ብቻ የተፈቀደ ነው።');
+      }
+
+      const id = ctx.match[1].trim();
+      const field = ctx.match[2].trim().toLowerCase();
+      const value = ctx.match[3].trim();
+
+      const updates = {};
+      if (field === 'name') updates.name = value;
+      else if (field === 'size') updates.size = value;
+      else if (field === 'price' || field === 'price_etb') updates.priceEtb = parseFloat(value);
+      else if (field === 'photo' || field === 'photo_url') updates.photoUrl = value;
+      else if (field === 'category' || field === 'category_id') updates.categoryId = value;
+      else if (field === 'bestseller') updates.isBestseller = (value === 'true' || value === '1' || value === 'yes');
+      else {
+        return ctx.reply('⚠️ ልክ ያልሆነ ፊልድ! የሚፈቀዱት: name, size, price, photo, category, bestseller');
+      }
+
+      try {
+        const updated = await updateShelfProduct(id, updates);
+        if (!updated) {
+          return ctx.reply(`⚠️ እቃ ቁጥር ${id} አልተገኘም።`);
+        }
+        await ctx.replyWithHTML(
+          `✅ <b>እቃ ቁጥር ${id} ተስተካክሏል!</b>\n` +
+          `📦 ስም: ${escapeHtml(updated.name)}\n` +
+          `📏 ሳይዝ: ${escapeHtml(updated.size)}\n` +
+          `💰 ዋጋ: ${updated.price_etb} ETB`
+        );
+      } catch (err) {
+        ctx.reply(`❌ ስህተት: ${err.message}`);
+      }
+    });
+
+    // WORKER COMMAND: Delete Product (/deleteproduct <id>)
+    bot.hears(/^\/deleteproduct\s+(\d+)$/, async (ctx) => {
+      const senderId = String(ctx.from.id);
+      const senderChatId = String(ctx.chat.id);
+      const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
+
+      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
+                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+
+      if (!isAuthorized) return ctx.reply('⚠️ ለአስተዳዳሪ ብቻ የተፈቀደ ነው።');
+
+      const id = ctx.match[1].trim();
+      try {
+        await deleteShelfProduct(id);
+        ctx.reply(`✅ እቃ ቁጥር ${id} ከመደርደሪያው ተሰርዟል።`);
+      } catch (err) {
+        ctx.reply(`❌ ስህተት: ${err.message}`);
+      }
+    });
+
+    // WORKER & CUSTOMER: View Shelf Products (/shelf or /products)
+    bot.hears(['/shelf', '/products', 'መደርደሪያ', 'የሚሸጡ እቃዎች'], async (ctx) => {
+      try {
+        const products = await getShelfProducts();
+        if (products.length === 0) {
+          return ctx.reply('በዚህ ዝርዝር ውስጥ የሚሸጥ ዕቃ ጨርሰናል። እባክዎ በቴሌግራም ቦት ወይንም በሚኒ አፕ ይዘዙን።');
+        }
+
+        await ctx.replyWithHTML(`🛍️ <b>በኮርቻ መደርደሪያ ላይ ያሉ እቃዎች (${products.length} እቃዎች):</b>`);
+        for (const p of products.slice(0, 5)) {
+          const buyMsg = `
+📦 <b>${escapeHtml(p.name)}</b>
+📁 ምድብ: <code>${escapeHtml(p.category_id)}</code>
+📏 መጠን/ሳይዝ: <code>${escapeHtml(p.size || 'Standard')}</code>
+💰 ዋጋ: <b>${p.price_etb} ETB</b>
+━━━━━━━━━━━━━━━━━━━━
+👉 ይህን እቃ ለመግዛት ከታች ያለውን ይጫኑ 👇
+`.trim();
+
+          const buttons = [
+            [Markup.button.callback(`🛒 ይግዙ (${p.price_etb} ETB)`, `buy_product:${p.id}`)],
+            [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ`, `https://t.me/${WORKER_USERNAME}`)]
+          ];
+
+          if (p.photo_url && (p.photo_url.startsWith('http://') || p.photo_url.startsWith('https://'))) {
+            await ctx.replyWithPhoto(p.photo_url, {
+              caption: buyMsg,
+              parse_mode: 'HTML',
+              ...Markup.inlineKeyboard(buttons)
+            }).catch(() => ctx.replyWithHTML(buyMsg, Markup.inlineKeyboard(buttons)));
+          } else {
+            await ctx.replyWithHTML(buyMsg, Markup.inlineKeyboard(buttons));
+          }
+        }
+      } catch (err) {
+        console.error('[Shelf View Error]', err);
+        ctx.reply('በዚህ ዝርዝር ውስጥ የሚሸጥ ዕቃ ጨርሰናል። እባክዎ በቴሌግራም ቦት ወይንም በሚኒ አፕ ይዘዙን።');
+      }
+    });
+
+    // CUSTOMER ACTION: Direct Buy from Shelf (buy_product:<id>)
+    bot.action(/^buy_product:(.+)$/, async (ctx) => {
+      await ctx.answerCbQuery();
+      const prodId = ctx.match[1];
+      const products = await getShelfProducts();
+      const product = products.find(p => String(p.id) === String(prodId));
+
+      if (!product) {
+        return ctx.reply('በዚህ ዝርዝር ውስጥ የሚሸጥ ዕቃ ጨርሰናል። እባክዎ በቴሌግራም ቦት ወይንም በሚኒ አፕ ይዘዙን።');
+      }
+
+      const userId = ctx.from.id;
+      const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+      const ticketCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // 1. Create quote record for this purchase
+      await createQuote({
+        quoteCode: ticketCode,
+        customerTelegramId: userId,
+        customerPhone: 'Awaiting Phone',
+        sourceType: 'link',
+        productUrl: product.photo_url,
+        details: `[የቀጥታ መደርደሪያ ግዢ] እቃ: ${product.name} | መጠን: ${product.size || 'N/A'} | ዋጋ: ${product.price_etb} ETB`,
+      });
+
+      // 2. Set active ticket
+      const session = getSession(userId);
+      session.activeTicket = ticketCode;
+
+      // 3. User purchase details & payment prompt
+      const depositAmount = Math.round(product.price_etb * 0.4);
+      const buyText = `
+🎉 <b>የእቃ ግዢ ጥያቄዎ ተመዝግቧል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${escapeHtml(ticketCode)}</code>
+📦 <b>እቃ:</b> ${escapeHtml(product.name)}
+📏 <b>ሳይዝ:</b> ${escapeHtml(product.size || 'Standard')}
+💰 <b>ጠቅላላ ዋጋ:</b> <b>${product.price_etb} ETB</b>
+💵 <b>40% ቅድመ ክፍያ:</b> <b>${depositAmount} ETB</b>
+━━━━━━━━━━━━━━━━━━━━
+💳 <b>የክፍያ አማራጮች፡</b>
+1️⃣ <b>ቴሌብር (Telebirr):</b> <code>+251-996237800</code>
+2️⃣ <b>የኢትዮጵያ ንግድ ባንክ (CBE):</b> <code>10001116390</code>
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ቀጣይ እርምጃ:</b>
+40% ቅድመ ክፍያ ${depositAmount} ብር ከፍለው የደረሰኙን ስክሪንሾት እዚህ ይላኩልን ወይም በቀጥታ ከሰራተኛችን (@${WORKER_USERNAME}) ጋር ያረጋግጡ!
+`.trim();
+
+      await ctx.replyWithHTML(
+        buyText,
+        Markup.inlineKeyboard([
+          [Markup.button.url(`💬 ከሰራተኛ ጋር አረጋግጥ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)],
+          [Markup.button.callback('💬 በዚህ ትኬት መልስ ጻፍ', `chat_ticket:${ticketCode}`)]
+        ])
+      );
+
+      // 4. Alert worker immediately
+      if (WORKER_CHAT_ID && bot) {
+        const workerBuyAlert = `
+🚨 <b>አዲስ የመደርደሪያ እቃ ግዢ ጥያቄ ደርሷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት:</b> <code>${escapeHtml(ticketCode)}</code>
+📦 <b>እቃ:</b> ${escapeHtml(product.name)}
+📏 <b>ሳይዝ:</b> ${escapeHtml(product.size || 'Standard')}
+💰 <b>ዋጋ:</b> ${product.price_etb} ETB (ቅድመ ክፍያ: ${depositAmount} ETB)
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ለደንበኛው በቀጥታ መልስ ለመስጠት፡</b>
+<code>/reply ${ticketCode} ሰላም፣ እቃዎ ተይዞልዎታል። ክፍያዎን ...</code>
+`.trim();
+
+        await bot.telegram.sendMessage(WORKER_CHAT_ID, workerBuyAlert, { parse_mode: 'HTML' }).catch(() => {});
+      }
+    });
+
+
 
     // Trigger: 🔗 ሊንክ ያስገቡ
     bot.hears(['🔗 ሊንክ ያስገቡ (Insert Link)', '/link', 'ሊንክ ያስገቡ'], async (ctx) => {
@@ -1218,6 +1493,65 @@ app.post('/api/orders/:code/ping', customerPingLimiter, async (req, res) => {
     });
   } catch (err) {
     console.error('[Order Ping Error]', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/shelf: Fetch shelf products & best sellers for TMA
+app.get('/api/shelf', async (req, res) => {
+  try {
+    const { category } = req.query;
+    const products = await getShelfProducts(category || null);
+    const bestsellers = await getBestSellerProducts();
+    res.json({ success: true, products, bestsellers });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/shelf: Add new product (korcha_support edit/add)
+app.post('/api/shelf', async (req, res) => {
+  try {
+    const { categoryId, name, size, priceEtb, photoUrl, isBestseller, createdBy } = req.body;
+    if (!name || !priceEtb || !photoUrl) {
+      return res.status(400).json({ success: false, error: 'Name, price, and photoUrl are required' });
+    }
+    const product = await addShelfProduct({
+      categoryId: categoryId || 'miscellaneous',
+      name,
+      size: size || null,
+      priceEtb: parseFloat(priceEtb),
+      photoUrl,
+      isBestseller: Boolean(isBestseller),
+      createdBy: createdBy || 'korcha_support',
+    });
+    res.json({ success: true, product });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/shelf/:id: Update existing product (korcha_support edit)
+app.put('/api/shelf/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const updated = await updateShelfProduct(id, req.body);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Product not found' });
+    }
+    res.json({ success: true, product: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// DELETE /api/shelf/:id: Remove product
+app.delete('/api/shelf/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const result = await deleteShelfProduct(id);
+    res.json({ success: true, result });
+  } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });

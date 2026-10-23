@@ -21,6 +21,56 @@ const inMemoryStore = {
   orderHistory: [],
   pings: [],
   ticketMessages: [],
+  shelfProducts: [
+    {
+      id: 1,
+      category_id: 'womens',
+      name: 'Shein Floral Summer Maxi Dress',
+      size: 'S, M, L, XL',
+      price_etb: 2850,
+      photo_url: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500&auto=format&fit=crop&q=80',
+      is_bestseller: true,
+      created_by: 'korcha_support',
+      syncedToPg: false,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 2,
+      category_id: 'electronics',
+      name: 'Wireless Bluetooth Earbuds Pro (Active Noise Cancelling)',
+      size: 'One Size',
+      price_etb: 3400,
+      photo_url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&auto=format&fit=crop&q=80',
+      is_bestseller: true,
+      created_by: 'korcha_support',
+      syncedToPg: false,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 3,
+      category_id: 'beauty',
+      name: 'Hydrating Face Serum & Vitamin C Glow Complex',
+      size: '50ml',
+      price_etb: 1950,
+      photo_url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80',
+      is_bestseller: true,
+      created_by: 'korcha_support',
+      syncedToPg: false,
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 4,
+      category_id: 'home',
+      name: 'Electric Portable Coffee & Spice Grinder',
+      size: '300ml',
+      price_etb: 2200,
+      photo_url: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=500&auto=format&fit=crop&q=80',
+      is_bestseller: true,
+      created_by: 'korcha_support',
+      syncedToPg: false,
+      created_at: new Date().toISOString()
+    }
+  ],
   idCounter: 1000,
 };
 
@@ -91,6 +141,32 @@ export async function runMigrations() {
           msg.created_at || new Date()
         ]);
         msg.syncedToPg = true;
+      }
+    }
+
+    // 6. Sync in-memory shelf products
+    if (inMemoryStore.shelfProducts) {
+      for (const prod of inMemoryStore.shelfProducts) {
+        if (prod.syncedToPg) continue;
+        const q = `
+          INSERT INTO shelf_products (
+            category_id, name, size, price_etb, photo_url, is_bestseller, created_by, created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT DO NOTHING;
+        `;
+        await client.query(q, [
+          prod.category_id,
+          prod.name,
+          prod.size || null,
+          prod.price_etb,
+          prod.photo_url,
+          prod.is_bestseller || false,
+          prod.created_by || 'korcha_support',
+          prod.created_at || new Date(),
+          prod.updated_at || new Date()
+        ]);
+        prod.syncedToPg = true;
       }
     }
 
@@ -665,7 +741,180 @@ export async function getTicketMessages(ticketCode) {
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 }
 
-// 14. FALLBACK RECONCILIATION ENGINE: Syncs volatile in-memory fallback data to PostgreSQL upon reconnect
+// 14. Get Shelf Products (Optionally filtered by category)
+export async function getShelfProducts(categoryId = null) {
+  if (await checkPG()) {
+    try {
+      const q = categoryId && categoryId !== 'all'
+        ? 'SELECT * FROM shelf_products WHERE category_id = $1 ORDER BY created_at DESC'
+        : 'SELECT * FROM shelf_products ORDER BY created_at DESC';
+      const values = categoryId && categoryId !== 'all' ? [categoryId] : [];
+      const { rows } = await pool.query(q, values);
+      return rows;
+    } catch (e) {
+      console.warn('[DB Fallback] getShelfProducts fallback:', e.message);
+    }
+  }
+
+  if (!inMemoryStore.shelfProducts) inMemoryStore.shelfProducts = [];
+  if (categoryId && categoryId !== 'all') {
+    return inMemoryStore.shelfProducts.filter(p => p.category_id === categoryId);
+  }
+  return inMemoryStore.shelfProducts;
+}
+
+// 15. Get Best Seller Products ("በብዛት የተሸጡ" collection)
+export async function getBestSellerProducts() {
+  if (await checkPG()) {
+    try {
+      const q = 'SELECT * FROM shelf_products WHERE is_bestseller = true ORDER BY created_at DESC';
+      const { rows } = await pool.query(q);
+      return rows;
+    } catch (e) {
+      console.warn('[DB Fallback] getBestSellerProducts fallback:', e.message);
+    }
+  }
+
+  if (!inMemoryStore.shelfProducts) inMemoryStore.shelfProducts = [];
+  return inMemoryStore.shelfProducts.filter(p => p.is_bestseller);
+}
+
+// 16. Add Shelf Product (korcha_support edit/add)
+export async function addShelfProduct({
+  categoryId,
+  name,
+  size = null,
+  priceEtb,
+  photoUrl,
+  isBestseller = false,
+  createdBy = 'korcha_support',
+}) {
+  const now = new Date().toISOString();
+  if (await checkPG()) {
+    try {
+      const q = `
+        INSERT INTO shelf_products (category_id, name, size, price_etb, photo_url, is_bestseller, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING *;
+      `;
+      const { rows } = await pool.query(q, [
+        categoryId,
+        name,
+        size || null,
+        parseFloat(priceEtb),
+        photoUrl,
+        Boolean(isBestseller),
+        createdBy || 'korcha_support',
+      ]);
+      return rows[0];
+    } catch (e) {
+      console.warn('[DB Fallback] addShelfProduct fallback:', e.message);
+    }
+  }
+
+  const record = {
+    id: ++inMemoryStore.idCounter,
+    category_id: categoryId,
+    name,
+    size: size || null,
+    price_etb: parseFloat(priceEtb),
+    photo_url: photoUrl,
+    is_bestseller: Boolean(isBestseller),
+    created_by: createdBy || 'korcha_support',
+    syncedToPg: false,
+    created_at: now,
+    updated_at: now,
+  };
+  if (!inMemoryStore.shelfProducts) inMemoryStore.shelfProducts = [];
+  inMemoryStore.shelfProducts.unshift(record);
+  return record;
+}
+
+// 17. Update Shelf Product (korcha_support edit access)
+export async function updateShelfProduct(id, updates = {}) {
+  const numId = parseInt(id, 10);
+  const now = new Date().toISOString();
+
+  if (await checkPG()) {
+    try {
+      const fields = [];
+      const values = [];
+      let idx = 1;
+
+      if (updates.name !== undefined) {
+        fields.push(`name = $${idx++}`);
+        values.push(updates.name);
+      }
+      if (updates.size !== undefined) {
+        fields.push(`size = $${idx++}`);
+        values.push(updates.size);
+      }
+      if (updates.priceEtb !== undefined) {
+        fields.push(`price_etb = $${idx++}`);
+        values.push(parseFloat(updates.priceEtb));
+      }
+      if (updates.photoUrl !== undefined) {
+        fields.push(`photo_url = $${idx++}`);
+        values.push(updates.photoUrl);
+      }
+      if (updates.categoryId !== undefined) {
+        fields.push(`category_id = $${idx++}`);
+        values.push(updates.categoryId);
+      }
+      if (updates.isBestseller !== undefined) {
+        fields.push(`is_bestseller = $${idx++}`);
+        values.push(Boolean(updates.isBestseller));
+      }
+      fields.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(numId);
+
+      const q = `UPDATE shelf_products SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *;`;
+      const { rows } = await pool.query(q, values);
+      if (rows.length > 0) return rows[0];
+    } catch (e) {
+      console.warn('[DB Fallback] updateShelfProduct fallback:', e.message);
+    }
+  }
+
+  if (!inMemoryStore.shelfProducts) inMemoryStore.shelfProducts = [];
+  const idx = inMemoryStore.shelfProducts.findIndex(p => p.id === numId);
+  if (idx !== -1) {
+    const existing = inMemoryStore.shelfProducts[idx];
+    const updated = {
+      ...existing,
+      name: updates.name !== undefined ? updates.name : existing.name,
+      size: updates.size !== undefined ? updates.size : existing.size,
+      price_etb: updates.priceEtb !== undefined ? parseFloat(updates.priceEtb) : existing.price_etb,
+      photo_url: updates.photoUrl !== undefined ? updates.photoUrl : existing.photo_url,
+      category_id: updates.categoryId !== undefined ? updates.categoryId : existing.category_id,
+      is_bestseller: updates.isBestseller !== undefined ? Boolean(updates.isBestseller) : existing.is_bestseller,
+      syncedToPg: false,
+      updated_at: now,
+    };
+    inMemoryStore.shelfProducts[idx] = updated;
+    return updated;
+  }
+  return null;
+}
+
+// 18. Delete Shelf Product
+export async function deleteShelfProduct(id) {
+  const numId = parseInt(id, 10);
+  if (await checkPG()) {
+    try {
+      await pool.query('DELETE FROM shelf_products WHERE id = $1', [numId]);
+      return { success: true, id: numId };
+    } catch (e) {
+      console.warn('[DB Fallback] deleteShelfProduct fallback:', e.message);
+    }
+  }
+
+  if (!inMemoryStore.shelfProducts) inMemoryStore.shelfProducts = [];
+  inMemoryStore.shelfProducts = inMemoryStore.shelfProducts.filter(p => p.id !== numId);
+  return { success: true, id: numId };
+}
+
+// 19. FALLBACK RECONCILIATION ENGINE: Syncs volatile in-memory fallback data to PostgreSQL upon reconnect
 export async function syncFallbackToPostgres() {
   if (isReconciling) return { status: 'in_progress' };
   isReconciling = true;
@@ -831,6 +1080,32 @@ export async function syncFallbackToPostgres() {
           msg.created_at || new Date()
         ]);
         msg.syncedToPg = true;
+      }
+    }
+
+    // 6. Sync in-memory shelf products
+    if (inMemoryStore.shelfProducts) {
+      for (const prod of inMemoryStore.shelfProducts) {
+        if (prod.syncedToPg) continue;
+        const q = `
+          INSERT INTO shelf_products (
+            category_id, name, size, price_etb, photo_url, is_bestseller, created_by, created_at, updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT DO NOTHING;
+        `;
+        await client.query(q, [
+          prod.category_id,
+          prod.name,
+          prod.size || null,
+          prod.price_etb,
+          prod.photo_url,
+          prod.is_bestseller || false,
+          prod.created_by || 'korcha_support',
+          prod.created_at || new Date(),
+          prod.updated_at || new Date()
+        ]);
+        prod.syncedToPg = true;
       }
     }
 
