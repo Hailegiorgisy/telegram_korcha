@@ -73,20 +73,18 @@ if (BOT_TOKEN && BOT_TOKEN.length > 20) {
 }
 
 // ----------------------------------------------------
-// SHELF CATEGORIES & ON-HAND INVENTORY STORE
+// SHELF CATEGORIES & ON-HAND INVENTORY STORE (6 EXACT CATEGORIES)
 // ----------------------------------------------------
 // Derive product-assignable categories from canonical CATEGORIES (excluding 'all')
 export const PREDEFINED_CATEGORIES = Array.isArray(CATEGORIES)
   ? CATEGORIES.filter((c) => c.id !== 'all')
   : [
-      { id: 'electronics', nameAm: 'ኤሌክትሮኒክስ', nameEn: 'Electronics', icon: '📱' },
-      { id: 'womens', nameAm: 'የሴቶች አልባሳት', nameEn: "Women's", icon: '👗' },
+      { id: 'womens', nameAm: 'የሴቶች አልባሳት', nameEn: "Women's Fashion", icon: '👗' },
       { id: 'kids', nameAm: 'የህጻናት', nameEn: 'Kids & Babies', icon: '🧸' },
-      { id: 'mens', nameAm: 'የወንዶች አልባሳት', nameEn: "Men's", icon: '👔' },
-      { id: 'sports', nameAm: 'ስፖርትና መዝናኛ', nameEn: 'Sports', icon: '⚽' },
-      { id: 'home', nameAm: 'የቤት እቃዎች', nameEn: 'Home & Kitchen', icon: '🍳' },
-      { id: 'beauty', nameAm: 'የውበት እቃዎች', nameEn: 'Beauty & Care', icon: '💄' },
-      { id: 'shoes_bags', nameAm: 'ጫማና ቦርሳ', nameEn: 'Shoes & Bags', icon: '👟' },
+      { id: 'beauty', nameAm: 'የመዋቢያ ዕቃዎች', nameEn: 'Beauty & Skin Care', icon: '💄' },
+      { id: 'electronics', nameAm: 'ኤሌክትሮኒክስ', nameEn: 'Electronics', icon: '📱' },
+      { id: 'home', nameAm: 'የቤት ውስጥ መገልገያዎች', nameEn: 'Home & Kitchen', icon: '🍳' },
+      { id: 'misc', nameAm: 'ሌሎች', nameEn: 'Miscellaneous', icon: '📦' },
     ];
 
 // On-Hand Shelf Storage (seeded from DB on startup, empty by default)
@@ -190,7 +188,7 @@ function getWorkerMenuKeyboard() {
   ]).resize();
 }
 
-// 3. Category Selection Keyboard for Worker Item Uploader
+// 3. Category Selection Keyboard for Worker Item Uploader (6 Categories)
 function getCategorySelectionKeyboard() {
   const rows = [];
   for (let i = 0; i < PREDEFINED_CATEGORIES.length; i += 2) {
@@ -551,7 +549,7 @@ bot.on('text', async (ctx, next) => {
       }
     }
 
-    // A.2. Worker Wizard Step 2: Select Category
+    // A.2. Worker Wizard Step 2: Select Category (6 Categories)
     if (session.state === 'WORKER_SELECT_CATEGORY') {
       let matchedCategory = text;
       // Match with predefined categories if selected via button
@@ -569,7 +567,7 @@ bot.on('text', async (ctx, next) => {
       session.state = 'WORKER_ENTER_TITLE';
 
       return ctx.replyWithMarkdown(
-        `✅ *ምድብ:* \`${matchedCategory}\`\n\n🏷️ *ደረጃ 3 ከ 5፡ የእቃውን ስም (Title) ያስገቡ፡*\n\nምሳሌ: \`AirPods Pro 2nd Gen (Original)\` ወይም \`የወንዶች ጃኬት (ጥቁር)\``,
+        `✅ *ምድብ:* \`${matchedCategory}\`\n\n🏷️ *ደረጃ 3 ከ 5፡ የእቃውን ስም (Title) ያስገቡ፡*\n\nምሳሌ: \`የሴቶች ጃኬት (ጥቁር)\` ወይም \`AirPods Pro 2\``,
         Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
       );
     }
@@ -596,7 +594,7 @@ bot.on('text', async (ctx, next) => {
       session.state = 'WORKER_ENTER_DETAILS';
 
       return ctx.replyWithMarkdown(
-        `✅ *ዋጋ:* ${price} ETB\n\n📝 *ደረጃ 5 ከ 5፡ የእቃውን ማብራሪያ፣ መጠን እና ያለውን ብዛት ያስገቡ፡*\n\nምሳሌ: \`ሳይዝ 42፣ ቀለም ጥቁር፣ 2 ፍሬ በእጅ ላይ አለ\``,
+        `✅ *ዋጋ:* ${price} ETB\n\n📝 *ደረጃ 5 ከ 5፡ የእቃውን ማብራሪያ፣ መጠን (Size) እና ያለውን ብዛት ያስገቡ፡*\n\nምሳሌ: \`ሳይዝ: M, ቀለም: ጥቁር፣ 2 ፍሬ በእጅ ላይ አለ\``,
         Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
       );
     }
@@ -605,12 +603,17 @@ bot.on('text', async (ctx, next) => {
     if (session.state === 'WORKER_ENTER_DETAILS') {
       session.data.description = text;
 
+      // Extract size if written e.g. "ሳይዝ: M" or "size: M"
+      const sizeMatch = text.match(/(?:ሳይዝ|size)\s*[:፡]?\s*([a-zA-Z0-9]+)/i);
+      const parsedSize = sizeMatch ? sizeMatch[1].toUpperCase() : null;
+
       const newItem = {
         id: `shelf-${Date.now()}`,
         titleAm: session.data.title,
         titleEn: session.data.title,
         category: session.data.category,
         priceEtb: session.data.priceEtb,
+        size: parsedSize,
         description: session.data.description,
         photoFileId: session.data.photoFileId,
         image: session.data.imageUrl || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=80',
@@ -640,6 +643,7 @@ bot.on('text', async (ctx, next) => {
           `📦 *እቃ:* ${newItem.titleAm}\n` +
           `📂 *ምድብ:* ${newItem.category}\n` +
           `💰 *ዋጋ:* ${newItem.priceEtb} ETB\n` +
+          (newItem.size ? `📏 *መጠን (Size):* ${newItem.size}\n` : '') +
           `📝 *ዝርዝር:* ${newItem.description}\n` +
           `🆔 *መለያ ኮድ:* \`${newItem.id}\`\n━━━━━━━━━━━━━━━━━━━━`,
         getWorkerMenuKeyboard()
@@ -948,7 +952,7 @@ app.get('/api/shelf', async (req, res) => {
 
 // POST /api/shelf/add: Add new on-hand product to shelf via API
 app.post('/api/shelf/add', async (req, res) => {
-  const { titleAm, titleEn, category, priceEtb, image, stockQuantity, description } = req.body;
+  const { titleAm, titleEn, category, priceEtb, size, image, stockQuantity, description } = req.body;
   if (!titleAm || !priceEtb) {
     return res.status(400).json({ success: false, error: 'titleAm and priceEtb are required' });
   }
@@ -957,8 +961,9 @@ app.post('/api/shelf/add', async (req, res) => {
     id: `shelf-${Date.now()}`,
     titleAm,
     titleEn: titleEn || titleAm,
-    category: category || 'electronics',
+    category: category || 'womens',
     priceEtb: parseInt(priceEtb, 10),
+    size: size || null,
     description: description || '',
     image: image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&auto=format&fit=crop&q=80',
     stockQuantity: parseInt(stockQuantity || '1', 10),

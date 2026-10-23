@@ -1,4 +1,4 @@
-// src/components/StorefrontHome.tsx: Customer Storefront with On-Hand Shelf & Category Empty States
+// src/components/StorefrontHome.tsx: Customer Storefront with 6 Shelf Categories, Buy Flow & Empty State
 import React, { useState, useEffect } from 'react';
 import {
   Link as LinkIcon,
@@ -10,6 +10,7 @@ import {
   Sparkles,
   ShoppingBag,
   PackageOpen,
+  Send,
 } from 'lucide-react';
 import { CATEGORIES } from '../data/categories';
 
@@ -19,12 +20,13 @@ interface ShelfProduct {
   titleEn: string;
   category: string;
   priceEtb: number;
+  size?: string;
   description: string;
   image: string;
   stockQuantity: number;
   inStock: boolean;
-  badge: string;
-  deliveryTime: string;
+  badge?: string;
+  deliveryTime?: string;
 }
 
 interface StorefrontHomeProps {
@@ -44,7 +46,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   const workerUsername =
     (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) ||
     'korcha_support';
-  const supportUrl = `https://t.me/${workerUsername}`;
+  const cleanWorker = workerUsername.replace(/^@/, '');
+  const supportUrl = `https://t.me/${cleanWorker}`;
 
   const marketplaces = [
     { name: 'Shein', url: 'https://www.shein.com', color: 'from-black to-stone-800', desc: 'አልባሳትና ፋሽን' },
@@ -82,8 +85,18 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
   const activeCategoryObj = CATEGORIES.find((c) => c.id === selectedCategory);
 
+  // Helper: Open Telegram chat with pre-filled Buy message to worker
+  const handleBuyProduct = (product: ShelfProduct) => {
+    const itemName = product.titleAm || product.titleEn;
+    const price = product.priceEtb?.toLocaleString();
+    const sizeInfo = product.size ? ` (መጠን: ${product.size})` : '';
+    const message = `ሰላም! ይህንን በእጅ ላይ ያለ እቃ መግዛት እፈልጋለሁ፡ ${itemName}${sizeInfo} - ${price} ETB (ኮድ: ${product.id})`;
+    const buyUrl = `https://t.me/${cleanWorker}?text=${encodeURIComponent(message)}`;
+    window.open(buyUrl, '_blank');
+  };
+
   return (
-    <div className="space-y-5 pb-12 animate-fade-in max-w-md mx-auto">
+    <div className="space-y-4 pb-12 animate-fade-in max-w-md mx-auto">
       {/* Hero Banner with Direct Assisted Quote Actions */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-5 shadow-xl border border-stone-800">
         <div className="relative z-10 space-y-3">
@@ -104,7 +117,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             <button
               onClick={() => onOpenQuoteModal('link')}
-              className="py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/25 active:scale-95 transition-all"
+              className="py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/25 active:scale-95 transition-all"
             >
               <LinkIcon className="w-4 h-4" />
               <span>ሊንክ ያስገቡ</span>
@@ -112,7 +125,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
             <button
               onClick={() => onOpenQuoteModal('screenshot')}
-              className="py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-white/15 active:scale-95 transition-all"
+              className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-white/15 active:scale-95 transition-all"
             >
               <Camera className="w-4 h-4 text-amber-400" />
               <span>ስክሪንሾት ላክ</span>
@@ -124,7 +137,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
       </div>
 
       {/* Global Marketplace Browsing Cards */}
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
             ዓለም አቀፍ ገበያዎች (Global Sites)
@@ -139,10 +152,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               href={m.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group p-3 rounded-2xl bg-white border border-stone-200/80 hover:border-amber-400 hover:shadow-md transition-all text-center block"
+              className="group p-2.5 rounded-2xl bg-white border border-stone-200/80 hover:border-amber-400 hover:shadow-md transition-all text-center block"
             >
               <div
-                className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${m.color} text-white font-extrabold text-xs flex items-center justify-center mx-auto mb-1.5 shadow-xs group-hover:scale-105 transition-transform`}
+                className={`w-7 h-7 rounded-xl bg-gradient-to-tr ${m.color} text-white font-extrabold text-xs flex items-center justify-center mx-auto mb-1 shadow-xs group-hover:scale-105 transition-transform`}
               >
                 {m.name[0]}
               </div>
@@ -153,11 +166,11 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </div>
 
-      {/* Category Filter Pills (Filters In-Stock Items Instead of Forcing Link Modal) */}
-      <div className="space-y-2.5">
+      {/* 6 Category Filter Grid with Smaller/Compact Features */}
+      <div className="space-y-2">
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-bold uppercase tracking-wider text-stone-500">
-            የእቃዎች ምድብ (Categories)
+            የእቃዎች ምድብ (6 Categories)
           </h3>
           {selectedCategory !== 'all' && (
             <button
@@ -169,22 +182,23 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
           )}
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
+        {/* 6 Compact Category Cards */}
+        <div className="grid grid-cols-3 gap-2">
           {CATEGORIES.filter((c) => c.id !== 'all').map((cat) => {
             const isSelected = selectedCategory === cat.id;
             return (
               <button
                 key={cat.id}
                 onClick={() => onSelectCategory(isSelected ? 'all' : cat.id)}
-                className={`p-2.5 rounded-2xl border flex flex-col items-center justify-center space-y-1 transition-all active:scale-95 text-center shadow-2xs ${
+                className={`p-2 rounded-xl border flex flex-col items-center justify-center space-y-0.5 transition-all active:scale-95 text-center shadow-2xs ${
                   isSelected
                     ? 'bg-amber-500 text-stone-950 border-amber-600 font-bold scale-[1.02]'
                     : 'bg-white border-stone-200/70 hover:border-amber-400 hover:bg-amber-50/50 text-stone-800'
                 }`}
               >
-                <span className="text-xl">{cat.icon}</span>
+                <span className="text-lg">{cat.icon}</span>
                 <span className="text-[11px] font-semibold line-clamp-1">{cat.nameAm}</span>
-                <span className={`text-[9px] line-clamp-1 ${isSelected ? 'text-stone-900' : 'text-stone-400'}`}>
+                <span className={`text-[8.5px] line-clamp-1 ${isSelected ? 'text-stone-900 font-medium' : 'text-stone-400'}`}>
                   {cat.nameEn}
                 </span>
               </button>
@@ -193,8 +207,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </div>
 
-      {/* On-Hand Available Products Section (Fulfilling User Request for Shelf & Empty States) */}
-      <div className="space-y-3 pt-1">
+      {/* On-Hand Available Products Section */}
+      <div className="space-y-2.5 pt-1">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center space-x-1.5">
             <ShoppingBag className="w-4 h-4 text-amber-600" />
@@ -202,12 +216,12 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               በእጅ ላይ ያሉ እቃዎች {activeCategoryObj && selectedCategory !== 'all' ? `(${activeCategoryObj.nameAm})` : ''}
             </h3>
           </div>
-          <span className="text-[11px] text-stone-400">
-            {filteredProducts.length > 0 ? `${filteredProducts.length} እቃዎች` : '0 እቃ'}
+          <span className="text-[10px] text-stone-400">
+            {filteredProducts.length > 0 ? `${filteredProducts.length} እቃዎች አሉ` : '0 እቃ'}
           </span>
         </div>
 
-        {/* Dynamic Display: In-Stock Product Grid or Clean Empty State */}
+        {/* Dynamic Display: In-Stock Product Grid or Customer-Specified Empty State */}
         {filteredProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-2.5">
             {filteredProducts.map((product) => (
@@ -225,9 +239,14 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-emerald-600/90 text-white text-[9px] font-bold shadow-xs">
                     {product.badge || 'በእጅ ላይ ያለ'}
                   </div>
+                  {product.size && (
+                    <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-stone-900/80 text-white text-[8.5px] font-medium backdrop-blur-xs">
+                      ሳይዝ: {product.size}
+                    </div>
+                  )}
                 </div>
 
-                <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
+                <div className="p-2.5 flex-1 flex flex-col justify-between space-y-2">
                   <div>
                     <h4 className="font-bold text-xs text-stone-900 line-clamp-2 leading-tight">
                       {product.titleAm || product.titleEn}
@@ -237,19 +256,21 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                     </p>
                   </div>
 
-                  <div className="pt-1 border-t border-stone-100 flex items-center justify-between">
+                  <div className="pt-1.5 border-t border-stone-100 flex items-center justify-between">
                     <div>
-                      <p className="text-[9px] text-stone-400 font-medium">ዋጋ</p>
+                      <p className="text-[8.5px] text-stone-400 font-medium">ዋጋ</p>
                       <p className="text-xs font-extrabold text-amber-600">
                         {product.priceEtb.toLocaleString()} ETB
                       </p>
                     </div>
 
+                    {/* Step 1 Customer Buy Button -> Direct Worker Contact */}
                     <button
-                      onClick={() => onOpenQuoteModal('link')}
-                      className="px-2.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-[10px] font-bold active:scale-95 transition-all"
+                      onClick={() => handleBuyProduct(product)}
+                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-[10px] font-extrabold flex items-center space-x-1 shadow-xs active:scale-95 transition-all"
                     >
-                      ይዘዙ
+                      <Send className="w-3 h-3" />
+                      <span>ይግዙ</span>
                     </button>
                   </div>
                 </div>
@@ -257,24 +278,23 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             ))}
           </div>
         ) : (
-          /* Empty State Display (When category is empty) */
-          <div className="p-6 rounded-3xl bg-white border border-dashed border-stone-300 text-center space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
-              <PackageOpen className="w-6 h-6" />
+          /* Step 1 Exact Empty State Notice */
+          <div className="p-5 rounded-3xl bg-white border border-dashed border-stone-300 text-center space-y-2.5 shadow-2xs">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto shadow-2xs">
+              <PackageOpen className="w-5 h-5" />
             </div>
             <div className="space-y-1">
-              <h4 className="font-bold text-xs text-stone-900">
-                {selectedCategory !== 'all' && activeCategoryObj
-                  ? `በ '${activeCategoryObj.nameAm}' ዘርፍ በአሁኑ ሰዓት በእጅ ላይ ያለ እቃ የለም`
-                  : 'በአሁኑ ሰዓት በመደርደሪያችን ላይ በእጅ ያለ እቃ የለም'}
+              <h4 className="font-bold text-xs text-stone-900 leading-snug">
+                በዚህ ዝርዝር ውስጥ የሚሸጥ ዕቃ ጨርሰናል። <br />
+                <span className="text-amber-700">እባክዎ በቴሌግራም ቦት ወይንም በሚኒ አፕ ይዘዙን።</span>
               </h4>
-              <p className="text-[11px] text-stone-500 leading-relaxed max-w-xs mx-auto">
-                የፈለጉትን ማንኛውንም እቃ ከ Shein, Temu ወይም AliExpress ሊንክ ወይም ስክሪንሾት በመላክ በደጃፍዎ ማስመጣት ይችላሉ!
+              <p className="text-[10px] text-stone-400 leading-relaxed max-w-xs mx-auto">
+                ከ Shein, Temu, Amazon ወይም AliExpress ላይ የሚፈልጉትን እቃ ሊንክ ወይም ስክሪንሾት በመላክ በደጃፍዎ ማስመጣት ይችላሉ!
               </p>
             </div>
             <button
               onClick={() => onOpenQuoteModal('link')}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs inline-flex items-center space-x-1.5 shadow-xs active:scale-95 transition-all"
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs inline-flex items-center space-x-1.5 shadow-xs active:scale-95 transition-all"
             >
               <LinkIcon className="w-3.5 h-3.5" />
               <span>እቃ ከውጭ አስመጣ (Order via Link)</span>
@@ -285,34 +305,34 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
       {/* Trust & Service Highlights */}
       <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-        <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-1">
+        <div className="p-2.5 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-0.5">
           <CreditCard className="w-4 h-4 text-amber-600 mx-auto" />
           <p className="font-bold text-[11px] text-stone-900">በቴሌብር ይክፈሉ</p>
-          <p className="text-[10px] text-stone-500">40% ቅድመ ክፍያ ብቻ</p>
+          <p className="text-[9.5px] text-stone-500">40% ቅድመ ክፍያ ብቻ</p>
         </div>
 
-        <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-1">
+        <div className="p-2.5 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-0.5">
           <Truck className="w-4 h-4 text-emerald-600 mx-auto" />
           <p className="font-bold text-[11px] text-stone-900">በርዎ ድረስ</p>
-          <p className="text-[10px] text-stone-500">ቀሪውን ሲረከቡ ይክፈሉ</p>
+          <p className="text-[9.5px] text-stone-500">ቀሪውን ሲረከቡ ይክፈሉ</p>
         </div>
 
-        <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-1">
+        <div className="p-2.5 rounded-2xl bg-stone-50 border border-stone-200/60 space-y-0.5">
           <ShieldCheck className="w-4 h-4 text-blue-600 mx-auto" />
           <p className="font-bold text-[11px] text-stone-900">የታመነ አገልግሎት</p>
-          <p className="text-[10px] text-stone-500">ቀጥታ ድጋፍ በቦት</p>
+          <p className="text-[9.5px] text-stone-500">ቀጥታ ድጋፍ በቦት</p>
         </div>
       </div>
 
       {/* Direct Contact Card with korcha_support */}
-      <div className="rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-4 flex items-center justify-between">
+      <div className="rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-3.5 flex items-center justify-between">
         <div className="space-y-0.5">
           <p className="font-bold text-xs text-emerald-950 flex items-center space-x-1.5">
             <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
             <span>በቦቱ ከአስተናጋጅ ጋር አውራ</span>
           </p>
-          <p className="text-[11px] text-emerald-800">
-            የእቃ ጥያቄዎችንና መረጃዎችን በቴሌግራም ያግኙ (@{workerUsername})
+          <p className="text-[10px] text-emerald-800">
+            የእቃ ጥያቄዎችንና መረጃዎችን በቴሌግራም ያግኙ (@{cleanWorker})
           </p>
         </div>
         <a
