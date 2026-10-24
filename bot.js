@@ -28,6 +28,8 @@ import {
   addShelfProduct,
   updateShelfProduct,
   deleteShelfProduct,
+  getShelfCategories,
+  updateShelfCategory,
   syncFallbackToPostgres,
   startReconciliationWorker
 } from './db.js';
@@ -563,6 +565,49 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       } catch (err) {
         ctx.reply(`❌ ስህተት: ${err.message}`);
       }
+    });
+
+    // WORKER COMMAND: Edit Shelf Category (/editcategory <id> | <nameAm> | [nameEn] | [icon])
+    bot.hears(/^\/editcategory(?:\s+([\s\S]+))?$/, async (ctx) => {
+      const senderId = String(ctx.from.id);
+      const senderChatId = String(ctx.chat.id);
+      const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
+
+      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
+                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+
+      if (!isAuthorized) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኛ (@' + WORKER_USERNAME + ') ብቻ የተፈቀደ ነው።');
+      }
+
+      const input = ctx.match[1] ? ctx.match[1].trim() : '';
+      if (!input) {
+        return ctx.replyWithHTML(
+          `📌 <b>የመደርደሪያ ምድብ ለማስተካከል (Edit Category):</b>\n\n` +
+          `<b>አጠቃቀም:</b>\n<code>/editcategory &lt;id&gt; | &lt;የአማርኛ ስም&gt; | [የእንግሊዝኛ ስም] | [አይከን]</code>\n\n` +
+          `<b>የምድብ ኮዶች (6 Categories):</b> <code>womens</code>, <code>kids</code>, <code>beauty</code>, <code>electronics</code>, <code>home</code>, <code>miscellaneous</code>\n\n` +
+          `<b>ምሳሌ:</b>\n<code>/editcategory womens | የሴቶች አልባሳት | Women's Clothing | 👗</code>`
+        );
+      }
+
+      const parts = input.split('|').map(p => p.trim());
+      const catId = parts[0]?.toLowerCase();
+      const nameAm = parts[1];
+      const nameEn = parts[2];
+      const icon = parts[3];
+
+      const updated = await updateShelfCategory(catId, { nameAm, nameEn, icon });
+      if (!updated) {
+        return ctx.reply(`⚠️ ምድብ "${catId}" አልተገኘም። የሚፈቀዱት: womens, kids, beauty, electronics, home, miscellaneous`);
+      }
+
+      await ctx.replyWithHTML(
+        `✅ <b>ምድብ ተስተካክሏል (Category Updated)!</b>\n` +
+        `🆔 <b>ID:</b> <code>${escapeHtml(updated.id)}</code>\n` +
+        `🏷️ <b>ስም (Amharic):</b> ${escapeHtml(updated.nameAm)}\n` +
+        `🌐 <b>ስም (English):</b> ${escapeHtml(updated.nameEn)}\n` +
+        `✨ <b>Icon:</b> ${escapeHtml(updated.icon)}`
+      );
     });
 
     // WORKER & CUSTOMER: View Shelf Products (/shelf or /products)
@@ -1505,7 +1550,8 @@ app.get('/api/shelf', async (req, res) => {
     const { category } = req.query;
     const products = await getShelfProducts(category || null);
     const bestsellers = await getBestSellerProducts();
-    res.json({ success: true, products, bestsellers });
+    const categories = await getShelfCategories();
+    res.json({ success: true, products, bestsellers, categories });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1542,6 +1588,20 @@ app.put('/api/shelf/:id', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Product not found' });
     }
     res.json({ success: true, product: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// PUT /api/shelf/categories/:id: Edit category details (korcha_support edit access)
+app.put('/api/shelf/categories/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const updated = await updateShelfCategory(id, req.body);
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Category not found' });
+    }
+    res.json({ success: true, category: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

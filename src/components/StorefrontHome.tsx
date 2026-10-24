@@ -34,6 +34,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   onSelectCategory,
 }) => {
   const [activeCatId, setActiveCatId] = useState<string>(selectedCategory && selectedCategory !== 'all' ? selectedCategory : 'womens');
+  const [categories, setCategories] = useState<any[]>(SHELF_CATEGORIES);
   const [shelfProducts, setShelfProducts] = useState<any[]>(INITIAL_BESTSELLERS);
   const [bestSellers, setBestSellers] = useState<any[]>(INITIAL_BESTSELLERS);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -44,6 +45,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   // Worker Shelf Editor State (korcha_support)
   const [isWorkerMode, setIsWorkerMode] = useState<boolean>(false);
   const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
+  const [isCatEditorOpen, setIsCatEditorOpen] = useState<boolean>(false);
+  const [catForm, setCatForm] = useState({ id: "womens", nameAm: "", nameEn: "", icon: "" });
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [editorForm, setEditorForm] = useState({
     name: '',
@@ -81,6 +84,9 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         if (data.bestsellers && data.bestsellers.length > 0) {
           setBestSellers(data.bestsellers);
         }
+        if (data.categories && data.categories.length > 0) {
+          setCategories(data.categories);
+        }
       }
     } catch (_) {
       // Keep initial best sellers and seeded products on fallback
@@ -98,7 +104,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
     onSelectCategory(catId);
   };
 
-  const currentCategory = SHELF_CATEGORIES.find(c => c.id === activeCatId) || SHELF_CATEGORIES[0];
+  const currentCategory = categories.find(c => c.id === activeCatId) || categories[0];
   const categoryProducts = shelfProducts.filter(p => (p.category_id || p.categoryId) === activeCatId);
 
   // Trigger "Buy" / "ግዛ" for a product
@@ -107,6 +113,45 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   };
 
   // Open Editor for adding or editing
+  const handleOpenEditCategory = (cat: any) => {
+    setCatForm({
+      id: cat.id,
+      nameAm: cat.nameAm || '',
+      nameEn: cat.nameEn || '',
+      icon: cat.icon || '📦',
+    });
+    setEditorNotification(null);
+    setIsCatEditorOpen(true);
+  };
+
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catForm.nameAm.trim()) return;
+    try {
+      setIsSavingProduct(true);
+      const res = await fetch(`/api/shelf/categories/${catForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nameAm: catForm.nameAm.trim(),
+          nameEn: catForm.nameEn.trim(),
+          icon: catForm.icon.trim() || '📦',
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.category) {
+        setCategories(prev => prev.map(c => c.id === catForm.id ? data.category : c));
+        setEditorNotification('ምድቡ በተሳካ ሁኔታ ተስተካክሏል (Category updated)');
+        setTimeout(() => setIsCatEditorOpen(false), 800);
+      }
+    } catch (_) {
+      setCategories(prev => prev.map(c => c.id === catForm.id ? { ...c, ...catForm } : c));
+      setIsCatEditorOpen(false);
+    } finally {
+      setIsSavingProduct(false);
+    }
+  };
+
   const handleOpenAddProduct = () => {
     setEditingProduct(null);
     setEditorForm({
@@ -441,20 +486,30 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               🛠 {isWorkerMode ? 'Worker Active' : 'ሰራተኛ'}
             </button>
             {isWorkerMode && (
-              <button
-                onClick={handleOpenAddProduct}
-                className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold flex items-center space-x-0.5 shadow-2xs"
-              >
-                <Plus className="w-3 h-3" />
-                <span>አዲስ እቃ</span>
-              </button>
+              <>
+                <button
+                  onClick={() => handleOpenEditCategory(currentCategory)}
+                  className="px-2 py-0.5 rounded-md bg-stone-800 hover:bg-stone-700 text-amber-300 text-[10px] font-bold flex items-center space-x-0.5 shadow-2xs"
+                  title="የተመረጠውን ምድብ ስም/አይከን አስተካክል"
+                >
+                  <Edit2 className="w-2.5 h-2.5" />
+                  <span>ምድብ አስተካክል</span>
+                </button>
+                <button
+                  onClick={handleOpenAddProduct}
+                  className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold flex items-center space-x-0.5 shadow-2xs"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>አዲስ እቃ</span>
+                </button>
+              </>
             )}
           </div>
         </div>
 
         {/* Compact 6-Category Grid with Smaller Features */}
         <div className="grid grid-cols-3 gap-1.5">
-          {SHELF_CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const isSelected = cat.id === activeCatId;
             const count = shelfProducts.filter(p => (p.category_id || p.categoryId) === cat.id).length;
 
@@ -709,7 +764,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   onChange={(e) => setEditorForm({ ...editorForm, categoryId: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white focus:ring-2 focus:ring-amber-500 outline-hidden font-medium"
                 >
-                  {SHELF_CATEGORIES.map(cat => (
+                  {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>
                       {cat.nameAm} ({cat.nameEn})
                     </option>
@@ -807,6 +862,101 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   type="button"
                   onClick={() => setIsEditorOpen(false)}
                   className="py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition-colors"
+                >
+                  ሰርዝ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2B. WORKER CATEGORY EDITOR MODAL (korcha_support) */}
+      {isCatEditorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-stone-200 relative">
+            <button
+              onClick={() => setIsCatEditorOpen(false)}
+              className="absolute top-4 right-4 p-1 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div>
+              <span className="px-2 py-0.5 rounded-md bg-stone-900 text-amber-400 font-bold text-[10px]">
+                ሰራተኛ (korcha_support)
+              </span>
+              <h3 className="font-extrabold text-sm text-stone-900 mt-1">
+                ምድብ አስተካክል (Edit Category)
+              </h3>
+              <p className="text-[10px] text-stone-500">የምድቡን የአማርኛ ስም፣ የእንግሊዝኛ ስም እና አይከን ያስተካክሉ</p>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">ምድብ ይምረጡ (Select Category)</label>
+                <select
+                  value={catForm.id}
+                  onChange={(e) => {
+                    const found = categories.find(c => c.id === e.target.value);
+                    if (found) {
+                      setCatForm({ id: found.id, nameAm: found.nameAm, nameEn: found.nameEn, icon: found.icon });
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white font-medium"
+                >
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.nameAm} ({cat.nameEn})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">የአማርኛ ስም (Amharic Name)</label>
+                <input
+                  type="text"
+                  required
+                  value={catForm.nameAm}
+                  onChange={(e) => setCatForm({ ...catForm, nameAm: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">የእንግሊዝኛ ስም (English Name)</label>
+                <input
+                  type="text"
+                  required
+                  value={catForm.nameEn}
+                  onChange={(e) => setCatForm({ ...catForm, nameEn: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">አይከን / Emoji (Icon)</label>
+                <input
+                  type="text"
+                  value={catForm.icon}
+                  onChange={(e) => setCatForm({ ...catForm, icon: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 font-medium"
+                />
+              </div>
+
+              <div className="pt-2 flex space-x-2">
+                <button
+                  type="submit"
+                  disabled={isSavingProduct}
+                  className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-md cursor-pointer"
+                >
+                  {isSavingProduct ? 'እየተቀመጠ ነው...' : 'ምድቡን አስቀምጥ (Save Category)'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCatEditorOpen(false)}
+                  className="py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs"
                 >
                   ሰርዝ
                 </button>

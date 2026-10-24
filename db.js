@@ -21,6 +21,14 @@ const inMemoryStore = {
   orderHistory: [],
   pings: [],
   ticketMessages: [],
+  shelfCategories: [
+    { id: 'womens', nameAm: 'የሴቶች አልባሳት', nameEn: "Women's Clothing", icon: '👗', color: 'from-pink-500 to-rose-600' },
+    { id: 'kids', nameAm: 'የህጻናት', nameEn: 'Kids & Babies', icon: '🧸', color: 'from-amber-400 to-orange-500' },
+    { id: 'beauty', nameAm: 'የመዋቢያ ዕቃዎች', nameEn: 'Beauty & Skin Care', icon: '💄', color: 'from-fuchsia-500 to-purple-600' },
+    { id: 'electronics', nameAm: 'ኤሌክትሮኒክስ', nameEn: 'Electronics', icon: '📱', color: 'from-blue-500 to-indigo-600' },
+    { id: 'home', nameAm: 'የቤት ውስጥ መገልገያዎች', nameEn: 'Home & Kitchen', icon: '🍳', color: 'from-stone-600 to-stone-800' },
+    { id: 'miscellaneous', nameAm: 'Miscellaneous (ሌሎች)', nameEn: 'Miscellaneous (Other)', icon: '✨', color: 'from-emerald-500 to-teal-700' }
+  ],
   shelfProducts: [
     {
       id: 1,
@@ -912,6 +920,62 @@ export async function deleteShelfProduct(id) {
   if (!inMemoryStore.shelfProducts) inMemoryStore.shelfProducts = [];
   inMemoryStore.shelfProducts = inMemoryStore.shelfProducts.filter(p => p.id !== numId);
   return { success: true, id: numId };
+}
+
+// 18b. Get & Update Shelf Categories (Editable by korcha_support)
+export async function getShelfCategories() {
+  if (await checkPG()) {
+    try {
+      const { rows } = await pool.query('SELECT * FROM shelf_categories ORDER BY id ASC');
+      if (rows.length > 0) {
+        return inMemoryStore.shelfCategories.map(def => {
+          const found = rows.find(r => r.id === def.id);
+          return found ? {
+            id: found.id,
+            nameAm: found.name_am,
+            nameEn: found.name_en,
+            icon: found.icon || def.icon,
+            color: found.color || def.color
+          } : def;
+        });
+      }
+    } catch (e) {
+      console.warn('[DB Fallback] getShelfCategories fallback:', e.message);
+    }
+  }
+  return inMemoryStore.shelfCategories;
+}
+
+export async function updateShelfCategory(id, updates = {}) {
+  const catIdx = inMemoryStore.shelfCategories.findIndex(c => c.id === id);
+  if (catIdx === -1) return null;
+
+  const existing = inMemoryStore.shelfCategories[catIdx];
+  const updated = {
+    ...existing,
+    nameAm: updates.nameAm !== undefined && updates.nameAm.trim() ? updates.nameAm.trim() : existing.nameAm,
+    nameEn: updates.nameEn !== undefined && updates.nameEn.trim() ? updates.nameEn.trim() : existing.nameEn,
+    icon: updates.icon !== undefined && updates.icon.trim() ? updates.icon.trim() : existing.icon,
+  };
+  inMemoryStore.shelfCategories[catIdx] = updated;
+
+  if (await checkPG()) {
+    try {
+      const q = `
+        INSERT INTO shelf_categories (id, name_am, name_en, icon, color, updated_at)
+        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        ON CONFLICT (id) DO UPDATE
+        SET name_am = EXCLUDED.name_am,
+            name_en = EXCLUDED.name_en,
+            icon = EXCLUDED.icon,
+            updated_at = CURRENT_TIMESTAMP;
+      `;
+      await pool.query(q, [updated.id, updated.nameAm, updated.nameEn, updated.icon, updated.color]);
+    } catch (e) {
+      console.warn('[DB Fallback] updateShelfCategory fallback:', e.message);
+    }
+  }
+  return updated;
 }
 
 // 19. FALLBACK RECONCILIATION ENGINE: Syncs volatile in-memory fallback data to PostgreSQL upon reconnect

@@ -62,3 +62,14 @@ CREATE TABLE IF NOT EXISTS shelf_products (
 
 CREATE INDEX IF NOT EXISTS idx_shelf_products_cat ON shelf_products(category_id);
 CREATE INDEX IF NOT EXISTS idx_shelf_products_bestseller ON shelf_products(is_bestseller);
+
+-- 6. Shelf Categories (Editable by korcha_support)
+CREATE TABLE IF NOT EXISTS shelf_categories (
+    id VARCHAR(50) PRIMARY KEY,
+    name_am VARCHAR(150) NOT NULL,
+    name_en VARCHAR(150) NOT NULL,
+    icon VARCHAR(30) DEFAULT '📦',
+    color VARCHAR(100) DEFAULT 'from-amber-500 to-orange-600',
+    updated_by VARCHAR(100) DEFAULT 'korcha_support',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
