@@ -874,6 +874,218 @@ export async function getTicketMessages(ticketCode) {
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 }
 
+// 13b. Find the latest active ticket code for a Telegram user (across messages, quotes, orders, and pings)
+export async function getLatestCustomerTicketByTelegramId(telegramId) {
+  if (!telegramId) return null;
+  const numId = Number(telegramId);
+
+  if (await checkPG()) {
+    try {
+      const qMsg = await pool.query(
+        'SELECT ticket_code FROM ticket_messages WHERE sender_telegram_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [numId]
+      );
+      if (qMsg.rows.length > 0) return qMsg.rows[0].ticket_code;
+
+      const qQuote = await pool.query(
+        'SELECT quote_code FROM quotes WHERE customer_telegram_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [numId]
+      );
+      if (qQuote.rows.length > 0) return qQuote.rows[0].quote_code;
+
+      const qOrder = await pool.query(
+        'SELECT order_code FROM orders WHERE customer_telegram_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [numId]
+      );
+      if (qOrder.rows.length > 0) return qOrder.rows[0].order_code;
+
+      const qPing = await pool.query(
+        'SELECT reference_code FROM inquiry_pings WHERE customer_telegram_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [numId]
+      );
+      if (qPing.rows.length > 0) return qPing.rows[0].reference_code;
+    } catch (e) {
+      console.warn('[DB Fallback] getLatestCustomerTicketByTelegramId fallback:', e.message);
+    }
+  }
+
+  // Fallback check in memory
+  if (inMemoryStore.ticketMessages) {
+    const msgs = inMemoryStore.ticketMessages
+      .filter(m => Number(m.sender_telegram_id) === numId)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (msgs.length > 0) return msgs[0].ticket_code;
+  }
+
+  const quotes = Array.from(inMemoryStore.quotes.values())
+    .filter(q => Number(q.customer_telegram_id) === numId)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if (quotes.length > 0) return quotes[0].quote_code;
+
+  const orders = Array.from(inMemoryStore.orders.values())
+    .filter(o => Number(o.customer_telegram_id) === numId)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if (orders.length > 0) return orders[0].order_code;
+
+  const pings = inMemoryStore.pings
+    .filter(p => Number(p.customer_telegram_id) === numId)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if (pings.length > 0) return pings[0].reference_code;
+
+  return null;
+}
+
+// 13c. Get all customer conversation threads (Price Estimations, Order Tracker, and General Support) for TMA
+export async function getCustomerConversations({ telegramId = null, phone = null, codes = [] }) {
+  const ticketSet = new Set(Array.isArray(codes) ? codes.filter(Boolean) : []);
+  const numTgId = telegramId ? Number(telegramId) : null;
+  const cleanPhone = phone ? String(phone).trim() : null;
+
+  const quotesMap = new Map();
+  const ordersMap = new Map();
+  const pingsMap = new Map();
+
+  if (await checkPG()) {
+    try {
+      if (numTgId || cleanPhone) {
+        const qQuotes = await pool.query(
+          `SELECT * FROM quotes WHERE ($1::bigint IS NOT NULL AND customer_telegram_id = $1) OR ($2::text IS NOT NULL AND customer_phone = $2) ORDER BY created_at DESC`,
+          [numTgId, cleanPhone]
+        );
+        for (const r of qQuotes.rows) {
+          ticketSet.add(r.quote_code);
+          quotesMap.set(r.quote_code, r);
+        }
+
+        const qOrders = await pool.query(
+          `SELECT * FROM orders WHERE ($1::bigint IS NOT NULL AND customer_telegram_id = $1) OR ($2::text IS NOT NULL AND customer_phone = $2) ORDER BY created_at DESC`,
+          [numTgId, cleanPhone]
+        );
+        for (const r of qOrders.rows) {
+          ticketSet.add(r.order_code);
+          ordersMap.set(r.order_code, r);
+        }
+
+        const qPings = await pool.query(
+          `SELECT * FROM inquiry_pings WHERE ($1::bigint IS NOT NULL AND customer_telegram_id = $1) OR ($2::text IS NOT NULL AND customer_phone = $2) ORDER BY created_at DESC`,
+          [numTgId, cleanPhone]
+        );
+        for (const r of qPings.rows) {
+          ticketSet.add(r.reference_code);
+          if (!pingsMap.has(r.reference_code)) pingsMap.set(r.reference_code, []);
+          pingsMap.get(r.reference_code).push(r);
+        }
+
+        const qMsgs = await pool.query(
+          `SELECT DISTINCT ticket_code FROM ticket_messages WHERE ($1::bigint IS NOT NULL AND sender_telegram_id = $1) OR ($2::text IS NOT NULL AND customer_phone = $2)`,
+          [numTgId, cleanPhone]
+        );
+        for (const r of qMsgs.rows) {
+          ticketSet.add(r.ticket_code);
+        }
+      }
+    } catch (e) {
+      console.warn('[DB Fallback] getCustomerConversations PG query fallback:', e.message);
+    }
+  }
+
+  // Also scan in-memory stores
+  for (const q of inMemoryStore.quotes.values()) {
+    if ((numTgId && Number(q.customer_telegram_id) === numTgId) || (cleanPhone && q.customer_phone === cleanPhone) || ticketSet.has(q.quote_code)) {
+      ticketSet.add(q.quote_code);
+      if (!quotesMap.has(q.quote_code)) quotesMap.set(q.quote_code, q);
+    }
+  }
+  for (const o of inMemoryStore.orders.values()) {
+    if ((numTgId && Number(o.customer_telegram_id) === numTgId) || (cleanPhone && o.customer_phone === cleanPhone) || ticketSet.has(o.order_code)) {
+      ticketSet.add(o.order_code);
+      if (!ordersMap.has(o.order_code)) ordersMap.set(o.order_code, o);
+    }
+  }
+  for (const p of inMemoryStore.pings) {
+    if ((numTgId && Number(p.customer_telegram_id) === numTgId) || (cleanPhone && p.customer_phone === cleanPhone) || ticketSet.has(p.reference_code)) {
+      ticketSet.add(p.reference_code);
+      if (!pingsMap.has(p.reference_code)) pingsMap.set(p.reference_code, []);
+      pingsMap.get(p.reference_code).push(p);
+    }
+  }
+  if (inMemoryStore.ticketMessages) {
+    for (const m of inMemoryStore.ticketMessages) {
+      if ((numTgId && Number(m.sender_telegram_id) === numTgId) || (cleanPhone && m.customer_phone === cleanPhone)) {
+        ticketSet.add(m.ticket_code);
+      }
+    }
+  }
+
+  const conversations = [];
+  for (const code of ticketSet) {
+    const order = ordersMap.get(code) || (await getOrderByCode(code));
+    const quote = quotesMap.get(code) || (await getQuoteByCode(code));
+    const pings = pingsMap.get(code) || (await getCustomerPings(code));
+    const messages = await getTicketMessages(code);
+
+    const latestWorkerPing = pings.find(p => p.worker_response);
+    const latestWorkerMsg = [...messages].reverse().find(m => m.sender_role === 'worker');
+    const latestWorkerResponse =
+      latestWorkerMsg?.message_text ||
+      order?.latest_worker_note ||
+      order?.worker_response ||
+      latestWorkerPing?.worker_response ||
+      null;
+
+    // Synthesize worker response into messages array if it was only recorded in pings/order
+    const normalizedMessages = [...messages];
+    if (latestWorkerResponse && !normalizedMessages.some(m => m.sender_role === 'worker' && m.message_text === latestWorkerResponse)) {
+      normalizedMessages.push({
+        id: `worker-note-${code}`,
+        ticket_code: code,
+        sender_role: 'worker',
+        sender_name: 'korcha_support',
+        message_text: latestWorkerResponse,
+        created_at: latestWorkerPing?.responded_at || order?.updated_at || new Date().toISOString(),
+      });
+    }
+
+    const category = order
+      ? 'order_tracker'
+      : quote
+      ? 'price_quote'
+      : 'support';
+
+    const summary =
+      order?.product_summary ||
+      quote?.details ||
+      quote?.product_url ||
+      pings[0]?.customer_note ||
+      `የደንበኛ ውይይት (${code})`;
+
+    const status =
+      latestWorkerResponse
+        ? 'ሰራተኛ ምላሽ ሰጥቷል (Worker Replied)'
+        : order?.status || quote?.status || 'በሰራተኛ እየታየ ነው (Waiting for Worker)';
+
+    const updatedAt =
+      normalizedMessages[normalizedMessages.length - 1]?.created_at ||
+      order?.updated_at ||
+      quote?.updated_at ||
+      pings[0]?.created_at ||
+      new Date().toISOString();
+
+    conversations.push({
+      ticketCode: code,
+      category,
+      summary,
+      status,
+      customerPhone: order?.customer_phone || quote?.customer_phone || cleanPhone || null,
+      latestWorkerResponse,
+      messages: normalizedMessages,
+      updatedAt,
+    });
+  }
+
+  return conversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
 // 14. Get Shelf Products (Optionally filtered by category)
 export async function getShelfProducts(categoryId = null) {
   if (await checkPG()) {

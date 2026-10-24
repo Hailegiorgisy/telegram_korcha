@@ -20,6 +20,8 @@ interface LinkOrScreenshotQuoteModalProps {
   onClose: () => void;
   initialMode?: 'link' | 'screenshot';
   preferredPayment?: 'telebirr' | 'cbe_birr';
+  onQuoteSubmitted?: (quoteCode: string, phone: string) => void;
+  onOpenMessagesTab?: (quoteCode?: string) => void;
 }
 
 export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProps> = ({
@@ -27,6 +29,8 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
   onClose,
   initialMode = 'link',
   preferredPayment = 'telebirr',
+  onQuoteSubmitted,
+  onOpenMessagesTab,
 }) => {
   const [sourceType, setSourceType] = useState<'link' | 'screenshot'>(initialMode);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -129,8 +133,12 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       formData.append('color', color);
       formData.append('quantity', quantity);
       const combinedNote = `${sourceType === 'screenshot' ? `[ገበያ: ${marketplace}] ` : ''}${details || ''} [የተመረጠ የክፍያ መንገድ: ${paymentMethod === 'telebirr' ? 'Telebirr (ቴሌብር)' : 'CBE Birr / ንግድ ባንክ'}]`;
+      const cleanPhone = normalizeEthiopianPhone(phoneNumber) || phoneNumber;
       formData.append('details', combinedNote);
-      formData.append('phone', normalizeEthiopianPhone(phoneNumber) || phoneNumber);
+      formData.append('phone', cleanPhone);
+      const tmaUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      if (tmaUser?.id) formData.append('telegramId', String(tmaUser.id));
+      if (tmaUser?.username) formData.append('telegramUsername', String(tmaUser.username));
 
       // Submit to backend
       const res = await fetch('/api/quotes', {
@@ -140,7 +148,9 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
 
       const data = await res.json();
       if (data.success) {
-        setSubmittedQuoteCode(data.quoteCode || 'KC-QUOTE');
+        const qCode = data.quoteCode || 'KC-QUOTE';
+        setSubmittedQuoteCode(qCode);
+        if (onQuoteSubmitted) onQuoteSubmitted(qCode, cleanPhone);
         setStep(4);
       } else {
         alert(data.error || 'ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።');
@@ -528,13 +538,26 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
               </div>
 
               <div className="space-y-2 pt-2">
+                {onOpenMessagesTab && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const code = submittedQuoteCode || undefined;
+                      resetAndClose();
+                      onOpenMessagesTab(code);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <span>💬 በሚኒ አፕ የሰራተኛ ምላሽ እና ውይይት ክፈት (Open Messages)</span>
+                  </button>
+                )}
                 <a
                   href={`https://t.me/${workerUsername}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all"
                 >
-                  <span>ከሰራተኛ ጋር በቀጥታ አውራ (@{workerUsername})</span>
+                  <span>በቴሌግራም ከሰራተኛ ጋር አውራ (@{workerUsername})</span>
                 </a>
                 <button
                   type="button"
