@@ -83,7 +83,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center space-x-1.5 py-1.5 px-3 rounded-lg font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-50 active:scale-95 transition-all"
             >
               <LinkIcon className="w-3.5 h-3.5 text-amber-600" />
-              <span>ሊንክ ያስገቡ</span>
+              <span>ሊንክ ወይም ስክሪንሾት ያስገቡ</span>
             </button>
           )}
 
