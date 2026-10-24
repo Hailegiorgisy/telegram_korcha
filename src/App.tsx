@@ -31,6 +31,7 @@ export function App() {
   const [userOrders, setUserOrders] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [hasSearched, setHasSearched] = useState<boolean>(false);
+  const [autoTrackingMessage, setAutoTrackingMessage] = useState<string>('ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል። ትንሽ ይጠብቁ።');
 
   // Ping & Direct Messaging state
   const [pingingCode, setPingingCode] = useState<string | null>(null);
@@ -59,7 +60,7 @@ export function App() {
         const param = searchCode 
           ? `code=${encodeURIComponent(searchCode)}` 
           : `phone=${encodeURIComponent(searchPhone)}`;
-        const res = await fetch(`/api/orders/lookup?${param}`);
+        const res = await fetch(`/api/orders/lookup?${param}&silent=1`);
         const data = await res.json();
         if (data.success && data.orders) {
           setUserOrders(data.orders);
@@ -106,10 +107,19 @@ export function App() {
     }
     if (!silent) setIsSearching(true);
     setHasSearched(true);
+    setAutoTrackingMessage('ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል። ትንሽ ይጠብቁ።');
     try {
+      const tmaUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      const tgParams = tmaUser
+        ? `&telegramId=${encodeURIComponent(tmaUser.id || '')}&telegramUsername=${encodeURIComponent(tmaUser.username || '')}&firstName=${encodeURIComponent(tmaUser.first_name || '')}`
+        : '';
+      const silentParam = silent ? '&silent=1' : '';
       const param = searchCode ? `code=${encodeURIComponent(searchCode)}` : `phone=${encodeURIComponent(searchPhone)}`;
-      const res = await fetch(`/api/orders/lookup?${param}`);
+      const res = await fetch(`/api/orders/lookup?${param}${tgParams}${silentParam}`);
       const data = await res.json();
+      if (data.autoMessage) {
+        setAutoTrackingMessage(data.autoMessage);
+      }
       if (data.success && data.orders) {
         setUserOrders(data.orders);
         fetchMessagesForOrders(data.orders);
@@ -275,6 +285,18 @@ export function App() {
             {/* Results */}
             {hasSearched && (
               <div className="space-y-3">
+                {/* Automatic Tracking Response Banner */}
+                <div className="bg-amber-50 border border-amber-300/90 rounded-2xl p-3.5 shadow-2xs flex items-start space-x-2.5">
+                  <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-extrabold text-xs text-amber-950 leading-relaxed">
+                      {autoTrackingMessage}
+                    </p>
+                    <p className="text-[11px] text-amber-800">
+                      ጥያቄዎ ለሰራተኛ (@{workerUsername}) ደርሷል። ምላሹ እዚህ ገጽ ላይ እና በቴሌግራም ቦት በቀጥታ ይደርስዎታል።
+                    </p>
+                  </div>
+                </div>
                 {userOrders.length > 0 ? (
                   userOrders.map((ord) => (
                     <div key={ord.order_code || ord.id} className="bg-white rounded-2xl p-4 border border-stone-200/80 shadow-xs space-y-3">
@@ -422,7 +444,7 @@ export function App() {
                   ))
                 ) : (
                   <div className="bg-white rounded-2xl p-6 text-center border border-stone-200/80 text-xs text-stone-500 space-y-2">
-                    <p>Our worker will let you know the status soon. / ሰራተኛችን በቅርቡ ወቅታዊውን ሁኔታ ያሳውቅዎታል!</p>
+                    <p className="font-bold text-stone-800">ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል። ትንሽ ይጠብቁ።</p>
                     <a 
                       href={`https://t.me/${workerUsername}`} 
                       target="_blank" 

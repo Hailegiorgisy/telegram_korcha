@@ -13,6 +13,8 @@ import {
   upsertCustomer,
   createQuote,
   getQuoteByCode,
+  getQuotesByPhone,
+  resolveTrackingTarget,
   createOrder,
   getOrderByCode,
   getOrdersByPhone,
@@ -74,6 +76,7 @@ const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || 'https://telegram.korcha
 const PORT = process.env.PORT || 3000;
 const TELEBIRR_PHONE = process.env.TELEBIRR_PHONE || process.env.VITE_TELEBIRR_PHONE || '+251-996237800';
 const CBE_ACCOUNT = process.env.CBE_ACCOUNT || process.env.VITE_CBE_ACCOUNT || '10001116390';
+const AUTO_TRACKING_RESPONSE = 'ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል። ትንሽ ይጠብቁ።';
 
 // Helper: Escape HTML entities to prevent Telegram parse errors
 function escapeHtml(text) {
@@ -375,31 +378,45 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       const workerName = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Worker');
 
       try {
-        const order = await getOrderByCode(code);
-        const quote = await getQuoteByCode(code);
+        const normalizedTarget = isValidEthiopianPhone(code) ? normalizePhone(code) : code;
+        const resolved = await resolveTrackingTarget(normalizedTarget);
+        const canonicalCode = resolved?.canonicalCode || normalizedTarget;
 
-        if (!order && !quote) {
-          return ctx.replyWithHTML(`⚠️ <b>የትዕዛዝ ወይም የጥያቄ ኮድ አልተገኘም:</b> <code>${escapeHtml(code)}</code>`);
-        }
-
-        // 1. Record response in database (visible in Mini App tracking)
+        // 1. Record response in database (visible in Mini App tracking under both searched target & canonical code)
         await respondToCustomerPing({
-          referenceCode: code,
+          referenceCode: canonicalCode,
           responseText: replyMessage,
           workerUsername: workerName,
         });
+        if (normalizedTarget !== canonicalCode) {
+          await respondToCustomerPing({
+            referenceCode: normalizedTarget,
+            responseText: replyMessage,
+            workerUsername: workerName,
+          });
+        }
 
         // 2. Append worker message to ticket chat thread for continuous history
         await addTicketMessage({
-          ticketCode: code,
+          ticketCode: canonicalCode,
           senderRole: 'worker',
           senderName: workerName,
+          customerPhone: resolved?.customerPhone || null,
           messageText: replyMessage,
         });
+        if (normalizedTarget !== canonicalCode) {
+          await addTicketMessage({
+            ticketCode: normalizedTarget,
+            senderRole: 'worker',
+            senderName: workerName,
+            customerPhone: resolved?.customerPhone || null,
+            messageText: replyMessage,
+          });
+        }
 
         // 3. Direct message customer on Telegram Bot with active reply session
         let deliveredToTelegram = false;
-        const targetTelegramId = order?.customer_telegram_id || quote?.customer_telegram_id;
+        const targetTelegramId = resolved?.customerTelegramId;
 
         if (targetTelegramId) {
           const targetSession = getSession(targetTelegramId);
@@ -1113,38 +1130,80 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         return finalizeQuoteRequest(ctx, session.data, cleanPhone);
       }
 
-      // 4. Awaiting Tracking Input: Instant Worker Notification + Interactive Ping Button
+      // 4. Awaiting Tracking Input: Automatic Response + Instant Worker Notification + Direct Reply Routing
       if (session.state === 'AWAITING_TRACKING_INPUT') {
         clearSession(ctx.from.id);
         const userId = ctx.from.id;
         const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+        const isPhoneInput = isValidEthiopianPhone(text);
+        const cleanTarget = isPhoneInput ? normalizePhone(text) : text.trim();
 
         try {
           let orders = [];
-          if (isValidEthiopianPhone(text)) {
-            orders = await getOrdersByPhone(normalizePhone(text));
+          let quotes = [];
+          if (isPhoneInput) {
+            orders = await getOrdersByPhone(cleanTarget);
+            quotes = await getQuotesByPhone(cleanTarget);
           } else {
-            const order = await getOrderByCode(text);
+            const order = await getOrderByCode(cleanTarget);
             if (order) orders = [order];
+            const quote = await getQuoteByCode(cleanTarget);
+            if (quote) quotes = [quote];
           }
 
-          // Record lookup
-          await recordOrderLookup(text, orders.length);
+          const trackingTicketCode = orders[0]?.order_code || quotes[0]?.quote_code || cleanTarget;
+          const resolvedPhone = isPhoneInput
+            ? cleanTarget
+            : (orders[0]?.customer_phone || quotes[0]?.customer_phone || String(userId));
 
-          // Notify worker immediately
+          // 1. Record lookup & ping with customerTelegramId so /reply routes back to this customer on Bot & TMA
+          await recordOrderLookup(cleanTarget, orders.length);
+          await recordCustomerPing({
+            referenceCode: trackingTicketCode,
+            customerPhone: resolvedPhone,
+            customerName: username,
+            customerTelegramId: userId,
+            pingType: 'order_lookup',
+            customerNote: `ደንበኛ በቦት የትዕዛዝ ሁኔታ ጠይቋል (${text})`,
+            assignedWorker: WORKER_USERNAME,
+          });
+
+          // Activate continuous two-way chat session for this tracking request
+          const userSession = getSession(userId);
+          userSession.activeTicket = trackingTicketCode;
+          userSession.data.phone = resolvedPhone;
+
+          // 2. Immediately send the exact required automatic response to the customer
+          await ctx.replyWithHTML(
+            `⏳ <b>${escapeHtml(AUTO_TRACKING_RESPONSE)}</b>
+
+` +
+            `🏷️ <b>የመከታተያ ቁጥር / ስልክ:</b> <code>${escapeHtml(trackingTicketCode)}</code>
+` +
+            `💬 ሰራተኛችን (<b>@${escapeHtml(WORKER_USERNAME)}</b>) ወዲያውኑ አጣርቶ መልስ ሲሰጥዎት እዚህ በቀጥታ ይደርስዎታል!`,
+            Markup.keyboard([
+              [`💬 ለትኬት ${trackingTicketCode} መልስ ጻፍ`],
+              ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+            ]).resize()
+          );
+
+          // 3. Notify worker (@korcha_support) immediately
           if (WORKER_CHAT_ID && bot) {
             const lookupAlert = `
-🔔 <b>ደንበኛ በቴሌግራም ቦት የትዕዛዝ ሁኔታ ፈለገ! (Bot Tracking Lookup)</b>
+🔔 <b>ደንበኛ በቴሌግራም ቦት የትዕዛዝ ሁኔታ ጠየቀ! (Bot Order Tracking Request)</b>
 ━━━━━━━━━━━━━━━━━━━━
-🔍 <b>የተፈለገው:</b> <code>${escapeHtml(text)}</code>
+🔍 <b>የተፈለገው (Phone/Tracker):</b> <code>${escapeHtml(text)}</code>
+🏷️ <b>የመከታተያ ኮድ:</b> <code>${escapeHtml(trackingTicketCode)}</code>
 👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
-📦 <b>የተገኙ ትዕዛዞች:</b> ${orders.length}
-${orders.length > 0 ? `📊 <b>ሁኔታ:</b> <code>${escapeHtml(orders[0].status)}</code>\n🛍️ <b>እቃ:</b> ${escapeHtml(orders[0].product_summary || 'N/A')}` : '⚠️ ትዕዛዝ አልተገኘም'}
+📱 <b>ስልክ:</b> <code>${escapeHtml(resolvedPhone)}</code>
+${orders.length > 0 ? `📊 <b>የአሁን ሁኔታ:</b> <code>${escapeHtml(orders[0].status)}</code>
+🛍️ <b>እቃ:</b> ${escapeHtml(orders[0].product_summary || 'N/A')}` : quotes.length > 0 ? `📊 <b>የጥያቄ ሁኔታ:</b> <code>${escapeHtml(quotes[0].status)}</code>
+📝 <b>ዝርዝር:</b> ${escapeHtml(quotes[0].details || 'N/A')}` : '📌 <b>ሁኔታ:</b> አዲስ የሁኔታ ጥያቄ (Awaiting Worker Status Update)'}
 ⏰ <b>ሰዓት:</b> <code>${new Date().toLocaleTimeString()}</code>
 ━━━━━━━━━━━━━━━━━━━━
-👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
-<code>/reply ${orders.length > 0 ? orders[0].order_code : text} ሰላም፣ እቃዎ ...</code>
-`;
+👉 <b>ለደንበኛው በቀጥታ ወደ ቦት ወይም ሚኒ አፕ መልስ ለመስጠት፡</b>
+<code>/reply ${trackingTicketCode} ዕቃዎ ... ላይ ደርሷል።</code>
+`.trim();
             const buttons = [];
             if (ctx.from.username) {
               buttons.push([Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)]);
@@ -1157,10 +1216,7 @@ ${orders.length > 0 ? `📊 <b>ሁኔታ:</b> <code>${escapeHtml(orders[0].statu
           }
 
           if (orders.length === 0) {
-            return ctx.replyWithHTML(
-              `⏳ <b>Our worker will let you know the status soon.</b>\nሰራተኛችን በቅርቡ ወቅታዊውን የትዕዛዝ ሁኔታ ያሳውቅዎታል!\n\n👉 <b><a href="https://t.me/${escapeHtml(WORKER_USERNAME)}">@${escapeHtml(WORKER_USERNAME)}</a></b>`,
-              getMainMenuKeyboard()
-            );
+            return;
           }
 
           for (const ord of orders) {
@@ -1442,64 +1498,116 @@ ${marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(marketplace)}
   }
 });
 
-// GET /api/orders/lookup with Rate Limiter
+// GET /api/orders/lookup with Rate Limiter (Notifies @korcha_support & returns Automatic Response)
 app.get('/api/orders/lookup', orderLookupLimiter, async (req, res) => {
   try {
-    const { phone, code } = req.query;
-    let orders = [];
-    const searchTarget = code || phone;
+    const { phone, code, silent, telegramId, telegramUsername, firstName } = req.query;
+    const rawSearch = String(code || phone || '').trim();
 
-    if (!searchTarget) {
+    if (!rawSearch) {
       return res.status(400).json({ success: false, error: 'Phone number or order code required' });
     }
 
-    if (code) {
-      const order = await getOrderByCode(code);
+    const isPhoneSearch = isValidEthiopianPhone(rawSearch) || Boolean(phone && !code);
+    const cleanPhone = isPhoneSearch ? normalizePhone(rawSearch) : null;
+    const searchTarget = cleanPhone || rawSearch;
+
+    let orders = [];
+    let quotes = [];
+
+    if (code && !isValidEthiopianPhone(code)) {
+      const order = await getOrderByCode(code.trim());
       if (order) orders = [order];
-    } else if (phone) {
-      orders = await getOrdersByPhone(normalizePhone(phone));
+      const quote = await getQuoteByCode(code.trim());
+      if (quote) quotes = [quote];
+    } else {
+      orders = await getOrdersByPhone(searchTarget);
+      quotes = await getQuotesByPhone(searchTarget);
+      if (orders.length === 0 && quotes.length === 0) {
+        const orderByCode = await getOrderByCode(rawSearch);
+        if (orderByCode) orders = [orderByCode];
+        const quoteByCode = await getQuoteByCode(rawSearch);
+        if (quoteByCode) quotes = [quoteByCode];
+      }
     }
 
-    // Record lookup event
-    await recordOrderLookup(normalizePhone(phone) || code, orders.length);
+    const trackingTicketCode = orders[0]?.order_code || quotes[0]?.quote_code || searchTarget;
+    const resolvedPhone = cleanPhone || orders[0]?.customer_phone || quotes[0]?.customer_phone || rawSearch;
+    const parsedTgId = telegramId ? parseInt(String(telegramId), 10) : (orders[0]?.customer_telegram_id || quotes[0]?.customer_telegram_id || null);
+    const customerDisplay = telegramUsername
+      ? `@${String(telegramUsername).replace(/^@/, '')}`
+      : (firstName || resolvedPhone || 'Customer');
 
-    // Notify assigned workers immediately when customer checks status
-    if (WORKER_CHAT_ID && bot) {
-      if (orders.length > 0) {
-        const ord = orders[0];
-        const customerPhone = ord.customer_phone;
-        const intlPhone = customerPhone.startsWith('0') ? `+251${customerPhone.slice(1)}` : customerPhone;
+    // If no row in `orders` exists yet, synthesize a live tracking ticket card so the customer sees the automatic response & worker chat thread in the Mini App
+    if (orders.length === 0) {
+      const pings = await getCustomerPings(trackingTicketCode);
+      const latestWorkerPing = pings.find(p => p.worker_response);
+      const matchedQuote = quotes[0] || null;
 
+      orders = [
+        {
+          id: matchedQuote?.id || Date.now(),
+          order_code: trackingTicketCode,
+          customer_phone: resolvedPhone,
+          customer_telegram_id: parsedTgId,
+          product_summary: matchedQuote?.details || `የትዕዛዝ ክትትል (${searchTarget})`,
+          total_price_etb: matchedQuote?.total_price_etb || 'በመሰላት ላይ (Pending)',
+          payment_method: 'telebirr',
+          status: latestWorkerPing ? 'ሰራተኛ ምላሽ ሰጥቷል (Updated)' : 'በሰራተኛ እየተጣራ ነው (Checking Status)',
+          latest_worker_note: latestWorkerPing?.worker_response || null,
+          worker_response: latestWorkerPing?.worker_response || null,
+        }
+      ];
+    }
+
+    // Only record lookup ping & notify worker when customer actively clicks Search (not during 12s background refresh)
+    if (!silent) {
+      await recordOrderLookup(searchTarget, orders.length);
+      await recordCustomerPing({
+        referenceCode: trackingTicketCode,
+        customerPhone: resolvedPhone,
+        customerName: customerDisplay,
+        customerTelegramId: parsedTgId,
+        pingType: 'order_lookup',
+        customerNote: `ደንበኛ በሚኒ አፕ (Mini App) የትዕዛዝ ሁኔታ ጠይቋል: ${rawSearch}`,
+        assignedWorker: WORKER_USERNAME,
+      });
+
+      if (WORKER_CHAT_ID && bot) {
         const lookupAlert = `
-🔔 <b>ደንበኛ የትዕዛዝ ሁኔታ ፈለገ (Customer Status Lookup)!</b>
+🔔 <b>ደንበኛ በሚኒ አፕ (Mini App) የትዕዛዝ ሁኔታ ጠየቀ!</b>
 ━━━━━━━━━━━━━━━━━━━━
-🏷️ <b>የተፈለገው:</b> <code>${escapeHtml(code || phone)}</code>
-👤 <b>ስልክ ቁጥር:</b> <code>${escapeHtml(customerPhone)}</code>
-📦 <b>የተገኙ ትዕዛዞች:</b> ${orders.length}
-📊 <b>የአሁን ሁኔታ:</b> <code>${escapeHtml(ord.status)}</code>
-🛍️ <b>እቃ:</b> ${escapeHtml(ord.product_summary || 'N/A')}
-💰 <b>ጠቅላላ ክፍያ:</b> ${escapeHtml(ord.total_price_etb)} ETB
-━━━━━━━━━━━━━━━━━━━━
-👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
-<code>/reply ${ord.order_code} ሰላም፣ እቃዎ ...</code>
-`;
-        bot.telegram.sendMessage(WORKER_CHAT_ID, lookupAlert, { parse_mode: 'HTML' }).catch(() => {});
-      } else {
-        const lookupMissingAlert = `
-⚠️ <b>ያልተገኘ የትዕዛዝ ፍለጋ ሙከራ (Unmatched Status Lookup)!</b>
-━━━━━━━━━━━━━━━━━━━━
-🔍 <b>የተፈለገው ኮድ/ስልክ:</b> <code>${escapeHtml(searchTarget)}</code>
+🔍 <b>የተፈለገው (Phone/Tracker):</b> <code>${escapeHtml(rawSearch)}</code>
+🏷️ <b>የመከታተያ ኮድ:</b> <code>${escapeHtml(trackingTicketCode)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(customerDisplay)}${parsedTgId ? ` (ID: <code>${escapeHtml(parsedTgId)}</code>)` : ''}
+📱 <b>ስልክ ቁጥር:</b> <code>${escapeHtml(resolvedPhone)}</code>
+🛍️ <b>እቃ/ዝርዝር:</b> ${escapeHtml(orders[0]?.product_summary || 'N/A')}
 ⏰ <b>ሰዓት:</b> <code>${new Date().toLocaleTimeString()}</code>
 ━━━━━━━━━━━━━━━━━━━━
-👉 ደንበኛው ትዕዛዝ አላገኘም፤ እርዳታ ሊያስፈልገው ይችላል።
-`;
-        bot.telegram.sendMessage(WORKER_CHAT_ID, lookupMissingAlert, {
-          parse_mode: 'HTML'
+👉 <b>ለደንበኛው በቀጥታ ወደ ሚኒ አፕ ወይም ቦት መልስ ለመስጠት፡</b>
+<code>/reply ${trackingTicketCode} ዕቃዎ ... ላይ ደርሷል።</code>
+`.trim();
+
+        const buttons = [];
+        if (telegramUsername) {
+          buttons.push([
+            Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${String(telegramUsername).replace(/^@/, '')}`)
+          ]);
+        }
+
+        bot.telegram.sendMessage(WORKER_CHAT_ID, lookupAlert, {
+          parse_mode: 'HTML',
+          ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
         }).catch(() => {});
       }
     }
 
-    res.json({ success: true, orders });
+    res.json({
+      success: true,
+      autoMessage: AUTO_TRACKING_RESPONSE,
+      trackingCode: trackingTicketCode,
+      orders,
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

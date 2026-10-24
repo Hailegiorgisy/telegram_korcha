@@ -337,6 +337,131 @@ export async function getQuoteByCode(code) {
   return inMemoryStore.quotes.get(code) || null;
 }
 
+// 3b. Get Quotes By Phone
+export async function getQuotesByPhone(phone) {
+  if (await checkPG()) {
+    try {
+      const { rows } = await pool.query('SELECT * FROM quotes WHERE customer_phone = $1 ORDER BY created_at DESC', [phone]);
+      if (rows.length > 0) return rows;
+    } catch (e) {
+      console.warn('[DB Fallback] getQuotesByPhone fallback:', e.message);
+    }
+  }
+  const results = [];
+  for (const quote of inMemoryStore.quotes.values()) {
+    if (quote.customer_phone === phone) {
+      results.push(quote);
+    }
+  }
+  return results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+// 3c. Resolve any Tracking Target (Order Code, Quote Code, Tracker Number, or Phone Number)
+export async function resolveTrackingTarget(targetInput) {
+  if (!targetInput) return null;
+  const raw = String(targetInput).trim();
+
+  // 1. Check orders by code or phone
+  const orderByCode = await getOrderByCode(raw);
+  if (orderByCode) {
+    return {
+      canonicalCode: orderByCode.order_code,
+      customerPhone: orderByCode.customer_phone,
+      customerTelegramId: orderByCode.customer_telegram_id,
+      order: orderByCode,
+      quote: null,
+    };
+  }
+  const ordersByPhone = await getOrdersByPhone(raw);
+  if (ordersByPhone && ordersByPhone.length > 0) {
+    const ord = ordersByPhone[0];
+    return {
+      canonicalCode: ord.order_code,
+      customerPhone: ord.customer_phone,
+      customerTelegramId: ord.customer_telegram_id,
+      order: ord,
+      quote: null,
+    };
+  }
+
+  // 2. Check quotes by code or phone
+  const quoteByCode = await getQuoteByCode(raw);
+  if (quoteByCode) {
+    return {
+      canonicalCode: quoteByCode.quote_code,
+      customerPhone: quoteByCode.customer_phone,
+      customerTelegramId: quoteByCode.customer_telegram_id,
+      order: null,
+      quote: quoteByCode,
+    };
+  }
+  const quotesByPhone = await getQuotesByPhone(raw);
+  if (quotesByPhone && quotesByPhone.length > 0) {
+    const qt = quotesByPhone[0];
+    return {
+      canonicalCode: qt.quote_code,
+      customerPhone: qt.customer_phone,
+      customerTelegramId: qt.customer_telegram_id,
+      order: null,
+      quote: qt,
+    };
+  }
+
+  // 3. Check inquiry_pings by reference_code or customer_phone
+  const pingsByCode = await getCustomerPings(raw);
+  if (pingsByCode && pingsByCode.length > 0) {
+    const p = pingsByCode.find(x => x.customer_telegram_id) || pingsByCode[0];
+    return {
+      canonicalCode: p.reference_code || raw,
+      customerPhone: p.customer_phone || null,
+      customerTelegramId: p.customer_telegram_id || null,
+      order: null,
+      quote: null,
+    };
+  }
+
+  if (await checkPG()) {
+    try {
+      const { rows } = await pool.query(
+        'SELECT * FROM inquiry_pings WHERE customer_phone = $1 ORDER BY created_at DESC LIMIT 1',
+        [raw]
+      );
+      if (rows.length > 0) {
+        return {
+          canonicalCode: rows[0].reference_code || raw,
+          customerPhone: rows[0].customer_phone,
+          customerTelegramId: rows[0].customer_telegram_id,
+          order: null,
+          quote: null,
+        };
+      }
+    } catch (_) {}
+  }
+
+  const memPing = inMemoryStore.pings
+    .filter(p => p.customer_phone === raw || p.reference_code === raw)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+
+  if (memPing) {
+    return {
+      canonicalCode: memPing.reference_code || raw,
+      customerPhone: memPing.customer_phone || null,
+      customerTelegramId: memPing.customer_telegram_id || null,
+      order: null,
+      quote: null,
+    };
+  }
+
+  // 4. Fallback: allow replying to any ad-hoc tracker code or phone number
+  return {
+    canonicalCode: raw,
+    customerPhone: raw,
+    customerTelegramId: null,
+    order: null,
+    quote: null,
+  };
+}
+
 // 4. Create Order
 export async function createOrder({
   orderCode,
