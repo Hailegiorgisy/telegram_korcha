@@ -20,7 +20,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { SHELF_CATEGORIES, INITIAL_BESTSELLERS, CategoryDefinition, ProductItem } from '../data/categories';
+import { SHELF_CATEGORIES, INITIAL_BESTSELLERS } from '../data/categories';
 
 interface StorefrontHomeProps {
   onOpenQuoteModal: (mode?: 'link' | 'screenshot', preferredPayment?: 'telebirr' | 'cbe_birr') => void;

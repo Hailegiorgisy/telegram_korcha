@@ -1,23 +1,5 @@
-// src/data/categories.js: The 6 Shelf Categories & Product Definitions
-export interface ProductItem {
-  id: string;
-  categoryId: 'womens' | 'kids' | 'beauty' | 'electronics' | 'home' | 'miscellaneous';
-  name: string;
-  size?: string;
-  priceEtb: number;
-  photoUrl: string;
-  isBestseller?: boolean;
-}
-
-export interface CategoryDefinition {
-  id: 'womens' | 'kids' | 'beauty' | 'electronics' | 'home' | 'miscellaneous';
-  nameAm: string;
-  nameEn: string;
-  icon: string;
-  color: string;
-}
-
-export const SHELF_CATEGORIES: CategoryDefinition[] = [
+// src/data/categories.js: Exactly 6 Shelf Categories & Product Definitions
+export const SHELF_CATEGORIES = [
   {
     id: 'womens',
     nameAm: 'የሴቶች አልባሳት',
@@ -63,7 +45,7 @@ export const SHELF_CATEGORIES: CategoryDefinition[] = [
 ];
 
 // Curated Initial Best Sellers showcase ("በብዛት የተሸጡ") at the top of the shelf
-export const INITIAL_BESTSELLERS: ProductItem[] = [
+export const INITIAL_BESTSELLERS = [
   {
     id: 'bs-1',
     categoryId: 'womens',
