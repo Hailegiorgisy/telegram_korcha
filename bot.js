@@ -47,6 +47,29 @@ if (!fs.existsSync(uploadsDir)) {
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WORKER_CHAT_ID = process.env.TELEGRAM_WORKER_CHAT_ID;
 const WORKER_USERNAME = (process.env.WORKER_TELEGRAM_USERNAME || 'korcha_support').replace(/^@/, '');
+
+// RBAC Helper: Strictly verify that the user's Telegram username is @korcha_support
+function isAuthorizedWorkerUsername(username) {
+  if (!username) return false;
+  return String(username).replace(/^@/, '').trim().toLowerCase() === WORKER_USERNAME.toLowerCase();
+}
+
+// Express RBAC Middleware for Shelf & Category Editing APIs
+function requireWorkerRBAC(req, res, next) {
+  const reqUsername =
+    req.headers['x-telegram-username'] ||
+    req.body?.workerUsername ||
+    req.body?.createdBy ||
+    req.query?.workerUsername;
+
+  if (!isAuthorizedWorkerUsername(reqUsername)) {
+    return res.status(403).json({
+      success: false,
+      error: `⛔ Access Denied (RBAC): ይህ ፈቃድ ለ @${WORKER_USERNAME} ብቻ የተሰጠ ነው።`,
+    });
+  }
+  next();
+}
 const WEB_APP_URL = process.env.TELEGRAM_WEB_APP_URL || 'https://telegram.korcha.com.et';
 const PORT = process.env.PORT || 3000;
 const TELEBIRR_PHONE = process.env.TELEBIRR_PHONE || process.env.VITE_TELEBIRR_PHONE || '+251-996237800';
@@ -420,8 +443,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       const senderChatId = String(ctx.chat.id);
       const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
 
-      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
-                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+      const isAuthorized = isAuthorizedWorkerUsername(senderUsername);
 
       if (!isAuthorized) {
         return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኛ (@' + WORKER_USERNAME + ') ብቻ የተፈቀደ ነው (Authorized workers only).');
@@ -509,8 +531,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       const senderChatId = String(ctx.chat.id);
       const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
 
-      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
-                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+      const isAuthorized = isAuthorizedWorkerUsername(senderUsername);
 
       if (!isAuthorized) {
         return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኛ ብቻ የተፈቀደ ነው።');
@@ -553,8 +574,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       const senderChatId = String(ctx.chat.id);
       const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
 
-      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
-                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+      const isAuthorized = isAuthorizedWorkerUsername(senderUsername);
 
       if (!isAuthorized) return ctx.reply('⚠️ ለአስተዳዳሪ ብቻ የተፈቀደ ነው።');
 
@@ -573,8 +593,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       const senderChatId = String(ctx.chat.id);
       const senderUsername = ctx.from.username ? ctx.from.username.replace(/^@/, '') : '';
 
-      const isAuthorized = (WORKER_CHAT_ID && (senderChatId === String(WORKER_CHAT_ID) || senderId === String(WORKER_CHAT_ID))) ||
-                           (senderUsername.toLowerCase() === WORKER_USERNAME.toLowerCase());
+      const isAuthorized = isAuthorizedWorkerUsername(senderUsername);
 
       if (!isAuthorized) {
         return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኛ (@' + WORKER_USERNAME + ') ብቻ የተፈቀደ ነው።');
@@ -1558,7 +1577,7 @@ app.get('/api/shelf', async (req, res) => {
 });
 
 // POST /api/shelf: Add new product (korcha_support edit/add)
-app.post('/api/shelf', async (req, res) => {
+app.post('/api/shelf', requireWorkerRBAC, async (req, res) => {
   try {
     const { categoryId, name, size, priceEtb, photoUrl, isBestseller, createdBy } = req.body;
     if (!name || !priceEtb || !photoUrl) {
@@ -1580,7 +1599,7 @@ app.post('/api/shelf', async (req, res) => {
 });
 
 // PUT /api/shelf/:id: Update existing product (korcha_support edit)
-app.put('/api/shelf/:id', async (req, res) => {
+app.put('/api/shelf/:id', requireWorkerRBAC, async (req, res) => {
   try {
     const id = req.params.id;
     const updated = await updateShelfProduct(id, req.body);
@@ -1594,7 +1613,7 @@ app.put('/api/shelf/:id', async (req, res) => {
 });
 
 // PUT /api/shelf/categories/:id: Edit category details (korcha_support edit access)
-app.put('/api/shelf/categories/:id', async (req, res) => {
+app.put('/api/shelf/categories/:id', requireWorkerRBAC, async (req, res) => {
   try {
     const id = req.params.id;
     const updated = await updateShelfCategory(id, req.body);
@@ -1608,7 +1627,7 @@ app.put('/api/shelf/categories/:id', async (req, res) => {
 });
 
 // DELETE /api/shelf/:id: Remove product
-app.delete('/api/shelf/:id', async (req, res) => {
+app.delete('/api/shelf/:id', requireWorkerRBAC, async (req, res) => {
   try {
     const id = req.params.id;
     const result = await deleteShelfProduct(id);

@@ -59,15 +59,24 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   const [isSavingProduct, setIsSavingProduct] = useState<boolean>(false);
   const [editorNotification, setEditorNotification] = useState<string | null>(null);
 
-  const workerUsername = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
-    || 'korcha_support';
+  const workerUsername = ((typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
+    || 'korcha_support').replace(/^@/, '').trim();
   const supportUrl = `https://t.me/${workerUsername}`;
 
-  // Check if current user is worker or enable worker mode if username is korcha_support
+  // Strict RBAC: Only @korcha_support is authorized to access category & shelf editing
+  const [tmaUsername, setTmaUsername] = useState<string>('');
+  const isAuthorizedWorker = Boolean(
+    tmaUsername && tmaUsername.toLowerCase() === workerUsername.toLowerCase()
+  );
+
   useEffect(() => {
-    const tmaUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-    if (tmaUser?.username && tmaUser.username.toLowerCase() === workerUsername.toLowerCase()) {
+    const rawUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username || '';
+    const cleanUsername = rawUsername.replace(/^@/, '').trim();
+    setTmaUsername(cleanUsername);
+    if (cleanUsername && cleanUsername.toLowerCase() === workerUsername.toLowerCase()) {
       setIsWorkerMode(true);
+    } else {
+      setIsWorkerMode(false);
     }
   }, [workerUsername]);
 
@@ -112,8 +121,12 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
     setSelectedBuyProduct(product);
   };
 
-  // Open Editor for adding or editing
+  // Open Editor for adding or editing (Strictly guarded by RBAC: @korcha_support only)
   const handleOpenEditCategory = (cat: any) => {
+    if (!isAuthorizedWorker) {
+      alert(`⛔ ይህ ፈቃድ ለ @${workerUsername} ብቻ የተሰጠ ነው!`);
+      return;
+    }
     setCatForm({
       id: cat.id,
       nameAm: cat.nameAm || '',
@@ -126,16 +139,24 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthorizedWorker) {
+      alert(`⛔ ይህ ፈቃድ ለ @${workerUsername} ብቻ የተሰጠ ነው!`);
+      return;
+    }
     if (!catForm.nameAm.trim()) return;
     try {
       setIsSavingProduct(true);
       const res = await fetch(`/api/shelf/categories/${catForm.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Username': tmaUsername,
+        },
         body: JSON.stringify({
           nameAm: catForm.nameAm.trim(),
           nameEn: catForm.nameEn.trim(),
           icon: catForm.icon.trim() || '📦',
+          workerUsername: tmaUsername,
         }),
       });
       const data = await res.json();
@@ -143,16 +164,18 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         setCategories(prev => prev.map(c => c.id === catForm.id ? data.category : c));
         setEditorNotification('ምድቡ በተሳካ ሁኔታ ተስተካክሏል (Category updated)');
         setTimeout(() => setIsCatEditorOpen(false), 800);
+      } else {
+        alert(data.error || 'ስህተት ተከስቷል');
       }
-    } catch (_) {
-      setCategories(prev => prev.map(c => c.id === catForm.id ? { ...c, ...catForm } : c));
-      setIsCatEditorOpen(false);
+    } catch (err: any) {
+      alert('ምድቡን ማስቀመጥ አልተቻለም: ' + err.message);
     } finally {
       setIsSavingProduct(false);
     }
   };
 
   const handleOpenAddProduct = () => {
+    if (!isAuthorizedWorker) return;
     setEditingProduct(null);
     setEditorForm({
       name: '',
@@ -167,6 +190,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   };
 
   const handleOpenEditProduct = (prod: any) => {
+    if (!isAuthorizedWorker) return;
     setEditingProduct(prod);
     setEditorForm({
       name: prod.name || prod.title || '',
@@ -182,6 +206,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthorizedWorker) {
+      alert(`⛔ ይህ ፈቃድ ለ @${workerUsername} ብቻ የተሰጠ ነው!`);
+      return;
+    }
     if (!editorForm.name.trim() || !editorForm.priceEtb || !editorForm.photoUrl.trim()) {
       alert('እባክዎ የስም፣ የዋጋ እና የፎቶ ሊንክ ያስገቡ');
       return;
@@ -193,7 +221,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         // PUT update
         const res = await fetch(`/api/shelf/${editingProduct.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Username': tmaUsername,
+          },
           body: JSON.stringify({
             name: editorForm.name.trim(),
             size: editorForm.size.trim() || null,
@@ -201,6 +232,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             photoUrl: editorForm.photoUrl.trim(),
             categoryId: editorForm.categoryId,
             isBestseller: editorForm.isBestseller,
+            workerUsername: tmaUsername,
           }),
         });
         const data = await res.json();
@@ -215,7 +247,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         // POST create
         const res = await fetch('/api/shelf', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Username': tmaUsername,
+          },
           body: JSON.stringify({
             name: editorForm.name.trim(),
             size: editorForm.size.trim() || null,
@@ -223,7 +258,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             photoUrl: editorForm.photoUrl.trim(),
             categoryId: editorForm.categoryId,
             isBestseller: editorForm.isBestseller,
-            createdBy: 'korcha_support',
+            createdBy: tmaUsername,
+            workerUsername: tmaUsername,
           }),
         });
         const data = await res.json();
@@ -243,13 +279,19 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   };
 
   const handleDeleteProduct = async (id: number | string) => {
+    if (!isAuthorizedWorker) return;
     if (!confirm('ይህንን እቃ ከ Shelf ላይ ማጥፋት ይፈልጋሉ?')) return;
     try {
-      const res = await fetch(`/api/shelf/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/shelf/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-Telegram-Username': tmaUsername },
+      });
       const data = await res.json();
       if (data.success) {
         setShelfProducts(prev => prev.filter(p => p.id !== id));
         setBestSellers(prev => prev.filter(p => p.id !== id));
+      } else {
+        alert(data.error || 'ስህተት ተከስቷል');
       }
     } catch (_) {}
   };
@@ -366,6 +408,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             <Check className="w-3 h-3 text-emerald-600" />
             <span>60% ሲረከቡ (COD)</span>
           </div>
+          <div className="text-[9px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
+            <Check className="w-3 h-3 text-emerald-600" />
+            <span>ቀጥታ ደረሰኝ</span>
+          </div>
         </div>
       </div>
 
@@ -441,7 +487,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                       <span>ግዛ (Buy)</span>
                     </button>
 
-                    {isWorkerMode && (
+                    {isAuthorizedWorker && isWorkerMode && (
                       <button
                         onClick={() => handleOpenEditProduct(item)}
                         className="p-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
@@ -468,39 +514,41 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             <p className="text-[10px] text-stone-400">6ቱን ዋና ዋና ምድቦች ይምረጡ</p>
           </div>
 
-          {/* Worker Shelf Control Button (korcha_support) */}
-          <div className="flex items-center space-x-1">
-            <button
-              onClick={() => setIsWorkerMode(!isWorkerMode)}
-              className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                isWorkerMode 
-                  ? 'bg-amber-600 text-white' 
-                  : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-              }`}
-              title="የሰራተኛ ማስተካከያ ሁኔታ"
-            >
-              🛠 {isWorkerMode ? 'Worker Active' : 'ሰራተኛ'}
-            </button>
-            {isWorkerMode && (
-              <>
-                <button
-                  onClick={() => handleOpenEditCategory(currentCategory)}
-                  className="px-2 py-0.5 rounded-md bg-stone-800 hover:bg-stone-700 text-amber-300 text-[10px] font-bold flex items-center space-x-0.5 shadow-2xs"
-                  title="የተመረጠውን ምድብ ስም/አይከን አስተካክል"
-                >
-                  <Edit2 className="w-2.5 h-2.5" />
-                  <span>ምድብ አስተካክል</span>
-                </button>
-                <button
-                  onClick={handleOpenAddProduct}
-                  className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold flex items-center space-x-0.5 shadow-2xs"
-                >
-                  <Plus className="w-3 h-3" />
-                  <span>አዲስ እቃ</span>
-                </button>
-              </>
-            )}
-          </div>
+          {/* Strict RBAC Worker Shelf Controls: Visible ONLY when Telegram username === @korcha_support */}
+          {isAuthorizedWorker && (
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => setIsWorkerMode(!isWorkerMode)}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                  isWorkerMode 
+                    ? 'bg-amber-600 text-white' 
+                    : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                }`}
+                title="የሰራተኛ ማስተካከያ ሁኔታ (@korcha_support)"
+              >
+                🛠 {isWorkerMode ? `@${workerUsername}` : 'ሰራተኛ'}
+              </button>
+              {isAuthorizedWorker && isWorkerMode && (
+                <>
+                  <button
+                    onClick={() => handleOpenEditCategory(currentCategory)}
+                    className="px-2 py-0.5 rounded-md bg-stone-800 hover:bg-stone-700 text-amber-300 text-[10px] font-bold flex items-center space-x-0.5 shadow-2xs"
+                    title="የተመረጠውን ምድብ ስም/አይከን አስተካክል"
+                  >
+                    <Edit2 className="w-2.5 h-2.5" />
+                    <span>ምድብ አስተካክል</span>
+                  </button>
+                  <button
+                    onClick={handleOpenAddProduct}
+                    className="px-2 py-0.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold flex items-center space-x-0.5 shadow-2xs"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>አዲስ እቃ</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Compact 6-Category Grid with Smaller Features */}
@@ -622,7 +670,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                             <span>ግዛ (Buy)</span>
                           </button>
 
-                          {isWorkerMode && (
+                          {isAuthorizedWorker && isWorkerMode && (
                             <div className="flex space-x-0.5">
                               <button
                                 onClick={() => handleOpenEditProduct(prod)}
@@ -724,7 +772,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
       )}
 
       {/* 2. WORKER SHELF EDITOR MODAL (korcha_support) */}
-      {isEditorOpen && (
+      {isAuthorizedWorker && isEditorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs animate-fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-stone-200 relative max-h-[90vh] overflow-y-auto">
             <button
@@ -868,7 +916,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
       )}
 
       {/* 2B. WORKER CATEGORY EDITOR MODAL (korcha_support) */}
-      {isCatEditorOpen && (
+      {isAuthorizedWorker && isCatEditorOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs animate-fade-in">
           <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-stone-200 relative">
             <button
