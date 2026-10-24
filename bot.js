@@ -1786,15 +1786,200 @@ app.post('/api/orders/:code/ping', customerPingLimiter, async (req, res) => {
   }
 });
 
-// GET /api/shelf: Fetch shelf products & best sellers for TMA
+// GET /api/shelf: Fetch shelf products, best sellers, categories & payment account config for TMA
 app.get('/api/shelf', async (req, res) => {
   try {
     const { category } = req.query;
     const products = await getShelfProducts(category || null);
     const bestsellers = await getBestSellerProducts();
     const categories = await getShelfCategories();
-    res.json({ success: true, products, bestsellers, categories });
+    res.json({
+      success: true,
+      products,
+      bestsellers,
+      categories,
+      paymentConfig: {
+        telebirrPhone: TELEBIRR_PHONE,
+        cbeAccount: CBE_ACCOUNT,
+      },
+    });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/shelf/order: Direct Shelf Checkout (No screenshot/bot wizard — only Payment Choice + Phone & Scraped Username, 40% now / 60% in 1-2 days)
+app.post('/api/shelf/order', quoteSubmissionLimiter, async (req, res) => {
+  try {
+    const {
+      productId,
+      productName,
+      size,
+      priceEtb,
+      photoUrl,
+      paymentMethod,
+      phone,
+      telegramUsername,
+      telegramId,
+      firstName,
+    } = req.body;
+
+    if (!phone || !isValidEthiopianPhone(phone)) {
+      return res.status(400).json({
+        success: false,
+        error: 'እባክዎ ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (09**** / 07****)',
+      });
+    }
+
+    const cleanPhone = normalizePhone(phone);
+    const cleanUsername = telegramUsername ? String(telegramUsername).replace(/^@/, '').trim() : '';
+    const parsedTgId = telegramId ? parseInt(String(telegramId), 10) : null;
+    const chosenMethod = paymentMethod === 'cbe_birr' ? 'cbe_birr' : 'telebirr';
+    const paymentLabel = chosenMethod === 'cbe_birr' ? 'CBE / የኢትዮጵያ ንግድ ባንክ' : 'ቴሌብር (Telebirr)';
+    const paymentAccount = chosenMethod === 'cbe_birr' ? CBE_ACCOUNT : TELEBIRR_PHONE;
+
+    const totalPrice = Math.max(1, Math.round(Number(priceEtb) || 0));
+    const deposit40 = Math.round(totalPrice * 0.40);
+    const balance60 = totalPrice - deposit40;
+    const orderCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
+    const productSummary = `[Shelf] ${productName || 'የShelf እቃ'}${size ? ` (መጠን: ${size})` : ''}`;
+    const customerDisplay = cleanUsername ? `@${cleanUsername}` : (firstName || cleanPhone);
+
+    // 1. Upsert customer with scraped Telegram username & phone
+    let customer = null;
+    try {
+      customer = await upsertCustomer({
+        telegramId: parsedTgId,
+        telegramUsername: cleanUsername || null,
+        firstName: firstName || null,
+        phone: cleanPhone,
+      });
+    } catch (custErr) {
+      console.warn('[Shelf Order Customer Upsert Warning]', custErr.message);
+    }
+
+    // 2. Create Shelf Order directly in DB (40% now, 60% in 1-2 days on delivery)
+    const createdOrder = await createOrder({
+      orderCode,
+      quoteId: null,
+      customerId: customer ? customer.id : null,
+      customerTelegramId: parsedTgId,
+      customerPhone: cleanPhone,
+      productSummary,
+      totalPriceEtb: totalPrice,
+      depositAmountEtb: deposit40,
+      codBalanceEtb: balance60,
+      paymentMethod: chosenMethod,
+      deliveryAddress: 'Shelf Order (1-2 ቀን አቅርቦት)',
+      assignedWorker: WORKER_USERNAME,
+    });
+
+    // 3. Record initial order message in continuous ticket chat thread so customer & worker can chat in TMA/Bot
+    await addTicketMessage({
+      ticketCode: orderCode,
+      senderRole: 'customer',
+      senderName: customerDisplay,
+      senderTelegramId: parsedTgId,
+      customerPhone: cleanPhone,
+      messageText: `🛍️ የShelf ቀጥታ ትዕዛዝ: ${productName || 'እቃ'}${size ? ` (${size})` : ''} | ጠቅላላ ዋጋ: ${totalPrice.toLocaleString()} ብር | አሁን የሚከፈል 40%: ${deposit40.toLocaleString()} ብር በ${paymentLabel} (${paymentAccount}) | ቀሪ 60% (${balance60.toLocaleString()} ብር) በ1-2 ቀን እቃው ሲደርስ የሚከፈል | ስልክ: ${cleanPhone}${cleanUsername ? ` | @${cleanUsername}` : ''}`,
+    });
+
+    // 4. Notify Worker (@korcha_support) immediately
+    if (WORKER_CHAT_ID && bot) {
+      const workerShelfAlert = `
+🛍️ <b>አዲስ የShelf ቀጥታ ትዕዛዝ ደርሷል! (Direct Shelf Order)</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${escapeHtml(orderCode)}</code>
+📦 <b>እቃ:</b> ${escapeHtml(productName || 'Shelf Product')}${size ? ` (መጠን: <b>${escapeHtml(size)}</b>)` : ''}
+👤 <b>ደንበኛ (Username):</b> ${escapeHtml(customerDisplay)}${parsedTgId ? ` (ID: <code>${escapeHtml(parsedTgId)}</code>)` : ''}
+📱 <b>ስልክ ቁጥር:</b> <code>${escapeHtml(cleanPhone)}</code>
+💳 <b>የተመረጠ የክፍያ ዘዴ:</b> <b>${escapeHtml(paymentLabel)}</b> (<code>${escapeHtml(paymentAccount)}</code>)
+💰 <b>ጠቅላላ ዋጋ:</b> <b>${escapeHtml(totalPrice.toLocaleString())} ብር</b>
+✅ <b>አሁን የሚከፈል (40%):</b> <b>${escapeHtml(deposit40.toLocaleString())} ብር</b>
+🚚 <b>ሲረከቡ የሚከፈል (60% በ1-2 ቀን):</b> <b>${escapeHtml(balance60.toLocaleString())} ብር</b>
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ለደንበኛው በቀጥታ መልስ ለመስጠት፡</b>
+<code>/reply ${orderCode} ትዕዛዝዎ ደርሶናል! የ40% ቅድመ ክፍያ (${deposit40.toLocaleString()} ብር) በ${paymentLabel} (${escapeHtml(paymentAccount)}) ሲፈጽሙ እቃዎ በ1-2 ቀን ውስጥ በርዎ ይደርሳል።</code>
+`.trim();
+
+      const workerButtons = [];
+      if (cleanUsername) {
+        workerButtons.push([
+          Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${cleanUsername}`)
+        ]);
+      }
+      const workerKeyboard = workerButtons.length > 0 ? Markup.inlineKeyboard(workerButtons) : undefined;
+
+      try {
+        if (photoUrl && (photoUrl.startsWith('http://') || photoUrl.startsWith('https://'))) {
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, photoUrl, {
+            caption: workerShelfAlert.length > 1000 ? workerShelfAlert.substring(0, 997) + '...' : workerShelfAlert,
+            parse_mode: 'HTML',
+            ...(workerKeyboard || {}),
+          });
+        } else {
+          await bot.telegram.sendMessage(WORKER_CHAT_ID, workerShelfAlert, {
+            parse_mode: 'HTML',
+            ...(workerKeyboard || {}),
+          });
+        }
+      } catch (notifyErr) {
+        await bot.telegram.sendMessage(WORKER_CHAT_ID, workerShelfAlert, {
+          parse_mode: 'HTML',
+          ...(workerKeyboard || {}),
+        }).catch(() => {});
+      }
+    }
+
+    // 5. If customer has a Telegram ID, also send direct confirmation on the Telegram Bot & activate chat session
+    if (bot && parsedTgId) {
+      const targetSession = getSession(parsedTgId);
+      targetSession.state = 'IDLE';
+      targetSession.activeTicket = orderCode;
+      targetSession.data.phone = cleanPhone;
+
+      const customerBotReceipt = `
+🎉 <b>የShelf ትዕዛዝዎ በተሳካ ሁኔታ ተመዝግቧል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${escapeHtml(orderCode)}</code>
+📦 <b>እቃ:</b> ${escapeHtml(productName || 'Shelf Product')}${size ? ` (${escapeHtml(size)})` : ''}
+📱 <b>ስልክ:</b> <code>${escapeHtml(cleanPhone)}</code>
+${cleanUsername ? `👤 <b>Username:</b> @${escapeHtml(cleanUsername)}
+` : ''}━━━━━━━━━━━━━━━━━━━━
+💳 <b>የክፍያ ዝርዝር (${escapeHtml(paymentLabel)}):</b>
+• <b>ጠቅላላ ዋጋ:</b> ${escapeHtml(totalPrice.toLocaleString())} ብር
+• <b>አሁን የሚከፈል (40% ቅድመ ክፍያ):</b> <b>${escapeHtml(deposit40.toLocaleString())} ብር</b>
+• <b>የክፍያ ሂሳብ/ስልክ:</b> <code>${escapeHtml(paymentAccount)}</code>
+• <b>ቀሪ ክፍያ (60%):</b> <b>${escapeHtml(balance60.toLocaleString())} ብር</b> <i>(እቃው በ1-2 ቀን ውስጥ ሲደርስዎት የሚከፈል)</i>
+━━━━━━━━━━━━━━━━━━━━
+💬 የ40% ክፍያውን ካስገቡ በኋላ ወይም ማንኛውም ጥያቄ ካለዎት እዚህ በቀጥታ መጻፍ ይችላሉ!
+`.trim();
+
+      bot.telegram.sendMessage(parsedTgId, customerBotReceipt, {
+        parse_mode: 'HTML',
+        ...Markup.keyboard([
+          [`💬 ለትኬት ${orderCode} መልስ ጻፍ`],
+          ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+        ]).resize(),
+      }).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      orderCode,
+      order: createdOrder,
+      paymentDetails: {
+        method: chosenMethod,
+        methodLabel: paymentLabel,
+        accountNumber: paymentAccount,
+        totalPriceEtb: totalPrice,
+        deposit40Etb: deposit40,
+        balance60Etb: balance60,
+        deliveryWindow: 'ከ1 እስከ 2 ቀን (1-2 Days)',
+      },
+    });
+  } catch (err) {
+    console.error('[Shelf Order Error]', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

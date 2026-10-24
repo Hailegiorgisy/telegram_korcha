@@ -384,6 +384,14 @@ export function App() {
             onOpenQuoteModal={handleOpenQuoteModal}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            onShelfOrderCreated={(orderCode, phone, openMessages) => {
+              rememberTicketAndPhone(orderCode, phone);
+              setSelectedConvCode(orderCode);
+              fetchCustomerConversations(true);
+              if (openMessages) {
+                setActiveTab('messages');
+              }
+            }}
           />
         )}
 

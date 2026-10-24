@@ -26,12 +26,14 @@ interface StorefrontHomeProps {
   onOpenQuoteModal: (mode?: 'link' | 'screenshot', preferredPayment?: 'telebirr' | 'cbe_birr') => void;
   selectedCategory: string;
   onSelectCategory: (id: string) => void;
+  onShelfOrderCreated?: (orderCode: string, phone: string, openMessages?: boolean) => void;
 }
 
 export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   onOpenQuoteModal,
   selectedCategory,
   onSelectCategory,
+  onShelfOrderCreated,
 }) => {
   const [activeCatId, setActiveCatId] = useState<string>(selectedCategory && selectedCategory !== 'all' ? selectedCategory : 'womens');
   const [categories, setCategories] = useState<any[]>(SHELF_CATEGORIES);
@@ -39,8 +41,21 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   const [bestSellers, setBestSellers] = useState<any[]>(INITIAL_BESTSELLERS);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Buy Flow Modal State
+  // Direct Shelf Buy Flow State (Only 2 questions: 1. Payment Choice, 2. Phone & Auto-Scraped Username)
   const [selectedBuyProduct, setSelectedBuyProduct] = useState<any | null>(null);
+  const [shelfPaymentMethod, setShelfPaymentMethod] = useState<'telebirr' | 'cbe_birr'>('telebirr');
+  const [shelfCustomerPhone, setShelfCustomerPhone] = useState<string>(() => {
+    try { return localStorage.getItem('korcha_customer_phone') || ''; } catch { return ''; }
+  });
+  const [shelfCustomerUsername, setShelfCustomerUsername] = useState<string>('');
+  const [isUsernameScraped, setIsUsernameScraped] = useState<boolean>(false);
+  const [isSubmittingShelfOrder, setIsSubmittingShelfOrder] = useState<boolean>(false);
+  const [shelfOrderError, setShelfOrderError] = useState<string | null>(null);
+  const [confirmedShelfOrder, setConfirmedShelfOrder] = useState<any | null>(null);
+  const [paymentAccounts, setPaymentAccounts] = useState<{ telebirrPhone: string; cbeAccount: string }>({
+    telebirrPhone: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TELEBIRR_PHONE) || '+251-996237800',
+    cbeAccount: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_CBE_ACCOUNT) || '10001116390',
+  });
 
   // Worker Shelf Editor State (korcha_support)
   const [isWorkerMode, setIsWorkerMode] = useState<boolean>(false);
@@ -70,9 +85,20 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   );
 
   useEffect(() => {
-    const rawUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username || '';
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    const rawUsername = tgUser?.username || '';
     const cleanUsername = rawUsername.replace(/^@/, '').trim();
     setTmaUsername(cleanUsername);
+
+    // Scrape customer Telegram username (or fallback to Telegram first_name) automatically
+    if (cleanUsername) {
+      setShelfCustomerUsername(`@${cleanUsername}`);
+      setIsUsernameScraped(true);
+    } else if (tgUser?.first_name) {
+      setShelfCustomerUsername(tgUser.first_name);
+      setIsUsernameScraped(true);
+    }
+
     if (cleanUsername && cleanUsername.toLowerCase() === workerUsername.toLowerCase()) {
       setIsWorkerMode(true);
     } else {
@@ -96,6 +122,12 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         if (data.categories && data.categories.length > 0) {
           setCategories(data.categories);
         }
+        if (data.paymentConfig) {
+          setPaymentAccounts({
+            telebirrPhone: data.paymentConfig.telebirrPhone || paymentAccounts.telebirrPhone,
+            cbeAccount: data.paymentConfig.cbeAccount || paymentAccounts.cbeAccount,
+          });
+        }
       }
     } catch (_) {
       // Keep initial best sellers and seeded products on fallback
@@ -116,9 +148,100 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   const currentCategory = categories.find(c => c.id === activeCatId) || categories[0];
   const categoryProducts = shelfProducts.filter(p => (p.category_id || p.categoryId) === activeCatId);
 
-  // Trigger "Buy" / "ግዛ" for a product
+  // Trigger Direct Shelf "Buy" / "ግዛ" for a product (No screenshot/bot wizard required)
   const handleBuyClick = (product: any) => {
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (tgUser?.username) {
+      setShelfCustomerUsername(`@${tgUser.username.replace(/^@/, '')}`);
+      setIsUsernameScraped(true);
+    } else if (tgUser?.first_name && !shelfCustomerUsername) {
+      setShelfCustomerUsername(tgUser.first_name);
+      setIsUsernameScraped(true);
+    }
+    try {
+      const savedPhone = localStorage.getItem('korcha_customer_phone');
+      if (savedPhone && !shelfCustomerPhone) {
+        setShelfCustomerPhone(savedPhone);
+      }
+    } catch (_) {}
+    setShelfOrderError(null);
+    setConfirmedShelfOrder(null);
     setSelectedBuyProduct(product);
+  };
+
+  // Optional 1-tap Telegram Contact Phone Scraper inside Mini App
+  const handleRequestTelegramPhone = () => {
+    const webApp: any = window.Telegram?.WebApp;
+    if (webApp?.requestContact) {
+      webApp.requestContact((shared: boolean, responseData?: any) => {
+        const phone = responseData?.responseUnsafe?.contact?.phone_number;
+        if (shared && phone) {
+          setShelfCustomerPhone(phone);
+          try { localStorage.setItem('korcha_customer_phone', phone); } catch (_) {}
+        }
+      });
+    }
+  };
+
+  // Submit Direct Shelf Order (40% now via Telebirr/CBE, 60% in 1-2 days on delivery)
+  const handleConfirmShelfOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedBuyProduct) return;
+
+    const cleanPhone = shelfCustomerPhone.trim();
+    if (!cleanPhone) {
+      setShelfOrderError('እባክዎ ስልክ ቁጥርዎን ያስገቡ (09... ወይም 07...)');
+      return;
+    }
+
+    setIsSubmittingShelfOrder(true);
+    setShelfOrderError(null);
+
+    try {
+      const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+      const scrapedOrEnteredUsername = (
+        shelfCustomerUsername ||
+        tgUser?.username ||
+        tgUser?.first_name ||
+        ''
+      ).replace(/^@/, '').trim();
+
+      const res = await fetch('/api/shelf/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: selectedBuyProduct.id,
+          productName: selectedBuyProduct.name || selectedBuyProduct.title,
+          size: selectedBuyProduct.size || null,
+          priceEtb: Number(selectedBuyProduct.price_etb || selectedBuyProduct.priceEtb || 0),
+          photoUrl: selectedBuyProduct.photo_url || selectedBuyProduct.photoUrl || selectedBuyProduct.image || null,
+          paymentMethod: shelfPaymentMethod,
+          phone: cleanPhone,
+          telegramUsername: scrapedOrEnteredUsername,
+          telegramId: tgUser?.id || null,
+          firstName: tgUser?.first_name || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        setShelfOrderError(data.error || 'ትዕዛዙን መመዝገብ አልተቻለም። እባክዎ ስልክ ቁጥርዎን ያረጋግጡ።');
+        return;
+      }
+
+      try {
+        localStorage.setItem('korcha_customer_phone', cleanPhone);
+      } catch (_) {}
+
+      setConfirmedShelfOrder(data);
+      if (onShelfOrderCreated) {
+        onShelfOrderCreated(data.orderCode, cleanPhone, false);
+      }
+    } catch (err: any) {
+      setShelfOrderError('የኔትወርክ ችግር ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።');
+    } finally {
+      setIsSubmittingShelfOrder(false);
+    }
   };
 
   // Open Editor for adding or editing (Strictly guarded by RBAC: @korcha_support only)
@@ -408,6 +531,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             <Check className="w-3 h-3 text-emerald-600" />
             <span>60% ሲረከቡ (COD)</span>
           </div>
+          <div className="text-[9px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
+            <Check className="w-3 h-3 text-emerald-600" />
+            <span>ቀጥታ ደረሰኝ</span>
+          </div>
         </div>
       </div>
 
@@ -695,77 +822,266 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </div>
 
-      {/* BUY MODAL: Direct contact with worker (@korcha_support) to pay and buy */}
-      {selectedBuyProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-stone-200 relative animate-scale-up">
-            <button
-              onClick={() => setSelectedBuyProduct(null)}
-              className="absolute top-4 right-4 p-1 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+      {/* DIRECT SHELF BUY MODAL: No screenshot/bot wizard — Only 1) Choice of Payment (Telebirr/CBE) & 2) Phone + Auto-Scraped Username (40% now, 60% in 1-2 days) */}
+      {selectedBuyProduct && (() => {
+        const prodName = selectedBuyProduct.name || selectedBuyProduct.title || 'የShelf እቃ';
+        const prodPhoto = selectedBuyProduct.photo_url || selectedBuyProduct.photoUrl || selectedBuyProduct.image;
+        const prodSize = selectedBuyProduct.size;
+        const totalPrice = Math.max(1, Math.round(Number(selectedBuyProduct.price_etb || selectedBuyProduct.priceEtb || 0)));
+        const deposit40 = Math.round(totalPrice * 0.40);
+        const balance60 = totalPrice - deposit40;
+        const activeAccount = shelfPaymentMethod === 'cbe_birr' ? paymentAccounts.cbeAccount : paymentAccounts.telebirrPhone;
+        const activePaymentLabel = shelfPaymentMethod === 'cbe_birr' ? 'CBE / የኢትዮጵያ ንግድ ባንክ' : 'ቴሌብር (Telebirr)';
 
-            <div className="flex items-center space-x-3">
-              <img 
-                src={selectedBuyProduct.photo_url || selectedBuyProduct.photoUrl || selectedBuyProduct.image} 
-                alt={selectedBuyProduct.name || selectedBuyProduct.title}
-                className="w-16 h-16 rounded-2xl object-cover border border-stone-200"
-              />
-              <div>
-                <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[10px]">
-                  ግዢ ለማረጋገጥ (Instant Buy)
-                </span>
-                <h3 className="font-extrabold text-sm text-stone-900 mt-1 line-clamp-1">
-                  {selectedBuyProduct.name || selectedBuyProduct.title}
-                </h3>
-                <p className="font-black text-amber-700 text-sm">
-                  {Number(selectedBuyProduct.price_etb || selectedBuyProduct.priceEtb).toLocaleString()} ETB
-                </p>
-                {selectedBuyProduct.size && (
-                  <p className="text-[10px] text-stone-500">መጠን (Size): {selectedBuyProduct.size}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Payment & Purchase Options */}
-            <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200 space-y-2 text-xs text-stone-700">
-              <div className="flex items-center justify-between font-bold text-stone-900 text-[11px]">
-                <span>የክፍያ አማራጭ:</span>
-                <span className="text-amber-800">Telebirr ወይም CBE Birr</span>
-              </div>
-              <ul className="text-[10px] text-stone-600 space-y-1 list-disc list-inside">
-                <li>40% ቅድመ ክፍያ (Advance payment)</li>
-                <li>60% እቃው ኢትዮጵያ ሲገባ ወይም በርዎ ሲደርስ</li>
-                <li>የውጭ ምንዛሪ ወይም የባንክ ቪዛ ካርድ አያስፈልግዎትም</li>
-              </ul>
-            </div>
-
-            {/* Direct Contact with Worker Button */}
-            <div className="space-y-2 pt-1">
-              <a
-                href={getTelegramBuyUrl(selectedBuyProduct)}
-                target="_blank"
-                rel="noreferrer"
-                className="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-600/30 active:scale-95 transition-all text-center"
-              >
-                <MessageCircle className="w-4 h-4" />
-                <span>ከሰራተኛ ጋር አውራ (@{workerUsername})</span>
-              </a>
-
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75 backdrop-blur-xs animate-fade-in">
+            <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-stone-200 relative max-h-[92vh] overflow-y-auto">
               <button
                 onClick={() => {
                   setSelectedBuyProduct(null);
-                  onOpenQuoteModal('link');
+                  setConfirmedShelfOrder(null);
+                  setShelfOrderError(null);
                 }}
-                className="w-full py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs flex items-center justify-center space-x-1.5 transition-colors"
+                className="absolute top-4 right-4 p-1.5 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500 transition-colors cursor-pointer"
               >
-                <span>የትዕዛዝ ቅጽ ይሙሉ</span>
+                <X className="w-4 h-4" />
               </button>
+
+              {/* Product Header Summary */}
+              <div className="flex items-center space-x-3 pr-6">
+                <img
+                  src={prodPhoto}
+                  alt={prodName}
+                  className="w-16 h-16 rounded-2xl object-cover border border-stone-200 shrink-0"
+                />
+                <div>
+                  <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[10px]">
+                    ⚡ የShelf ቀጥታ ግዢ (1-2 ቀን አቅርቦት)
+                  </span>
+                  <h3 className="font-extrabold text-sm text-stone-900 mt-1 line-clamp-1">
+                    {prodName}
+                  </h3>
+                  <div className="flex items-center space-x-2 mt-0.5">
+                    <span className="font-black text-amber-700 text-sm">
+                      {totalPrice.toLocaleString()} ብር
+                    </span>
+                    {prodSize && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-700 font-bold">
+                        መጠን: {prodSize}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 40% Now / 60% on Delivery (1-2 Days) Payment Split Breakdown */}
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200/90 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-stone-700">
+                  <span className="font-semibold">ጠቅላላ የእቃ ዋጋ (100%):</span>
+                  <span className="font-bold text-stone-900">{totalPrice.toLocaleString()} ብር</span>
+                </div>
+                <div className="flex items-center justify-between text-emerald-900 bg-emerald-100/80 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+                  <span className="font-extrabold">አሁን የሚከፈል (40% ቅድመ ክፍያ):</span>
+                  <span className="font-black text-sm">{deposit40.toLocaleString()} ብር</span>
+                </div>
+                <div className="flex items-center justify-between text-stone-700 pt-0.5">
+                  <span className="font-semibold text-[11px]">ቀሪ 60% (በ1-2 ቀን እቃው ሲደርስዎት):</span>
+                  <span className="font-extrabold text-stone-900">{balance60.toLocaleString()} ብር</span>
+                </div>
+              </div>
+
+              {confirmedShelfOrder ? (
+                /* ORDER CONFIRMED STATE */
+                <div className="space-y-3 pt-1">
+                  <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-1.5">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                    <p className="font-extrabold text-xs text-emerald-950">
+                      ትዕዛዝዎ ተመዝግቧል! ኮድ፡ <span className="underline">{confirmedShelfOrder.orderCode}</span>
+                    </p>
+                    <p className="text-[11px] text-emerald-800 leading-relaxed">
+                      የ40% ቅድመ ክፍያውን (<b>{deposit40.toLocaleString()} ብር</b>) በመረጡት <b>{activePaymentLabel}</b> ይክፈሉ። ቀሪውን 60% (<b>{balance60.toLocaleString()} ብር</b>) እቃው በ1-2 ቀን ሲደርስዎት ይከፍላሉ!
+                    </p>
+                  </div>
+
+                  {/* Chosen Payment Account Box */}
+                  <div className="p-3 rounded-2xl bg-stone-900 text-white space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-stone-400 text-[10px] font-bold uppercase">የተመረጠው የክፍያ ሂሳብ ({activePaymentLabel})</span>
+                      <span className="px-2 py-0.5 rounded bg-amber-500 text-stone-950 font-black text-[10px]">
+                        40% = {deposit40.toLocaleString()} ብር
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-white/10 px-3 py-2 rounded-xl">
+                      <code className="font-black text-amber-300 text-sm tracking-wide">{activeAccount}</code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(activeAccount);
+                        }}
+                        className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-[10px] cursor-pointer"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    {onShelfOrderCreated && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const code = confirmedShelfOrder.orderCode;
+                          const ph = shelfCustomerPhone.trim();
+                          setSelectedBuyProduct(null);
+                          setConfirmedShelfOrder(null);
+                          onShelfOrderCreated(code, ph, true);
+                        }}
+                        className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-md cursor-pointer"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        <span>💬 በሚኒ አፕ ከሰራተኛ ጋር አውራ (Messages)</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBuyProduct(null);
+                        setConfirmedShelfOrder(null);
+                      }}
+                      className="w-full py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs cursor-pointer"
+                    >
+                      ዝጋ (Close)
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* STREAMLINED 2-QUESTION SHELF CHECKOUT FORM */
+                <form onSubmit={handleConfirmShelfOrder} className="space-y-3.5 text-xs">
+                  {shelfOrderError && (
+                    <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 font-bold text-[11px] flex items-center space-x-1.5">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{shelfOrderError}</span>
+                    </div>
+                  )}
+
+                  {/* QUESTION 1: Choice of Payment (Telebirr or CBE) */}
+                  <div className="space-y-1.5">
+                    <label className="block font-extrabold text-stone-800 text-xs">
+                      1) የክፍያ ምርጫዎን ይምረጡ (Choice of Payment):
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShelfPaymentMethod('telebirr')}
+                        className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                          shelfPaymentMethod === 'telebirr'
+                            ? 'border-amber-600 bg-amber-50/90 ring-2 ring-amber-500/40 shadow-xs'
+                            : 'border-stone-200 bg-white hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-extrabold text-amber-900 text-xs">ቴሌብር</span>
+                          <Zap className="w-3.5 h-3.5 text-amber-600" />
+                        </div>
+                        <p className="text-[10px] font-bold text-stone-700 truncate">{paymentAccounts.telebirrPhone}</p>
+                        <p className="text-[9px] text-emerald-700 font-semibold mt-0.5">40%: {deposit40.toLocaleString()} ብር</p>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShelfPaymentMethod('cbe_birr')}
+                        className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                          shelfPaymentMethod === 'cbe_birr'
+                            ? 'border-purple-600 bg-purple-50/90 ring-2 ring-purple-500/40 shadow-xs'
+                            : 'border-stone-200 bg-white hover:bg-stone-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-extrabold text-purple-900 text-xs">CBE (ንግድ ባንክ)</span>
+                          <CreditCard className="w-3.5 h-3.5 text-purple-600" />
+                        </div>
+                        <p className="text-[10px] font-bold text-stone-700 truncate">{paymentAccounts.cbeAccount}</p>
+                        <p className="text-[9px] text-purple-700 font-semibold mt-0.5">40%: {deposit40.toLocaleString()} ብር</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* QUESTION 2: Phone Number & Scraped Telegram Username */}
+                  <div className="space-y-2.5 pt-1 border-t border-stone-100">
+                    <label className="block font-extrabold text-stone-800 text-xs">
+                      2) ስልክ ቁጥር እና የቴሌግራም ስም (Phone & Username):
+                    </label>
+
+                    {/* Phone Number Input */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-bold text-stone-700">ስልክ ቁጥር (Phone Number) *</span>
+                        {typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.requestContact && (
+                          <button
+                            type="button"
+                            onClick={handleRequestTelegramPhone}
+                            className="text-[10px] font-bold text-amber-700 hover:underline cursor-pointer"
+                          >
+                            📱 ከቴሌግራም ሙላ
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="0912345678 ወይም 0712345678"
+                        value={shelfCustomerPhone}
+                        onChange={(e) => setShelfCustomerPhone(e.target.value)}
+                        className="w-full px-3 py-2.5 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 outline-hidden font-bold text-xs"
+                      />
+                    </div>
+
+                    {/* Auto-scraped Telegram Username */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-bold text-stone-700">የቴሌግራም Username</span>
+                        {isUsernameScraped && shelfCustomerUsername && (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                            ✓ ከቴሌግራም የተወሰደ (Auto-scraped)
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="@username (ከቴሌግራም በራሱ ይሞላል)"
+                        value={shelfCustomerUsername}
+                        onChange={(e) => setShelfCustomerUsername(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl border border-stone-200 bg-stone-50 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-hidden font-semibold text-xs text-stone-800"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Selected Payment Account Preview */}
+                  <div className="p-2.5 rounded-xl bg-stone-100 border border-stone-200/80 text-[11px] text-stone-700 flex items-center justify-between">
+                    <span>የ40% ክፍያ ማስገቢያ ({activePaymentLabel}):</span>
+                    <code className="font-black text-stone-900">{activeAccount}</code>
+                  </div>
+
+                  {/* Confirm Direct Shelf Order Button */}
+                  <button
+                    type="submit"
+                    disabled={isSubmittingShelfOrder}
+                    className="w-full py-3 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-extrabold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-600/25 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>
+                      {isSubmittingShelfOrder
+                        ? 'ትዕዛዝዎ እየተመዘገበ ነው...'
+                        : `ትዕዛዙን አረጋግጥ (40% = ${deposit40.toLocaleString()} ብር)`}
+                    </span>
+                  </button>
+                </form>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 2. WORKER SHELF EDITOR MODAL (korcha_support) */}
       {isAuthorizedWorker && isEditorOpen && (
