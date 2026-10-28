@@ -2556,6 +2556,15 @@ async function start() {
       { command: 'support', description: 'ከሰራተኛ ጋር አውራ / Contact Worker' },
     ]).catch(err => console.warn('[Bot Commands Setup Warning]', err.message));
 
+    // Configure Persistent Bottom-Left Menu Button (MenuButtonWebApp) next to the chat input field
+    bot.telegram.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: '🛍️ ገበያ (Shop)',
+        web_app: { url: WEB_APP_URL }
+      }
+    }).catch(err => console.warn('[Chat Menu Button Setup Warning]', err.message));
+
     bot.launch()
       .then(() => console.log(`[Bot] Korcha Telegram Bot launched successfully. Worker: @${WORKER_USERNAME}`))
       .catch((err) => console.warn('[Bot Launch Warning] Telegraf launch deferred:', err.message));
