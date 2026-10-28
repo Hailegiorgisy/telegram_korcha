@@ -236,10 +236,10 @@ ${safeData.marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(safe
     userSession.data = { phone: cleanPhone };
 
     await ctx.reply(
-      `💬 ለትኬት ${quoteCode} ተጨማሪ መልዕክት ወይም ጥያቄ ለመላክ በቀጥታ እዚህ መጻፍ ይችላሉ። ሰራተኛችን ወዲያውኑ መልስ ይሰጥዎታል። (ውይይቱን ለመጨረስ /menu ይጫኑ)፡`,
+      `💬 ማንኛውም ተጨማሪ ጥያቄ ወይም መልዕክት ካለዎት እዚህ በቀጥታ መጻፍ ይችላሉ። ሰራተኛችን ወዲያውኑ መልስ ይሰጥዎታል። (ውይይቱን ለመጨረስ /menu ይጫኑ)፡`,
       Markup.keyboard([
-        [`💬 ለትኬት ${quoteCode} መልስ ጻፍ`],
-        ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+        ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+        ['🏠 ወደ ዋና ገጽ (Main Menu)']
       ]).resize()
     );
 
@@ -436,8 +436,8 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
           await bot.telegram.sendMessage(targetTelegramId, directMsg, {
             parse_mode: 'HTML',
             ...Markup.keyboard([
-              [`💬 ለትኬት ${code} መልስ ጻፍ`],
-              ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+              ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+              ['🏠 ወደ ዋና ገጽ (Main Menu)']
             ]).resize()
           });
           deliveredToTelegram = true;
@@ -741,7 +741,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         buyText,
         Markup.inlineKeyboard([
           [Markup.button.url(`💬 ከሰራተኛ ጋር አረጋግጥ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)],
-          [Markup.button.callback('💬 በዚህ ትኬት መልስ ጻፍ', `chat_ticket:${ticketCode}`)]
+          [Markup.button.callback('💬 ከሰራተኛ ጋር አውራ', `chat_ticket:${ticketCode}`)]
         ])
       );
 
@@ -815,7 +815,6 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         `🏷️ <b>የውይይት ኮድ (Ticket):</b> <code>${escapeHtml(activeCode)}</code>${historyText}\n\n` +
         `✍️ <b>ጥያቄዎን፣ የዋጋ ግምት ወይም የትዕዛዝ ክትትል መልዕክትዎን እዚህ በቀጥታ ይጻፉ።</b> የፈለጉትን ያህል መልዕክት መጻፍና መነጋገር ይችላሉ! (ውይይቱን ለመጨረስ 🏠 ወደ ዋና ገጽ ይጫኑ) 👇`,
         Markup.keyboard([
-          [`💬 ለትኬት ${activeCode} መልስ ጻፍ`],
           ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
         ]).resize()
       );
@@ -849,8 +848,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       await ctx.replyWithHTML(
         `💬 ከሰራተኛ ጋር በትኬት <code>${escapeHtml(code)}</code> የቀጥታ ውይይት ተጀምሯል!${historyText}\n\nመልዕክትዎን እዚህ ይጻፉልን 👇`,
         Markup.keyboard([
-          [`💬 ለትኬት ${code} መልስ ጻፍ`],
-          ['🏠 ወደ ዋና ገጽ (Main Menu)']
+          ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '🏠 ወደ ዋና ገጽ (Main Menu)']
         ]).resize()
       );
     });
@@ -873,8 +871,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       await ctx.replyWithHTML(
         `💬 ከሰራተኛ ጋር በትኬት <code>${escapeHtml(code)}</code> የቀጥታ ውይይት ተጀምሯል!${historyText}\n\nመልዕክትዎን እዚህ ይጻፉልን 👇`,
         Markup.keyboard([
-          [`💬 ለትኬት ${code} መልስ ጻፍ`],
-          ['🏠 ወደ ዋና ገጽ (Main Menu)']
+          ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '🏠 ወደ ዋና ገጽ (Main Menu)']
         ]).resize()
       );
     });
@@ -1049,8 +1046,8 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
             await bot.telegram.sendMessage(targetTelegramId, directMsg, {
               parse_mode: 'HTML',
               ...Markup.keyboard([
-                [`💬 ለትኬት ${canonicalCode} መልስ ጻፍ`],
-                ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+                ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+                ['🏠 ወደ ዋና ገጽ (Main Menu)']
               ]).resize()
             }).catch(() => {});
             deliveredToTelegram = true;
@@ -1112,8 +1109,8 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
           await ctx.replyWithHTML(
             `✅ <b>መልዕክትዎ ለትኬት <code>${escapeHtml(ticketCode)}</code> ለሰራተኛ ተልኳል!</b>\n\n📝 "${escapeHtml(text)}"\n\n👉 ሰራተኛችን በአጭር ጊዜ ውስጥ መልስ ይሰጥዎታል። መልዕክት መጻፍዎን መቀጠል ይችላሉ (ውይይቱን ለመጨረስ /menu ይጫኑ)።`,
             Markup.keyboard([
-              [`💬 ለትኬት ${ticketCode} መልስ ጻፍ`],
-              ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+              ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+              ['🏠 ወደ ዋና ገጽ (Main Menu)']
             ]).resize()
           );
 
@@ -1286,8 +1283,8 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 ` +
             `💬 ሰራተኛችን (<b>@${escapeHtml(WORKER_USERNAME)}</b>) ወዲያውኑ አጣርቶ መልስ ሲሰጥዎት እዚህ በቀጥታ ይደርስዎታል!`,
             Markup.keyboard([
-              [`💬 ለትኬት ${trackingTicketCode} መልስ ጻፍ`],
-              ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+              ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+              ['🏠 ወደ ዋና ገጽ (Main Menu)']
             ]).resize()
           );
 
@@ -1344,7 +1341,7 @@ ${workerNoteDisplay}━━━━━━━━━━━━━━━━━━━━
             await ctx.replyWithHTML(
               msg,
               Markup.inlineKeyboard([
-                [Markup.button.callback('💬 ከሰራተኛ ጋር በዚህ ትኬት አውራ (Chat on Ticket)', `chat_ticket:${ord.order_code}`)],
+                [Markup.button.callback('💬 ከሰራተኛ ጋር በቀጥታ አውራ (Chat with Support)', `chat_ticket:${ord.order_code}`)],
                 [Markup.button.callback('🔔 ሁኔታ እንዲጣራልኝ እፈልጋለሁ (Ping Support)', `ping_order:${ord.order_code}`)],
                 [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)]
               ])
@@ -1958,8 +1955,8 @@ ${cleanUsername ? `👤 <b>Username:</b> @${escapeHtml(cleanUsername)}
       bot.telegram.sendMessage(parsedTgId, customerBotReceipt, {
         parse_mode: 'HTML',
         ...Markup.keyboard([
-          [`💬 ለትኬት ${orderCode} መልስ ጻፍ`],
-          ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+          ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+          ['🏠 ወደ ዋና ገጽ (Main Menu)']
         ]).resize(),
       }).catch(() => {});
     }

@@ -427,7 +427,7 @@ export function App() {
             {/* Lookup / Link Ticket or Phone Number Box */}
             <div className="bg-white rounded-2xl p-3.5 border border-stone-200/80 shadow-2xs space-y-2">
               <label className="block text-[11px] font-bold text-stone-700">
-                🔍 የዋጋ ግምት ወይም የትዕዛዝ ኮድ / ስልክ ቁጥር ያስገቡ (View Worker Reply by Code or Phone):
+                🔍 የትዕዛዝ ኮድ ወይም ስልክ ቁጥር ያስገቡ (Track Order / View Reply):
               </label>
               <div className="flex space-x-1.5">
                 <input
@@ -454,7 +454,7 @@ export function App() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between px-1">
                 <span className="text-[11px] font-bold text-stone-600">
-                  የእርስዎ ውይይቶች (Your Active Conversations):
+                  የእርስዎ ትዕዛዞችና ውይይቶች (Your Orders & Messages):
                 </span>
                 <button
                   onClick={() => {
@@ -733,7 +733,7 @@ export function App() {
                         <div className="flex items-center justify-between text-[11px] font-bold text-stone-700">
                           <span className="flex items-center space-x-1.5">
                             <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
-                            <span>የትኬት ውይይት (Ticket #{ord.order_code} Chat)</span>
+                            <span>የቀጥታ ውይይት ከሰራተኛ ጋር (Order #{ord.order_code} Chat)</span>
                           </span>
                           <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold border border-emerald-200">
                             የቀጥታ ውይይት (Active)
