@@ -531,6 +531,10 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             <Check className="w-3 h-3 text-emerald-600" />
             <span>60% ሲረከቡ (COD)</span>
           </div>
+          <div className="text-[9px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
+            <Check className="w-3 h-3 text-emerald-600" />
+            <span>ቀጥታ ደረሰኝ</span>
+          </div>
         </div>
       </div>
 

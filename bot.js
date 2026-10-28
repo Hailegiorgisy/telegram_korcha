@@ -428,17 +428,20 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
           const directMsg = `
 💬 <b>ከኮርቻ ሰራተኛ የተሰጠ መልዕክት (Support Reply):</b>
 ━━━━━━━━━━━━━━━━━━━━
-🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(code)}</code>
+🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(canonicalCode)}</code>
 📝 "${escapeHtml(replyMessage)}"
 ━━━━━━━━━━━━━━━━━━━━
-👉 ለሰራተኛው መልስ ለመስጠት እዚህ በቀጥታ ይጻፉ። ውይይቱ ያለማቋረጥ የሚቀጥል ሲሆን ለመጨረስ /menu ይጫኑ።
+👉 በዋጋው ከተስማሙ <b>"✅ በዋጋው ተስማምቻለሁ"</b> የሚለውን ይጫኑ ወይም ለሰራተኛው እዚህ በቀጥታ ይጻፉ።
 `.trim();
           await bot.telegram.sendMessage(targetTelegramId, directMsg, {
             parse_mode: 'HTML',
-            ...Markup.keyboard([
-              ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
-              ['🏠 ወደ ዋና ገጽ (Main Menu)']
-            ]).resize()
+            ...Markup.inlineKeyboard([
+              [
+                Markup.button.callback('✅ በዋጋው ተስማምቻለሁ', `agree_price:${canonicalCode}`),
+                Markup.button.callback('❌ ዋጋው አልተስማማሁም', `decline_price:${canonicalCode}`)
+              ],
+              [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)]
+            ])
           });
           deliveredToTelegram = true;
         }
@@ -456,6 +459,75 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         await ctx.reply(`❌ ስህተት ተከስቷል: ${err.message}`);
       }
     });
+
+    // FEATURE: Worker Confirm Payment Command (/confirm <code> [delivery_window])
+    // Sends exact required confirmation: "ክፍያዎ ተፈጽሟል። ዕቃዎ በ ... ይደርሳል።"
+    bot.hears(/^\/confirm\s+([A-Za-z0-9\-]+)(?:\s+([\s\S]+))?$/, async (ctx) => {
+      const senderId = String(ctx.from.id);
+      const senderChatId = String(ctx.chat.id);
+      if (WORKER_CHAT_ID && senderChatId !== String(WORKER_CHAT_ID) && senderId !== String(WORKER_CHAT_ID)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+
+      const code = ctx.match[1].trim();
+      const rawDelivery = ctx.match[2] ? ctx.match[2].trim() : '10-14 ቀን';
+      const cleanDelivery = rawDelivery.replace(/^በ\s*/, '').replace(/ይደርሳል\.?$/, '').trim();
+      const deliveryText = cleanDelivery.startsWith('በ') ? cleanDelivery : `በ${cleanDelivery}`;
+      const workerName = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Worker');
+
+      const resolved = await resolveTrackingTarget(code);
+      const canonicalCode = resolved?.canonicalCode || code;
+
+      // Update status to deposit_verified
+      try {
+        await updateOrderStatus(canonicalCode, 'deposit_verified', workerName, `ክፍያ ተረጋግጧል — እቃው ${deliveryText} ይደርሳል`);
+      } catch (_) {}
+
+      const confirmMessage = `ክፍያዎ ተፈጽሟል። ዕቃዎ ${deliveryText} ይደርሳል።`;
+
+      // Record in ticket chat
+      await addTicketMessage({
+        ticketCode: canonicalCode,
+        senderRole: 'worker',
+        senderName: workerName,
+        customerPhone: resolved?.customerPhone || null,
+        messageText: confirmMessage,
+      });
+
+      // Send to customer on Bot
+      let delivered = false;
+      const targetTelegramId = resolved?.customerTelegramId;
+      if (targetTelegramId) {
+        const directCustomerMsg = `
+🎉 <b>ክፍያዎ ተፈጽሟል። ዕቃዎ ${escapeHtml(deliveryText)} ይደርሳል።</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${escapeHtml(canonicalCode)}</code>
+📊 <b>ሁኔታ:</b> ክፍያ ተረጋግጧል (Deposit Verified)
+🚚 <b>የሚደርስበት ጊዜ:</b> <b>${escapeHtml(deliveryText)}</b>
+━━━━━━━━━━━━━━━━━━━━
+👉 የትዕዛዝዎን ሁኔታ በማንኛውም ጊዜ <b>📦 የትዕዛዝ ሁኔታ መከታተያ</b> በመጠቀም መከታተል ይችላሉ!
+`.trim();
+
+        await bot.telegram.sendMessage(targetTelegramId, directCustomerMsg, {
+          parse_mode: 'HTML',
+          ...Markup.keyboard([
+            ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
+            ['🏠 ወደ ዋና ገጽ (Main Menu)']
+          ]).resize()
+        }).catch(() => {});
+        delivered = true;
+      }
+
+      await ctx.replyWithHTML(`
+✅ <b>ክፍያ ተረጋግጦ ለደንበኛው ማረጋገጫ ተልኳል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ኮድ:</b> <code>${escapeHtml(canonicalCode)}</code>
+📝 <b>መልዕክት:</b> ${escapeHtml(confirmMessage)}
+📱 <b>በቦት ደርሷል:</b> ${delivered ? '✅ አዎ (Direct push sent to customer)' : '🌐 በሚኒ አፕ መከታተያ ላይ ተመዝግቧል'}
+━━━━━━━━━━━━━━━━━━━━
+`);
+    });
+
 
     // WORKER COMMAND: Add Product to Shelf (/addproduct <category> | <name> | <price> | <size> | [photo_url])
     bot.hears(/^\/addproduct(?:\s+([\s\S]+))?$/, async (ctx) => {
@@ -943,13 +1015,104 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       }
     });
 
-    // Photo Message Handler: Customer sends screenshot, then chooses marketplace
+    // Robust Photo Handler: Supports Payment Receipts, Support Chat attachments & New Product Quotes
     bot.on('photo', async (ctx) => {
       const session = getSession(ctx.from.id);
       const photos = ctx.message.photo;
       const highestResPhoto = photos[photos.length - 1];
       const fileId = highestResPhoto.file_id;
+      const userId = ctx.from.id;
+      const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
 
+      // 1. PAYMENT RECEIPT SCREENSHOT HANDLER
+      if (session.state === 'AWAITING_PAYMENT_RECEIPT' || (session.activeTicket && session.state === 'CHATTING_WITH_SUPPORT')) {
+        const code = session.data?.ticketCode || session.activeTicket;
+        session.state = 'CHATTING_WITH_SUPPORT';
+
+        // Record receipt in continuous ticket thread
+        await addTicketMessage({
+          ticketCode: code,
+          senderRole: 'customer',
+          senderName: username,
+          senderTelegramId: userId,
+          customerPhone: session.data?.phone || null,
+          messageText: '📸 [የክፍያ ደረሰኝ ስክሪንሾት ተልኳል / Payment Receipt Screenshot]',
+        });
+
+        await ctx.replyWithHTML(
+          `✅ <b>የክፍያ ደረሰኝዎ ደርሶናል!</b>\n\n🏷️ <b>ትኬት / ትዕዛዝ:</b> <code>${escapeHtml(code)}</code>\n⏳ ሰራተኛችን ክፍያውን አረጋግጦ የማድረሻ ቀኑን ያሳውቅዎታል! ጥቂት ደቂቃ ይጠብቁ።`,
+          Markup.keyboard([
+            ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
+            ['🏠 ወደ ዋና ገጽ (Main Menu)']
+          ]).resize()
+        );
+
+        if (WORKER_CHAT_ID && bot) {
+          const receiptAlert = `
+💰 <b>አዲስ የክፍያ ደረሰኝ ስክሪንሾት ደርሷል! (Payment Receipt Submitted)</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት / ትዕዛዝ:</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
+📱 <b>ስልክ:</b> <code>${escapeHtml(session.data?.phone || 'N/A')}</code>
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ክፍያውን አረጋግጠው ለደንበኛው የማድረሻ ቀን ለመላክ፡</b>
+<code>/confirm ${code} በ10-14 ቀን</code>
+ወይም
+<code>/reply ${code} ክፍያዎ ተፈጽሟል። ዕቃዎ በ ... ይደርሳል።</code>
+`.trim();
+
+          const buttons = [];
+          if (ctx.from?.username) {
+            buttons.push([Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)]);
+          }
+
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, fileId, {
+            caption: receiptAlert,
+            parse_mode: 'HTML',
+            ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      // 2. SUPPORT CHAT PHOTO ATTACHMENT
+      if (session.activeTicket) {
+        const code = session.activeTicket;
+        await addTicketMessage({
+          ticketCode: code,
+          senderRole: 'customer',
+          senderName: username,
+          senderTelegramId: userId,
+          customerPhone: session.data?.phone || null,
+          messageText: '📸 [ፎቶ ተልኳል / Attached Photo]',
+        });
+
+        await ctx.replyWithHTML(
+          `✅ <b>ፎቶው ለሰራተኛ ደርሷል!</b> ሰራተኛችን አይቶ መልስ ይሰጥዎታል።`,
+          Markup.keyboard([
+            ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+          ]).resize()
+        );
+
+        if (WORKER_CHAT_ID && bot) {
+          const alert = `
+📸 <b>አዲስ የደንበኛ ፎቶ ለትኬት ደርሷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት:</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)}
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>መልስ ለመስጠት፡</b>
+<code>/reply ${code} ...</code>
+`.trim();
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, fileId, {
+            caption: alert,
+            parse_mode: 'HTML',
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      // 3. NEW PRODUCT QUOTE SCREENSHOT
       session.state = 'AWAITING_MARKETPLACE';
       session.data = {
         ...session.data,
@@ -973,6 +1136,113 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     });
 
     // Marketplace selection callback handler (triggers after screenshot insertion)
+    
+    // Action: ✅ በዋጋው ተስማምቻለሁ (Customer Agrees with Price & Prompts for Receipt)
+    bot.action(/^agree_price:(.+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery('በዋጋው ስለተስማሙ እናመሰግናለን!'); } catch (_) {}
+      const code = ctx.match[1].trim();
+      const userId = ctx.from.id;
+      const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+      const session = getSession(userId);
+      session.state = 'AWAITING_PAYMENT_RECEIPT';
+      session.activeTicket = code;
+      session.data.ticketCode = code;
+
+      // Persist customer decision in ticket chat thread
+      await addTicketMessage({
+        ticketCode: code,
+        senderRole: 'customer',
+        senderName: username,
+        senderTelegramId: userId,
+        customerPhone: session.data?.phone || null,
+        messageText: '✅ በዋጋው ተስማምቻለሁ። የክፍያ ደረሰኝ ስክሪንሾት ለመላክ ተዘጋጅቻለሁ።',
+      });
+
+      const agreeText = `
+🎉 <b>በዋጋው ስለተስማሙ እናመሰግናለን!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት / ትዕዛዝ:</b> <code>${escapeHtml(code)}</code>
+
+💳 <b>እባክዎ የ40% ቅድመ ክፍያዎን ያስገቡ፡</b>
+1️⃣ <b>ቴሌብር (Telebirr):</b>
+📱 <code>${escapeHtml(TELEBIRR_PHONE)}</code>
+
+2️⃣ <b>የኢትዮጵያ ንግድ ባንክ (CBE / CBE Birr):</b>
+🏦 <code>${escapeHtml(CBE_ACCOUNT)}</code>
+━━━━━━━━━━━━━━━━━━━━
+📸 <b>አሁን የከፈሉበትን የባንክ ወይም የቴሌብር ደረሰኝ ስክሪንሾት (Photo/Screenshot) እዚህ ይላኩልን 👇</b>
+<i>ሰራተኛችን ክፍያውን አረጋግጦ የማድረሻ ቀኑን ያሳውቅዎታል።</i>
+`.trim();
+
+      await ctx.replyWithHTML(agreeText, Markup.keyboard([
+        ['❌ ሰርዝ (Cancel)', '🏠 ወደ ዋና ገጽ (Main Menu)']
+      ]).resize());
+
+      // Notify worker in worker chat
+      if (WORKER_CHAT_ID && bot) {
+        const workerNotice = `
+✅ <b>ደንበኛ በዋጋው ተስማምቷል! (Customer Agreed with Price)</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት:</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
+⏳ ደንበኛው አሁን የክፍያ ደረሰኝ ስክሪንሾት እየላከ ነው...
+`;
+        await bot.telegram.sendMessage(WORKER_CHAT_ID, workerNotice, { parse_mode: 'HTML' }).catch(() => {});
+      }
+    });
+
+    // Action: ❌ ዋጋው አልተስማማሁም (Customer Does Not Agree with Price)
+    bot.action(/^decline_price:(.+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery('ምላሽዎ ተመዝግቧል'); } catch (_) {}
+      const code = ctx.match[1].trim();
+      const userId = ctx.from.id;
+      const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+      const session = getSession(userId);
+      session.state = 'CHATTING_WITH_SUPPORT';
+      session.activeTicket = code;
+
+      // Persist decline in ticket chat
+      await addTicketMessage({
+        ticketCode: code,
+        senderRole: 'customer',
+        senderName: username,
+        senderTelegramId: userId,
+        customerPhone: session.data?.phone || null,
+        messageText: '❌ ዋጋው አልተስማማሁም።',
+      });
+
+      const declineText = `
+🤝 <b>ዋጋው ስላልተስማማዎት እናዝናለን።</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት:</b> <code>${escapeHtml(code)}</code>
+
+እኛ ዘንድ አማራጭ አይታጣም!
+🔹 ርካሽ አማራጭ እቃ ከሌላ ገበያ (ከ AliExpress ወይም Shein) እንድንፈልግልዎት ይፈልጋሉ?
+🔹 ወይስ ዋጋው እንዲስተካከልልዎት?
+
+👉 የሚፈልጉትን እዚህ በቀጥታ መጻፍ ይችላሉ፣ ሰራተኛችን አማራጮችን ያቀርብልዎታል።
+`.trim();
+
+      await ctx.replyWithHTML(declineText, Markup.keyboard([
+        ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+        ['🏠 ወደ ዋና ገጽ (Main Menu)']
+      ]).resize());
+
+      // Alert worker
+      if (WORKER_CHAT_ID && bot) {
+        const workerDeclineAlert = `
+⚠️ <b>ደንበኛ በዋጋው አልተስማማም (Price Declined)!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት:</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ለደንበኛው የተሻለ ወይም ርካሽ አማራጭ ለማቅረብ፡</b>
+<code>/reply ${code} ሰላም፣ ከሌላ ገበያ ርካሽ አማራጭ ...</code>
+`;
+        await bot.telegram.sendMessage(WORKER_CHAT_ID, workerDeclineAlert, { parse_mode: 'HTML' }).catch(() => {});
+      }
+    });
+
     bot.action(/^market:(.+)$/, async (ctx) => {
       try {
         await ctx.answerCbQuery();
@@ -1041,14 +1311,17 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(canonicalCode)}</code>
 📝 "${escapeHtml(text)}"
 ━━━━━━━━━━━━━━━━━━━━
-👉 ለሰራተኛው መልስ ለመስጠት ወይም ተጨማሪ ጥያቄ ለመጠየቅ እዚህ በቀጥታ ይጻፉ። የፈለጉትን ያህል መልዕክት መቀጠል ይችላሉ!
+👉 በዋጋው ከተስማሙ <b>"✅ በዋጋው ተስማምቻለሁ"</b> የሚለውን ይጫኑ ወይም ለሰራተኛው እዚህ በቀጥታ ይጻፉ።
 `.trim();
             await bot.telegram.sendMessage(targetTelegramId, directMsg, {
               parse_mode: 'HTML',
-              ...Markup.keyboard([
-                ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
-                ['🏠 ወደ ዋና ገጽ (Main Menu)']
-              ]).resize()
+              ...Markup.inlineKeyboard([
+                [
+                  Markup.button.callback('✅ በዋጋው ተስማምቻለሁ', `agree_price:${canonicalCode}`),
+                  Markup.button.callback('❌ ዋጋው አልተስማማሁም', `decline_price:${canonicalCode}`)
+                ],
+                [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)]
+              ])
             }).catch(() => {});
             deliveredToTelegram = true;
           }
@@ -1075,7 +1348,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       }
 
       // CONTINUOUS TWO-WAY TICKET CHAT: Route message directly to worker if customer is in an active ticket
-      if (session.activeTicket && session.state === 'IDLE') {
+      if (session.activeTicket && (session.state === 'IDLE' || session.state === 'CHATTING_WITH_SUPPORT')) {
         // Exit ticket chat on menu or cancel commands
         if (text === '🏠 ወደ ዋና ገጽ (Main Menu)' || text === 'ወደ ዋና ሜኑ' || text === 'ዋና ሜኑ' || text === 'ዋና ገጽ' || text === '/menu' || text === 'menu' || text === '❌ ሰርዝ (Cancel)' || text === '/cancel') {
           const exitingCode = session.activeTicket;

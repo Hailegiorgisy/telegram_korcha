@@ -524,18 +524,48 @@ export function App() {
                 </div>
               </div>
 
-              {/* Latest Worker Response Highlight Banner (if worker has replied on price estimation or tracker) */}
+              {/* Latest Worker Response Highlight Banner with Interactive Price Decision */}
               {activeConversation.latestWorkerResponse && (
-                <div className="rounded-2xl p-3 bg-emerald-50/90 border border-emerald-200 text-xs text-emerald-950 space-y-1">
+                <div className="rounded-2xl p-3.5 bg-emerald-50/95 border border-emerald-200 text-xs text-emerald-950 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-[11px] text-emerald-800 flex items-center space-x-1">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                       <span>ከሰራተኛ (@{workerUsername}) የተሰጠ ምላሽ:</span>
                     </span>
+                    <span className="text-[10px] bg-emerald-200/60 text-emerald-900 font-bold px-2 py-0.5 rounded-full">
+                      የዋጋ ግምት / ምላሽ
+                    </span>
                   </div>
-                  <p className="font-semibold whitespace-pre-wrap leading-relaxed">
+                  <p className="font-semibold whitespace-pre-wrap leading-relaxed text-stone-900">
                     {activeConversation.latestWorkerResponse}
                   </p>
+
+                  {/* Customer Decision Buttons: Agree / Decline */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200/80">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const agreeMsg = `✅ በዋጋው ተስማምቻለሁ! 40% ቅድመ ክፍያ በቴሌብር ወይም በCBE አስገባለሁ።`;
+                        setDirectChatInput(agreeMsg);
+                        handleSendFromMessagesTab(agreeMsg);
+                      }}
+                      className="py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] flex items-center justify-center space-x-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                    >
+                      <span>✅ በዋጋው ተስማምቻለሁ</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const declineMsg = `❌ ዋጋው አልተስማማሁም። የተሻለ ወይም ርካሽ አማራጭ ካለ ቢያሳውቁኝ።`;
+                        setDirectChatInput(declineMsg);
+                        handleSendFromMessagesTab(declineMsg);
+                      }}
+                      className="py-2 px-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold text-[11px] flex items-center justify-center space-x-1 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                    >
+                      <span>❌ ዋጋው አልተስማማሁም</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
