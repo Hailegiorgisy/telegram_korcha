@@ -39,7 +39,9 @@ import {
   getShelfCategories,
   updateShelfCategory,
   syncFallbackToPostgres,
-  startReconciliationWorker
+  startReconciliationWorker,
+  addWorkerNote,
+  getOrderDossier
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -177,6 +179,8 @@ async function sendWorkerHub(ctx) {
 📋 <b>ዋጋ ያልተሰጣቸው ጥያቄዎች:</b> <code>/quotes</code>
 💰 <b>የክፍያ ማረጋገጫ የሚጠብቁ:</b> <code>/orders</code>
 🛒 <b>የመደርደሪያ እቃዎች አስተዳደር:</b> <code>/shelf</code> ወይም <code>/addproduct</code>
+📝 <b>የውስጥ ማስታወሻ ለማስቀመጥ:</b> <code>/note &lt;ኮድ/ስልክ&gt; &lt;ማስታወሻ&gt;</code>
+📋 <b>ሙሉ መረጃ (Dossier) ለSaved Messages:</b> <code>/dossier &lt;ኮድ/ስልክ&gt;</code>
 💬 <b>ለደንበኛ መልስ ለመስጠት:</b> <code>/reply &lt;ትኬት/ስልክ&gt; &lt;መልዕክት&gt;</code>
 ✅ <b>ክፍያ አረጋግጦ ማድረሻ ቀን ለመላክ:</b> <code>/confirm &lt;ኮድ&gt; &lt;ቀን&gt;</code>
 ━━━━━━━━━━━━━━━━━━━━
@@ -568,6 +572,90 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 📱 <b>በቦት ደርሷል:</b> ${delivered ? '✅ አዎ (Direct push sent to customer)' : '🌐 በሚኒ አፕ መከታተያ ላይ ተመዝግቧል'}
 ━━━━━━━━━━━━━━━━━━━━
 `);
+
+      // Auto-dispatch structured Order Dossier Card to Worker Chat (Ready to forward to Saved Messages)
+      try {
+        const dossier = await getOrderDossier(canonicalCode);
+        if (dossier?.formattedDossierText && WORKER_CHAT_ID) {
+          await bot.telegram.sendMessage(WORKER_CHAT_ID, dossier.formattedDossierText, {
+            parse_mode: 'HTML',
+          }).catch(() => {});
+        }
+      } catch (dErr) {
+        console.warn('[Dossier auto-dispatch warning]', dErr.message);
+      }
+    });
+
+    // WORKER COMMAND: Internal Note (/note <code|phone> <note text>)
+    bot.hears(/^\/note(?:\s+([A-Za-z0-9\+\-]+))?(?:\s+([\s\S]+))?$/, async (ctx) => {
+      if (!isWorkerContext(ctx)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+      const target = ctx.match[1] ? ctx.match[1].trim() : null;
+      const noteText = ctx.match[2] ? ctx.match[2].trim() : null;
+
+      if (!target || !noteText) {
+        return ctx.replyWithHTML(`
+📝 <b>የሰራተኛ ማስታወሻ መመዝገቢያ (Worker Notes)</b>
+━━━━━━━━━━━━━━━━━━━━
+👉 አጠቃቀም፡
+<code>/note &lt;ኮድ ወይም ስልክ&gt; &lt;ማስታወሻ&gt;</code>
+
+ምሳሌ፡
+<code>/note KC-892101 ደንበኛው ቦሌ መድኃኒዓለም እንዲደርስ ጠይቀዋል</code>
+<code>/note 0911223344 ቀለሙ ጥቁር እንዲሆን ተመርጧል</code>
+━━━━━━━━━━━━━━━━━━━━
+💡 ማስታወሻው ዳታቤዝ ላይ ተመዝግቦ በሚኒ አፑና በDossier ውስጥ ይታያል።
+`.trim());
+      }
+
+      const workerName = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Worker');
+      const result = await addWorkerNote({ referenceCode: target, noteText, workerUsername: workerName });
+
+      if (!result || !result.success) {
+        return ctx.reply(`❌ ለኮድ ወይም ስልክ "${target}" የሚዛመድ መረጃ አልተገኘም። እባክዎ ኮዱን ያረጋግጡ።`);
+      }
+
+      return ctx.replyWithHTML(`
+📝 <b>የሰራተኛ ማስታወሻ በተሳካ ሁኔታ ተቀምጧል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ኮድ:</b> <code>${escapeHtml(result.referenceCode)}</code>
+👨‍💼 <b>ሰራተኛ:</b> ${escapeHtml(workerName)}
+📝 <b>ማስታወሻ:</b> ${escapeHtml(noteText)}
+━━━━━━━━━━━━━━━━━━━━
+📋 ሙሉ መረጃ ለማየት: <code>/dossier ${escapeHtml(result.referenceCode)}</code>
+`.trim());
+    });
+
+    // WORKER COMMAND: Comprehensive Order Dossier (/dossier <code|phone>)
+    // Generates formatted order summary ready to forward straight to Telegram 'Saved Messages'
+    bot.hears(/^\/dossier(?:\s+([A-Za-z0-9\+\-]+))?$/, async (ctx) => {
+      if (!isWorkerContext(ctx)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+      const target = ctx.match[1] ? ctx.match[1].trim() : null;
+
+      if (!target) {
+        return ctx.replyWithHTML(`
+📋 <b>የትዕዛዝ ሙሉ መረጃ ማውጫ (Order Dossier)</b>
+━━━━━━━━━━━━━━━━━━━━
+👉 አጠቃቀም፡
+<code>/dossier &lt;ኮድ ወይም ስልክ&gt;</code>
+
+ምሳሌ፡
+<code>/dossier KC-892101</code>
+<code>/dossier 0911223344</code>
+━━━━━━━━━━━━━━━━━━━━
+💡 የተሟላውን መረጃ በቀጥታ ወደ <b>'Saved Messages'</b> Forward ማድረግ ይችላሉ።
+`.trim());
+      }
+
+      const dossier = await getOrderDossier(target);
+      if (!dossier || !dossier.success) {
+        return ctx.reply(`❌ ለ "${target}" የተገኘ የትዕዛዝ ወይም የዋጋ ጥያቄ መረጃ የለም።`);
+      }
+
+      return ctx.replyWithHTML(dossier.formattedDossierText);
     });
 
 
@@ -2978,7 +3066,44 @@ app.post('/api/worker/confirm', async (req, res) => {
       deliveredDirectlyToTelegram = true;
     }
 
+    // Auto-dispatch Dossier Card to Worker Chat for instant forwarding to Saved Messages
+    try {
+      const dossier = await getOrderDossier(orderCode);
+      if (dossier?.formattedDossierText && WORKER_CHAT_ID) {
+        await bot.telegram.sendMessage(WORKER_CHAT_ID, dossier.formattedDossierText, {
+          parse_mode: 'HTML',
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
     res.json({ success: true, orderCode, deliveredDirectlyToTelegram });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4. POST /api/worker/notes: Save worker internal note from Mini App
+app.post('/api/worker/notes', async (req, res) => {
+  try {
+    const { referenceCode, noteText, workerUsername = WORKER_USERNAME } = req.body;
+    if (!referenceCode || !noteText) {
+      return res.status(400).json({ success: false, error: 'referenceCode and noteText required' });
+    }
+    const result = await addWorkerNote({ referenceCode, noteText, workerUsername });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5. GET /api/worker/dossier/:code: Fetch complete dossier card for clipboard or view
+app.get('/api/worker/dossier/:code', async (req, res) => {
+  try {
+    const dossier = await getOrderDossier(req.params.code);
+    if (!dossier) {
+      return res.status(404).json({ success: false, error: 'Order or quote not found' });
+    }
+    res.json(dossier);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

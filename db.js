@@ -1715,4 +1715,238 @@ export function startReconciliationWorker(intervalMs = 30000) {
 // Auto-start worker on load
 startReconciliationWorker();
 
+
+// 14. Add Internal Worker Note (stored in DB orders/quotes and logged to status history & ticket chat)
+export async function addWorkerNote({ referenceCode, noteText, workerUsername = 'korcha_support' }) {
+  if (!referenceCode || !noteText) return { success: false, error: 'referenceCode and noteText required' };
+  const rawCode = String(referenceCode).trim();
+  const cleanNote = String(noteText).trim();
+  const worker = workerUsername.startsWith('@') ? workerUsername : `@${workerUsername}`;
+  const now = new Date().toISOString();
+
+  const target = await resolveTrackingTarget(rawCode);
+  const canonicalCode = target?.canonicalCode || rawCode;
+  const isOrder = !!target?.order || canonicalCode.startsWith('KO-') || canonicalCode.startsWith('SO-');
+  const targetPhone = target?.customerPhone || null;
+
+  if (await checkPG()) {
+    let client;
+    try {
+      client = await pool.connect();
+      await client.query('BEGIN');
+
+      if (isOrder) {
+        const { rows: orderRows } = await client.query('SELECT id, status FROM orders WHERE order_code =  FOR UPDATE', [canonicalCode]);
+        if (orderRows.length > 0) {
+          const ord = orderRows[0];
+          await client.query(`
+            UPDATE orders 
+            SET latest_worker_note = , worker_response = , updated_at = CURRENT_TIMESTAMP
+            WHERE id = 
+          `, [cleanNote, ord.id]);
+
+          await client.query(`
+            INSERT INTO order_status_history (order_id, previous_status, new_status, changed_by, note)
+            VALUES (, , , , )
+          `, [ord.id, ord.status, worker, `[ማስታወሻ / Note]: ${cleanNote}`]);
+        }
+      } else {
+        await client.query(`
+          UPDATE quotes 
+          SET worker_notes = , updated_at = CURRENT_TIMESTAMP
+          WHERE quote_code = 
+        `, [cleanNote, canonicalCode]);
+      }
+
+      await client.query('COMMIT');
+    } catch (e) {
+      if (client) await client.query('ROLLBACK');
+      console.warn('[DB Fallback] addWorkerNote Postgres error:', e.message);
+    } finally {
+      if (client) client.release();
+    }
+  }
+
+  // Fallback in-memory
+  if (inMemoryStore.orders && inMemoryStore.orders.has(canonicalCode)) {
+    const ord = inMemoryStore.orders.get(canonicalCode);
+    ord.latest_worker_note = cleanNote;
+    ord.worker_response = cleanNote;
+    ord.updated_at = now;
+    if (!inMemoryStore.statusHistory) inMemoryStore.statusHistory = [];
+    inMemoryStore.statusHistory.push({
+      order_id: ord.id || canonicalCode,
+      previous_status: ord.status,
+      new_status: ord.status,
+      changed_by: worker,
+      note: `[ማስታወሻ / Note]: ${cleanNote}`,
+      created_at: now,
+    });
+  } else if (inMemoryStore.quotes && inMemoryStore.quotes.has(canonicalCode)) {
+    const quote = inMemoryStore.quotes.get(canonicalCode);
+    quote.worker_notes = cleanNote;
+    quote.updated_at = now;
+  }
+
+  // Also record in continuous ticket messages thread
+  try {
+    await addTicketMessage({
+      ticketCode: canonicalCode,
+      senderRole: 'worker',
+      senderName: worker,
+      customerPhone: targetPhone,
+      messageText: `📝 [የሰራተኛ ማስታወሻ]: ${cleanNote}`,
+    });
+  } catch (_) {}
+
+  return {
+    success: true,
+    referenceCode: canonicalCode,
+    noteText: cleanNote,
+    worker,
+    updated_at: now,
+  };
+}
+
+// 15. Comprehensive Order Dossier Generator (Optimized for Telegram Saved Messages & Workers)
+export async function getOrderDossier(referenceCode) {
+  if (!referenceCode) return null;
+  const raw = String(referenceCode).trim();
+  const target = await resolveTrackingTarget(raw);
+  if (!target) return null;
+
+  const order = target.order;
+  const quote = target.quote;
+  const code = target.canonicalCode;
+  const phone = target.customerPhone || 'N/A';
+  const telegramId = target.customerTelegramId || 'N/A';
+
+  // Get customer username/name if available
+  let customer = null;
+  if (order?.customer_id || quote?.customer_id) {
+    const cId = order?.customer_id || quote?.customer_id;
+    if (await checkPG()) {
+      try {
+        const { rows } = await pool.query('SELECT * FROM customers WHERE id = ', [cId]);
+        if (rows.length > 0) customer = rows[0];
+      } catch (_) {}
+    }
+  }
+
+  // Get status history notes if order
+  let historyNotes = [];
+  if (order && await checkPG()) {
+    try {
+      const { rows } = await pool.query(
+        'SELECT note, changed_by, created_at FROM order_status_history WHERE order_id =  AND note IS NOT NULL ORDER BY created_at ASC',
+        [order.id]
+      );
+      historyNotes = rows;
+    } catch (_) {}
+  }
+
+  // Get ticket messages count
+  const messages = await getTicketMessages(code);
+
+  const createdAt = order?.created_at || quote?.created_at || new Date().toISOString();
+  const formattedDate = new Date(createdAt).toLocaleString('en-US', {
+    timeZone: 'Africa/Addis_Ababa',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const productDesc = order?.product_summary || quote?.details || (quote?.product_url ? `ዕቃ ከሊንክ፡ ${quote.product_url}` : 'የተዘዘ ዕቃ');
+  const sizeColor = [quote?.size ? `ሳይዝ፡ ${quote.size}` : null, quote?.color ? `ቀለም፡ ${quote.color}` : null, quote?.quantity ? `ብዛት፡ ${quote.quantity}` : null].filter(Boolean).join(' | ');
+
+  const total = order?.total_price_etb || quote?.quoted_price_etb || 0;
+  const deposit = order?.deposit_amount_etb || quote?.deposit_required_etb || (total > 0 ? Math.round(total * 0.4) : 0);
+  const balance = order?.cod_balance_etb || (total > 0 ? total - deposit : 0);
+
+  const paymentMethodName = order?.payment_method === 'cbe_birr' ? 'CBE Birr (የኢትዮጵያ ንግድ ባንክ)' : 'Telebirr (ቴሌብር)';
+  const address = order?.delivery_address || (order?.delivery_city ? `${order.delivery_city}` : 'አዲስ አበባ (Addis Ababa)');
+
+  const statusMap = {
+    pending_review: 'ዋጋ በመገመት ላይ (Pending Review)',
+    priced: 'ዋጋ የተሰጠው (Priced - Awaiting Confirmation)',
+    pending_deposit: 'ቅድመ ክፍያ የሚጠብቅ (Awaiting Deposit)',
+    deposit_verified: 'ክፍያ ተረጋግጧል (Deposit Verified)',
+    purchased: 'ዕቃው ተገዝቷል (Purchased from Store)',
+    cargo_transit: 'በአውሮፕላን ካርጎ ጉዞ ላይ (In Cargo Transit)',
+    arrived_addis: 'አዲስ አበባ ቦሌ ካርጎ ደርሷል (Arrived in Addis)',
+    out_for_delivery: 'ለማድረስ በመንገድ ላይ (Out for Delivery)',
+    delivered: 'ተጠናቋል - ደንበኛ ተረክቧል (Delivered)',
+    cancelled: 'ተሰርዟል (Cancelled)'
+  };
+  const statusText = statusMap[order?.status || quote?.status] || (order?.status || quote?.status || 'Active');
+
+  let etaText = 'በ10-14 የስራ ቀናት ውስጥ (10-14 days)';
+  if (order?.latest_worker_note && order.latest_worker_note.includes('ይደርሳል')) {
+    etaText = order.latest_worker_note;
+  }
+
+  const workerNotes = order?.latest_worker_note || quote?.worker_notes || 'የለም (No internal note recorded)';
+
+  const formattedDossierText = `
+📋 <b>የኮርቻ ትዕዛዝ ሙሉ መረጃ (Order Dossier Card)</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${code}</code>
+📅 <b>የታዘዘበት ቀን:</b> ${formattedDate}
+📊 <b>የአሁኑ ሁኔታ:</b> <b>${statusText}</b>
+
+👤 <b>የደንበኛ መረጃ:</b>
+• ስልክ ቁጥር: <code>${phone}</code>
+• ቴሌግራም: ${customer?.telegram_username ? `@${customer.telegram_username}` : (telegramId !== 'N/A' ? `ID: <code>${telegramId}</code>` : 'በስልክ ብቻ')}
+• የማድረሻ አድራሻ: <b>${address}</b>
+
+📦 <b>የእቃው መረጃ (Product Summary):</b>
+• መግለጫ: <b>${productDesc}</b>
+${sizeColor ? `• ዝርዝር: ${sizeColor}\n` : ''}${quote?.product_url ? `• ኦሪጅናል ሊንክ: ${quote.product_url}\n` : ''}
+💰 <b>የክፍያና ሂሳብ ዝርዝር (Financials):</b>
+• ጠቅላላ ዋጋ: <b>${Number(total).toLocaleString()} ETB</b>
+• የተከፈለ 40% ቅድመ ክፍያ: <b>${Number(deposit).toLocaleString()} ETB</b> (${paymentMethodName})
+• የሚቀረው 60% ቀሪ ሂሳብ: <b>${Number(balance).toLocaleString()} ETB</b> (ዕቃው ሲረከቡ)
+
+🚚 <b>የማድረሻ ሁኔታ (Logistics & ETA):</b>
+• የሚደርስበት ጊዜ: <b>${etaText}</b>
+• ከተማ: አዲስ አበባ
+
+📝 <b>የሰራተኛ ማስታወሻ (Worker Internal Note):</b>
+👉 <i>${workerNotes}</i>
+${messages.length > 0 ? `💬 <b>የተመዘገቡ መልዕክቶች:</b> ${messages.length} መልዕክቶች ተለዋውጠዋል` : ''}
+━━━━━━━━━━━━━━━━━━━━
+💾 <b>ጠቃሚ ማሳሰቢያ ለሰራተኛ (@korcha_support):</b>
+ይህንን መልዕክት በቀጥታ Forward በማድረግ ወደ ቴሌግራም <b>'Saved Messages'</b> ውስጥ ማስቀመጥ ይችላሉ!
+`.trim();
+
+  return {
+    success: true,
+    data: {
+      code,
+      phone,
+      telegramId,
+      createdAt,
+      formattedDate,
+      productDesc,
+      sizeColor,
+      productUrl: quote?.product_url || null,
+      screenshotUrl: quote?.screenshot_url || null,
+      totalPriceEtb: Number(total),
+      depositAmountEtb: Number(deposit),
+      codBalanceEtb: Number(balance),
+      paymentMethod: order?.payment_method || 'telebirr',
+      deliveryAddress: address,
+      status: order?.status || quote?.status,
+      statusText,
+      etaText,
+      workerNotes,
+      messageCount: messages.length,
+      historyNotes,
+    },
+    formattedDossierText,
+  };
+}
+
 export default pool;

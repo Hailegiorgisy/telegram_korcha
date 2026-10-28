@@ -180,6 +180,67 @@ export function App() {
     }
   };
 
+  const [orderNotesForm, setOrderNotesForm] = useState<Record<string, string>>({});
+  const [isSavingNote, setIsSavingNote] = useState<Record<string, boolean>>({});
+  const [copiedDossierCode, setCopiedDossierCode] = useState<string | null>(null);
+
+  const handleSaveWorkerNote = async (referenceCode: string) => {
+    const noteText = (orderNotesForm[referenceCode] || '').trim();
+    if (!noteText) return;
+    setIsSavingNote(prev => ({ ...prev, [referenceCode]: true }));
+    try {
+      const res = await fetch('/api/worker/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          referenceCode,
+          noteText,
+          workerUsername: workerUsername || 'korcha_support',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
+        setWorkerOverview(prev => ({
+          ...prev,
+          pendingOrders: prev.pendingOrders.map(o => o.order_code === referenceCode ? { ...o, latest_worker_note: noteText } : o),
+          pendingQuotes: prev.pendingQuotes.map(q => q.quote_code === referenceCode ? { ...q, worker_notes: noteText } : q),
+        }));
+        setOrderNotesForm(prev => ({ ...prev, [referenceCode]: '' }));
+        if (selectedConvCode === referenceCode || activeConversation.ticketCode === referenceCode) {
+          fetchTicketMessages(referenceCode);
+        }
+      } else {
+        alert(data.error || 'ማስታወሻ ማስቀመጥ አልተቻለም');
+      }
+    } catch (e: any) {
+      alert(`ስህተት: ${e.message}`);
+    } finally {
+      setIsSavingNote(prev => ({ ...prev, [referenceCode]: false }));
+    }
+  };
+
+  const handleCopyDossier = async (referenceCode: string) => {
+    try {
+      const res = await fetch(`/api/worker/dossier/${encodeURIComponent(referenceCode)}`);
+      const data = await res.json();
+      if (data?.formattedDossierText) {
+        await navigator.clipboard.writeText(data.formattedDossierText);
+        setCopiedDossierCode(referenceCode);
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        }
+        setTimeout(() => setCopiedDossierCode(null), 3000);
+      } else {
+        alert('Dossier መረጃ ማግኘት አልተቻለም');
+      }
+    } catch (err: any) {
+      alert('ቅዳ አልተቻለም፡ ' + err.message);
+    }
+  };
+
   const handleWorkerConfirmOrder = async (orderCode: string) => {
     const deliveryWindow = confirmDeliveryForm[orderCode] || 'በ10-14 ቀን';
     setIsConfirmingOrder(prev => ({ ...prev, [orderCode]: true }));
@@ -552,9 +613,19 @@ export function App() {
                     <div key={q.quote_code} className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs space-y-3">
                       {/* Card Header */}
                       <div className="flex items-center justify-between border-b border-stone-100 pb-2">
-                        <span className="font-mono font-black text-xs text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200">
-                          {q.quote_code}
-                        </span>
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleCopyDossier(q.quote_code)}
+                            className="text-[10px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-lg flex items-center space-x-1 cursor-pointer transition-all"
+                            title="Dossier ቅዳ (ለSaved Messages)"
+                          >
+                            <span>{copiedDossierCode === q.quote_code ? '✅ ተቀድቷል!' : '📋 Dossier ቅዳ'}</span>
+                          </button>
+                          <span className="font-mono font-black text-xs text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-lg border border-amber-200">
+                            {q.quote_code}
+                          </span>
+                        </div>
                         <div className="text-right">
                           <span className="text-[10px] text-stone-400 block">{new Date(q.created_at).toLocaleTimeString()}</span>
                           <span className="text-[11px] font-bold text-stone-700">📱 {q.customer_phone || 'N/A'}</span>
@@ -600,6 +671,36 @@ export function App() {
                             <span>ቀለም: {q.color || 'N/A'}</span>
                             <span>ብዛት: {q.quantity || 1}</span>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Internal Note Section */}
+                      <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200/70 space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-amber-900">
+                          <span>📝 የሰራተኛ ማስታወሻ (Internal Note)</span>
+                          {q.worker_notes && <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-semibold text-[9px]">ተመዝግቧል</span>}
+                        </div>
+                        {q.worker_notes && (
+                          <div className="bg-white p-2 rounded-lg border border-amber-200/60 text-xs text-stone-700">
+                            <p className="italic text-[11px] text-stone-800 leading-snug">{q.worker_notes}</p>
+                          </div>
+                        )}
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="text"
+                            value={orderNotesForm[q.quote_code] || ''}
+                            onChange={(e) => setOrderNotesForm(prev => ({ ...prev, [q.quote_code]: e.target.value }))}
+                            placeholder="ማስታወሻ ይጻፉ..."
+                            className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 focus:ring-1 focus:ring-amber-500 bg-white outline-hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveWorkerNote(q.quote_code)}
+                            disabled={isSavingNote[q.quote_code] || !orderNotesForm[q.quote_code]?.trim()}
+                            className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white text-[11px] font-bold shrink-0 cursor-pointer transition-all"
+                          >
+                            {isSavingNote[q.quote_code] ? '...' : 'አስቀምጥ'}
+                          </button>
                         </div>
                       </div>
 
@@ -683,9 +784,19 @@ export function App() {
                       return (
                         <div key={ord.order_code} className="bg-white p-4 rounded-2xl border border-stone-200 shadow-xs space-y-3">
                           <div className="flex items-center justify-between border-b border-stone-100 pb-2">
-                            <span className="font-mono font-black text-xs text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-                              {ord.order_code}
-                            </span>
+                            <div className="flex items-center space-x-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyDossier(ord.order_code)}
+                                className="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-lg flex items-center space-x-1 cursor-pointer transition-all"
+                                title="Dossier ቅዳ (ለSaved Messages)"
+                              >
+                                <span>{copiedDossierCode === ord.order_code ? '✅ ተቀድቷል!' : '📋 Dossier ቅዳ'}</span>
+                              </button>
+                              <span className="font-mono font-black text-xs text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                                {ord.order_code}
+                              </span>
+                            </div>
                             <div className="text-right">
                               <span className="text-[10px] text-stone-400 block">{new Date(ord.created_at).toLocaleTimeString()}</span>
                               <span className="text-[11px] font-bold text-stone-800">📱 {ord.customer_phone}</span>
@@ -705,6 +816,43 @@ export function App() {
                               </div>
                             </div>
                             <p className="text-[10px] text-stone-500">የክፍያ ዘዴ፡ {ord.payment_method === 'cbe_birr' ? 'CBE Birr (ንግድ ባንክ)' : 'Telebirr (ቴሌብር)'}</p>
+                          </div>
+
+                          {/* Internal Worker Notes */}
+                          <div className="p-2.5 rounded-xl bg-amber-50/60 border border-amber-200/70 space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-bold">
+                              <span className="flex items-center space-x-1 text-amber-900">
+                                <span>📝</span>
+                                <span>የሰራተኛ ማስታወሻ (Worker Internal Note)</span>
+                              </span>
+                              {ord.latest_worker_note && (
+                                <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded font-semibold">ተመዝግቧል</span>
+                              )}
+                            </div>
+
+                            {ord.latest_worker_note && (
+                              <div className="bg-white p-2 rounded-lg border border-amber-200/60 text-xs text-stone-700">
+                                <p className="italic text-[11px] text-stone-800 leading-snug">{ord.latest_worker_note}</p>
+                              </div>
+                            )}
+
+                            <div className="flex items-center space-x-1.5">
+                              <input
+                                type="text"
+                                value={orderNotesForm[ord.order_code] || ''}
+                                onChange={(e) => setOrderNotesForm(prev => ({ ...prev, [ord.order_code]: e.target.value }))}
+                                placeholder="አዲስ የውስጥ ማስታወሻ ይጻፉ (ምሳሌ፡ ደንበኛው ቦሌ መድኃኒዓለም እንዲደርስ ጠይቋል)..."
+                                className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-stone-300 focus:ring-1 focus:ring-amber-500 bg-white outline-hidden"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveWorkerNote(ord.order_code)}
+                                disabled={isSavingNote[ord.order_code] || !orderNotesForm[ord.order_code]?.trim()}
+                                className="px-3 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white text-[11px] font-bold shrink-0 cursor-pointer transition-all"
+                              >
+                                {isSavingNote[ord.order_code] ? '...' : 'አስቀምጥ'}
+                              </button>
+                            </div>
                           </div>
 
                           <div className="pt-2 border-t border-stone-100 flex items-center space-x-2">
@@ -870,7 +1018,47 @@ export function App() {
                     {activeConversation.summary}
                   </p>
                 </div>
+
+                {isAuthorizedWorker && (
+                  <button
+                    type="button"
+                    onClick={() => handleCopyDossier(activeConversation.ticketCode)}
+                    className="text-[10px] font-extrabold text-amber-800 bg-amber-100/80 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-xl flex items-center space-x-1 cursor-pointer transition-all"
+                    title="Dossier ቅዳ (ለSaved Messages)"
+                  >
+                    <span>{copiedDossierCode === activeConversation.ticketCode ? '✅ ተቀድቷል!' : '📋 Dossier ቅዳ'}</span>
+                  </button>
+                )}
               </div>
+
+              {/* Worker Internal Note Bar */}
+              {isAuthorizedWorker && (
+                <div className="bg-amber-50/70 border-b border-amber-200/80 px-3 py-2 space-y-1.5">
+                  <div className="flex items-center justify-between text-[10px] font-bold text-amber-900">
+                    <span className="flex items-center space-x-1">
+                      <span>📝</span>
+                      <span>የውስጥ ማስታወሻ (ደንበኛው አያየውም)</span>
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <input
+                      type="text"
+                      value={orderNotesForm[activeConversation.ticketCode] || ''}
+                      onChange={(e) => setOrderNotesForm(prev => ({ ...prev, [activeConversation.ticketCode]: e.target.value }))}
+                      placeholder="ስለ ደንበኛው ወይም እቃው ማስታወሻ ይጻፉ..."
+                      className="flex-1 px-2.5 py-1 text-xs rounded-lg border border-amber-300 bg-white focus:ring-1 focus:ring-amber-500 outline-hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveWorkerNote(activeConversation.ticketCode)}
+                      disabled={isSavingNote[activeConversation.ticketCode] || !orderNotesForm[activeConversation.ticketCode]?.trim()}
+                      className="px-2.5 py-1 rounded-lg bg-amber-700 hover:bg-amber-800 disabled:opacity-40 text-white text-[10px] font-bold shrink-0 transition-all cursor-pointer"
+                    >
+                      {isSavingNote[activeConversation.ticketCode] ? '...' : 'መዝግብ'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Chat Thread Messages */}
               <div className="p-3 space-y-2 max-h-80 overflow-y-auto bg-stone-50/50">
