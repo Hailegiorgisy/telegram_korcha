@@ -12,12 +12,7 @@
     "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-<<<<<<< HEAD
-    "git-push": "node push.cjs"
-=======
-		"build": "vite build", 
-			"git-push": "node push.cjs"
->>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
+    "check": "node --input-type=module -e \"try { await import('./bot.js'); console.log('\ud83c\udf89 SUCCESS: bot.js starts cleanly with zero errors!'); process.exit(0); } catch(e) { console.error('\ud83d\udea8 EXACT CRASH REASON:', e.stack||e.message); process.exit(1); }\""
   },
   "dependencies": {
     "@types/node": "^20.11.24",
@@ -41,9 +36,6 @@
     "telegraf": "^4.16.3",
     "typescript": "^5.3.3",
     "vite": "^5.1.4"
-  }
-<<<<<<< HEAD
+  },
+  "main": ".plesk.startup.cjs"
 }
-=======
-}
->>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
