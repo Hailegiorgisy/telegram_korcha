@@ -1,0 +1,18 @@
+[Unit]
+Description=Korcha Telegram E-Commerce Bot Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/korcha
+ExecStart=/usr/bin/node /var/www/korcha/bot.js
+Restart=always
+RestartSec=10
+EnvironmentFile=/var/www/korcha/.env
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=korcha-bot
+
+[Install]
+WantedBy=multi-user.target
