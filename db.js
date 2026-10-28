@@ -375,6 +375,114 @@ export async function getPendingQuotes(limit = 10) {
     .slice(0, limit);
 }
 
+// 3e. Update Quote Price & Status (Worker Quote Engine)
+export async function updateQuotePrice({ quoteCode, quotedPriceEtb, depositRequiredEtb, workerNotes = '' }) {
+  if (await checkPG()) {
+    try {
+      const q = `
+        UPDATE quotes
+        SET quoted_price_etb = $1, deposit_required_etb = $2, worker_notes = $3, status = 'priced', updated_at = CURRENT_TIMESTAMP
+        WHERE quote_code = $4
+        RETURNING *;
+      `;
+      const { rows } = await pool.query(q, [quotedPriceEtb, depositRequiredEtb, workerNotes, quoteCode]);
+      if (rows.length > 0) return rows[0];
+    } catch (e) {
+      console.warn('[DB Fallback] updateQuotePrice fallback:', e.message);
+    }
+  }
+  const quote = inMemoryStore.quotes.get(quoteCode);
+  if (quote) {
+    quote.quoted_price_etb = quotedPriceEtb;
+    quote.deposit_required_etb = depositRequiredEtb;
+    quote.worker_notes = workerNotes;
+    quote.status = 'priced';
+    quote.updated_at = new Date().toISOString();
+    return quote;
+  }
+  return null;
+}
+
+// 13d. Get All Platform Conversations for Worker TMA
+export async function getAllConversationsForWorker() {
+  const ticketSet = new Set();
+  const quotesMap = new Map();
+  const ordersMap = new Map();
+
+  if (await checkPG()) {
+    try {
+      const qQuotes = await pool.query("SELECT * FROM quotes ORDER BY created_at DESC LIMIT 50");
+      for (const r of qQuotes.rows) {
+        ticketSet.add(r.quote_code);
+        quotesMap.set(r.quote_code, r);
+      }
+      const qOrders = await pool.query("SELECT * FROM orders ORDER BY created_at DESC LIMIT 50");
+      for (const r of qOrders.rows) {
+        ticketSet.add(r.order_code);
+        ordersMap.set(r.order_code, r);
+      }
+      const qMsgs = await pool.query("SELECT DISTINCT ticket_code FROM ticket_messages ORDER BY ticket_code DESC LIMIT 50");
+      for (const r of qMsgs.rows) {
+        ticketSet.add(r.ticket_code);
+      }
+    } catch (e) {
+      console.warn('[DB Fallback] getAllConversationsForWorker PG fallback:', e.message);
+    }
+  }
+
+  for (const q of inMemoryStore.quotes.values()) {
+    ticketSet.add(q.quote_code);
+    quotesMap.set(q.quote_code, q);
+  }
+  for (const o of inMemoryStore.orders.values()) {
+    ticketSet.add(o.order_code);
+    ordersMap.set(o.order_code, o);
+  }
+  if (inMemoryStore.ticketMessages) {
+    for (const m of inMemoryStore.ticketMessages) {
+      ticketSet.add(m.ticket_code);
+    }
+  }
+
+  const conversations = [];
+  for (const code of ticketSet) {
+    const quote = quotesMap.get(code) || (await getQuoteByCode(code));
+    const order = ordersMap.get(code) || (await getOrderByCode(code));
+    const messages = await getTicketMessages(code);
+
+    let category = 'support';
+    let summary = 'ከደንበኛ የቀረበ መልዕክት';
+    let status = 'ውይይት ላይ';
+    let customerPhone = quote?.customer_phone || order?.customer_phone || null;
+    let customerTelegramId = quote?.customer_telegram_id || order?.customer_telegram_id || null;
+
+    if (quote) {
+      category = 'quote';
+      summary = quote.details || (quote.source_type === 'link' ? `ሊንክ፡ ${quote.product_url}` : 'የእቃ ስክሪንሾት');
+      status = quote.status === 'pending_review' ? 'ዋጋ እየተሰላ ነው (Pending)' : quote.status === 'priced' ? 'ዋጋ ተሰጥቷል (Priced)' : quote.status;
+    } else if (order) {
+      category = 'order';
+      summary = order.product_summary || `የትዕዛዝ ክፍያ (${order.total_price_etb} ETB)`;
+      status = order.status;
+    }
+
+    const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+    conversations.push({
+      ticketCode: code,
+      category,
+      summary,
+      status,
+      customerPhone,
+      customerTelegramId,
+      latestWorkerResponse: order?.latest_worker_note || quote?.worker_notes || null,
+      updatedAt: lastMsg?.created_at || quote?.updated_at || order?.updated_at || new Date().toISOString(),
+      messages,
+    });
+  }
+
+  return conversations.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
 // 3c. Resolve any Tracking Target (Order Code, Quote Code, Tracker Number, or Phone Number)
 export async function resolveTrackingTarget(targetInput) {
   if (!targetInput) return null;

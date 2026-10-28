@@ -20,6 +20,8 @@ import {
   getOrdersByPhone,
   getPendingQuotes,
   getPendingOrders,
+  updateQuotePrice,
+  getAllConversationsForWorker,
   updateOrderStatus,
   recordCustomerPing,
   recordOrderLookup,
@@ -2840,6 +2842,143 @@ app.get('/api/orders/:code/pings', async (req, res) => {
   try {
     const pings = await getCustomerPings(req.params.code);
     res.json({ success: true, pings });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==========================================
+// DEDICATED WORKER OPERATIONS TMA REST APIS
+// ==========================================
+
+// 1. GET /api/worker/overview: Real-time overview for @korcha_support TMA
+app.get('/api/worker/overview', async (req, res) => {
+  try {
+    const pendingQuotes = await getPendingQuotes(30);
+    const pendingOrders = await getPendingOrders(30);
+    const conversations = await getAllConversationsForWorker();
+    res.json({
+      success: true,
+      worker: WORKER_USERNAME,
+      pendingQuotes,
+      pendingOrders,
+      conversations,
+      stats: {
+        pendingQuotesCount: pendingQuotes.length,
+        pendingOrdersCount: pendingOrders.length,
+        totalConversationsCount: conversations.length,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2. POST /api/worker/quote: Worker prices an imported item and dispatches to customer on Telegram Bot
+app.post('/api/worker/quote', async (req, res) => {
+  try {
+    const { quoteCode, totalPriceEtb, depositAmountEtb, note } = req.body;
+    if (!quoteCode || !totalPriceEtb) {
+      return res.status(400).json({ success: false, error: 'quoteCode and totalPriceEtb required' });
+    }
+
+    const total = Number(totalPriceEtb);
+    const deposit = depositAmountEtb ? Number(depositAmountEtb) : Math.round(total * 0.4);
+    const balance = total - deposit;
+    const quote = await getQuoteByCode(quoteCode);
+
+    await updateQuotePrice({
+      quoteCode,
+      quotedPriceEtb: total,
+      depositRequiredEtb: deposit,
+      workerNotes: note || null,
+    });
+
+    const quoteMessage = `የእቃው አጠቃላይ ዋጋ ${total.toLocaleString()} ብር ነው። 40% ቅድመ ክፍያ ${deposit.toLocaleString()} ብር በቴሌብር (${TELEBIRR_PHONE}) ወይም በCBE (${CBE_ACCOUNT}) ይክፈሉ። ቀሪ ${balance.toLocaleString()} ብር እቃው ሲደርስዎ ይከፍላሉ።`;
+
+    // Record in ticket messages
+    await addTicketMessage({
+      ticketCode: quoteCode,
+      senderRole: 'worker',
+      senderName: `@${WORKER_USERNAME}`,
+      customerPhone: quote?.customer_phone || null,
+      messageText: quoteMessage,
+    });
+
+    // Direct message customer on Telegram Bot if customer telegram ID exists
+    let deliveredDirectlyToTelegram = false;
+    const targetTelegramId = quote?.customer_telegram_id;
+    if (bot && targetTelegramId) {
+      const directMsg = `
+🏷️ <b>የእቃ ዋጋ ግምት (Price Estimation):</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት:</b> <code>${escapeHtml(quoteCode)}</code>
+💰 <b>ጠቅላላ ዋጋ:</b> <b>${total.toLocaleString()} ETB</b>
+💵 <b>40% ቅድመ ክፍያ:</b> <b>${deposit.toLocaleString()} ETB</b>
+🚚 <b>ቀሪ ክፍያ (ሲረከቡ):</b> <b>${balance.toLocaleString()} ETB</b>
+━━━━━━━━━━━━━━━━━━━━
+👉 በዋጋው ከተስማሙ <b>"✅ በዋጋው ተስማምቻለሁ"</b> የሚለውን ይጫኑ ወይም ለሰራተኛው እዚህ በቀጥታ ይጻፉ።
+`.trim();
+
+      await bot.telegram.sendMessage(targetTelegramId, directMsg, {
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard([
+          [
+            Markup.button.callback('✅ በዋጋው ተስማምቻለሁ', `agree_price:${quoteCode}`),
+            Markup.button.callback('❌ ዋጋው አልተስማማሁም', `decline_price:${quoteCode}`)
+          ],
+          [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)]
+        ])
+      }).catch(() => {});
+      deliveredDirectlyToTelegram = true;
+    }
+
+    res.json({ success: true, quoteCode, deliveredDirectlyToTelegram });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 3. POST /api/worker/confirm: Worker confirms payment deposit and notifies customer
+app.post('/api/worker/confirm', async (req, res) => {
+  try {
+    const { orderCode, deliveryWindow = 'በ10-14 ቀን' } = req.body;
+    if (!orderCode) return res.status(400).json({ success: false, error: 'orderCode required' });
+
+    await updateOrderStatus(orderCode, 'deposit_verified', `@${WORKER_USERNAME}`, `ክፍያ ተረጋግጧል። እቃው ${deliveryWindow} ይደርሳል።`);
+
+    const confirmationText = `🎉 ክፍያዎ ተፈጽሟል። ዕቃዎ ${deliveryWindow} ይደርሳል።`;
+
+    await addTicketMessage({
+      ticketCode: orderCode,
+      senderRole: 'worker',
+      senderName: `@${WORKER_USERNAME}`,
+      messageText: confirmationText,
+    });
+
+    const order = await getOrderByCode(orderCode);
+    let deliveredDirectlyToTelegram = false;
+    const targetTelegramId = order?.customer_telegram_id;
+    if (bot && targetTelegramId) {
+      const msg = `
+🎉 <b>ክፍያዎ ተፈጽሟል! (Payment Confirmed)</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትዕዛዝ:</b> <code>${escapeHtml(orderCode)}</code>
+🚚 <b>የመድረሻ ጊዜ:</b> <b>${escapeHtml(deliveryWindow)}</b>
+━━━━━━━━━━━━━━━━━━━━
+ዕቃዎ ሲደርስ እናሳውቅዎታለን። ጥያቄ ካለዎት እዚህ በማንኛውም ጊዜ መጻፍ ይችላሉ!
+`.trim();
+      await bot.telegram.sendMessage(targetTelegramId, msg, {
+        parse_mode: 'HTML',
+        ...Markup.keyboard([
+          ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
+          ['🏠 ወደ ዋና ገጽ (Main Menu)']
+        ]).resize()
+      }).catch(() => {});
+      deliveredDirectlyToTelegram = true;
+    }
+
+    res.json({ success: true, orderCode, deliveredDirectlyToTelegram });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
