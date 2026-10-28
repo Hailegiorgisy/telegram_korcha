@@ -522,18 +522,14 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
 
         {/* Marketing Feature Bullets */}
-        <div className="grid grid-cols-3 gap-1 pt-1 text-center border-t border-amber-200/50">
-          <div className="text-[9px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
-            <Check className="w-3 h-3 text-emerald-600" />
+        <div className="grid grid-cols-2 gap-2 pt-1 text-center border-t border-amber-200/50">
+          <div className="text-[10px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
             <span>40% ቅድመ ክፍያ</span>
           </div>
-          <div className="text-[9px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
-            <Check className="w-3 h-3 text-emerald-600" />
+          <div className="text-[10px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
+            <Check className="w-3.5 h-3.5 text-emerald-600" />
             <span>60% ሲረከቡ (COD)</span>
-          </div>
-          <div className="text-[9px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
-            <Check className="w-3 h-3 text-emerald-600" />
-            <span>ቀጥታ ደረሰኝ</span>
           </div>
         </div>
       </div>
