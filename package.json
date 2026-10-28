@@ -1,6 +1,5 @@
 {
   "name": "korcha",
-  "private": true,
   "version": "0.2.0",
   "type": "module",
   "scripts": {
@@ -12,8 +11,7 @@
     "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-		"build": "vite build", 
-			"git-push": "node push.cjs"
+		"git-push": "node push.cjs"
   },
   "dependencies": {
     "@types/node": "^20.11.24",
