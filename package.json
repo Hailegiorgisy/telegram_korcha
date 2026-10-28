@@ -12,7 +12,12 @@
     "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'",
     "preview": "vite preview",
     "clean": "rm -rf dist",
+<<<<<<< HEAD
     "git-push": "node push.cjs"
+=======
+		"build": "vite build", 
+			"git-push": "node push.cjs"
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
   },
   "dependencies": {
     "@types/node": "^20.11.24",
@@ -37,4 +42,8 @@
     "typescript": "^5.3.3",
     "vite": "^5.1.4"
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
