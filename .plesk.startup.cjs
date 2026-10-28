@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // .plesk.startup.cjs: Official Plesk Phusion Passenger ES Module bootstrap with crash logging
 const fs = require('fs');
 const path = require('path');
@@ -18,3 +19,9 @@ async function main() {
 }
 
 main();
+=======
+import('./bot.js').catch((err) => {
+  console.error('[Plesk Startup Error]:', err);
+  process.exit(1);
+});
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7

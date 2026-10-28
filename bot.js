@@ -41,8 +41,17 @@ import {
   syncFallbackToPostgres,
   startReconciliationWorker,
   addWorkerNote,
+<<<<<<< HEAD
   getOrderDossier,
   closePool
+=======
+<<<<<<< HEAD
+  getOrderDossier,
+  closePool
+=======
+  getOrderDossier
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
 } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -3112,8 +3121,19 @@ app.get('/api/worker/dossier/:code', async (req, res) => {
 
 // Serve compiled static assets from dist/
 const distPath = path.join(__dirname, 'dist');
+<<<<<<< HEAD
 // Always register express.static so dist/ is immediately served as soon as 'npm run build' completes
 app.use(express.static(distPath));
+=======
+<<<<<<< HEAD
+// Always register express.static so dist/ is immediately served as soon as 'npm run build' completes
+app.use(express.static(distPath));
+=======
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
 
 // Serve uploaded screenshots
 app.use('/uploads', express.static(uploadsDir));
@@ -3127,13 +3147,24 @@ app.get('*', (req, res, next) => {
   if (fs.existsSync(indexPath)) {
     return res.sendFile(indexPath);
   }
+<<<<<<< HEAD
   // Diagnostic fallback page when React frontend is not yet compiled
+=======
+<<<<<<< HEAD
+  // Diagnostic fallback page when React frontend is not yet compiled
+=======
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
   res.status(200).send(`
 <!DOCTYPE html>
 <html lang="am">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
+  <title>Korcha (ኮርቻ) - Telegram Mini App Setup</title>
+=======
+<<<<<<< HEAD
   <title>Korcha (ኮርቻ) - Telegram Mini App Setup</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fafaf9; color: #1c1917; margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; text-align: center; }
@@ -3144,11 +3175,32 @@ app.get('*', (req, res, next) => {
     .badge { display: inline-block; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 9999px; margin-bottom: 16px; }
     .cmd { background: #1c1917; color: #fbbf24; font-family: monospace; font-size: 14px; font-weight: bold; padding: 12px 16px; border-radius: 12px; margin: 16px 0; text-align: left; }
     .links a { display: block; background: #d97706; color: white; text-decoration: none; padding: 10px 20px; border-radius: 12px; font-weight: bold; font-size: 13px; margin: 8px 0; }
+=======
+  <title>Korcha (ኮርቻ) - Ethiopia Cross-Border E-Commerce</title>
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #fafaf9; color: #1c1917; margin: 0; padding: 40px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; text-align: center; }
+    .card { background: white; border: 1px solid #e7e5e4; border-radius: 20px; padding: 32px; max-width: 480px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+    .logo { width: 56px; height: 56px; border-radius: 14px; background: linear-gradient(135deg, #d97706, #f59e0b); color: white; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: bold; margin: 0 auto 16px; }
+    h1 { font-size: 20px; margin: 0 0 8px; color: #1c1917; font-weight: 800; }
+    p { font-size: 13px; color: #78716c; line-height: 1.5; margin: 0 0 16px; }
+    .badge { display: inline-block; background: #fef3c7; color: #92400e; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 9999px; margin-bottom: 16px; }
+    .cmd { background: #1c1917; color: #fbbf24; font-family: monospace; font-size: 14px; font-weight: bold; padding: 12px 16px; border-radius: 12px; margin: 16px 0; text-align: left; }
+    .links a { display: block; background: #d97706; color: white; text-decoration: none; padding: 10px 20px; border-radius: 12px; font-weight: bold; font-size: 13px; margin: 8px 0; }
+<<<<<<< HEAD
+=======
+    .links a.secondary { background: #f5f5f4; color: #292524; }
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
   </style>
 </head>
 <body>
   <div class="card">
     <div class="logo">ኮ</div>
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
     <span class="badge">KORCHA BACKEND ONLINE</span>
     <h1>የቴሌግራም ሚኒ አፕ ሰርቨር እየሰራ ነው!</h1>
     <p>የቦት ሰርቨሩ (Backend) በትክክል እየሰራ ነው፤ ነገር ግን የፊት ለፊት ሚኒ አፑ (React Frontend) ገና አልተገነባም (dist/ folder is missing)።</p>
@@ -3156,8 +3208,21 @@ app.get('*', (req, res, next) => {
       npm run build
     </div>
     <p style="font-size: 11px; color: #78716c;">ይህንን ትዕዛዝ በሰርቨሩ ላይ በማስኬድ <b>dist</b> ፎልደር ይገንቡ። ወዲያውኑ የሚኒ አፑ ገበያና የሰራተኛ ማዕከል መስራት ይጀምራል።</p>
+<<<<<<< HEAD
     <div class="links">
       <a href="/health">የሰርቨር ጤና (API Health Check)</a>
+=======
+    <div class="links">
+      <a href="/health">የሰርቨር ጤና (API Health Check)</a>
+=======
+    <span class="badge">KORCHA ETHIOPIA</span>
+    <h1>ኮርቻ የውጭ ገበያ ድልድይ</h1>
+    <p>Unified Server is running with Worker Notification, Direct Responses, Abuse Protection & Fallback Reconciliation active.</p>
+    <div class="links">
+      <a href="/health">የሰርቨር ጤና (API Health)</a>
+      <a href="https://t.me/${escapeHtml(WORKER_USERNAME)}" target="_blank" class="secondary">ከሰራተኛ ጋር አውራ (@${escapeHtml(WORKER_USERNAME)})</a>
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
     </div>
   </div>
 </body>
@@ -3166,6 +3231,10 @@ app.get('*', (req, res, next) => {
 });
 
 // Start Server & Launch Bot
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
 // Global HTTP server reference for rapid graceful teardown
 let server = null;
 let isShuttingDown = false;
@@ -3184,6 +3253,116 @@ async function gracefulShutdown(signal) {
     if (typeof server.closeIdleConnections === 'function') {
       server.closeIdleConnections();
     }
+<<<<<<< HEAD
+=======
+  }
+
+  // 2. Stop Telegraf polling cleanly so Telegram server releases the connection lock
+  if (bot) {
+    try {
+      bot.stop(signal);
+      console.log('[Shutdown] Telegraf polling stopped.');
+    } catch (_) {}
+  }
+
+  // 3. Close database connection pool and background timers
+  try {
+    await closePool();
+    console.log('[Shutdown] Database pool closed.');
+  } catch (_) {}
+
+  // 4. Force exit process promptly within 500ms (avoids PM2/Plesk 10-15s SIGKILL delay)
+  setTimeout(() => {
+    console.log('[Shutdown] Process teardown complete. Exiting.');
+    process.exit(0);
+  }, 400).unref();
+}
+
+// Global process signal listeners (active regardless of bot status)
+process.once('SIGINT', () => gracefulShutdown('SIGINT'));
+process.once('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.warn('[Process Warning] Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[Process Warning] Uncaught Exception:', err);
+});
+
+// Start Server & Launch Bot (Optimized for Sub-Second Readiness)
+async function start() {
+  // 1. Start HTTP Server IMMEDIATELY (0ms delay: Mini App and /health are instantly live)
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`⚡ [Server Ready] Korcha Unified Server listening on http://0.0.0.0:${PORT} (instant availability)`);
+    // Notify PM2 that application is ready for zero-downtime reloads
+    if (process.send) {
+      process.send('ready');
+    }
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`❌ [Port Error] Port ${PORT} already in use. Retrying in 1s...`);
+      setTimeout(() => {
+        if (server) server.close();
+        server = app.listen(PORT, '0.0.0.0');
+      }, 1000);
+    } else {
+      console.error('[Server Error]', err);
+    }
+  });
+
+  // 2. Run Database Migrations in background without blocking HTTP server
+  runMigrations()
+    .then(() => console.log('✅ [DB Ready] Database migrations verified.'))
+    .catch((dbErr) => console.warn('[DB Warning] Migrations deferred in fail-safe mode:', dbErr.message));
+
+  // 3. Launch Telegraf Bot asynchronously with resilient 409 conflict retry handling
+  if (bot) {
+    // Non-blocking setup of bot commands and persistent bottom-left menu button
+    Promise.allSettled([
+      bot.telegram.setMyCommands([
+        { command: 'start', description: 'ቦቱን አስጀምር / Start Korcha' },
+        { command: 'menu', description: 'ዋና ገጽ / Main Menu' },
+        { command: 'link', description: 'የእቃ ሊንክ ያስገቡ / Submit Link' },
+        { command: 'photo', description: 'ስክሪንሾት ላክ / Send Photo' },
+        { command: 'track', description: 'የትዕዛዝ ሁኔታ መከታተያ / Track Order' },
+        { command: 'support', description: 'ከሰራተኛ ጋር አውራ / Contact Worker' },
+      ]),
+      bot.telegram.setChatMenuButton({
+        menu_button: {
+          type: 'web_app',
+          text: '🛍️ ገበያ (Shop)',
+          web_app: { url: WEB_APP_URL }
+        }
+      })
+    ]).catch(() => {});
+
+    // Launch bot with retry to smoothly handle lingering long-polling locks from Telegram
+    const launchBotWithRetry = async (retries = 3) => {
+      try {
+        await bot.launch({ dropPendingUpdates: false });
+        console.log(`🤖 [Bot Ready] Korcha Telegram Bot active. Worker: @${WORKER_USERNAME}`);
+      } catch (err) {
+        if (err.message && err.message.includes('409') && retries > 0) {
+          console.warn(`⏳ [Bot Warning] Telegram 409 Conflict (previous instance closing). Retrying in 2s (${retries} retries left)...`);
+          setTimeout(() => launchBotWithRetry(retries - 1), 2000);
+        } else {
+          console.warn('[Bot Launch Warning] Telegraf launch deferred:', err.message);
+        }
+      }
+    };
+
+    launchBotWithRetry();
+=======
+async function start() {
+  try {
+    // 1. Run ACID Database Migrations
+    await runMigrations();
+  } catch (dbErr) {
+    console.warn('[DB Warning] Migrations could not run. Continuing in fail-safe mode.', dbErr.message);
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
   }
 
   // 2. Stop Telegraf polling cleanly so Telegram server releases the connection lock
@@ -3293,7 +3472,18 @@ async function start() {
       }
     };
 
+<<<<<<< HEAD
     launchBotWithRetry();
+=======
+    bot.launch()
+      .then(() => console.log(`[Bot] Korcha Telegram Bot launched successfully. Worker: @${WORKER_USERNAME}`))
+      .catch((err) => console.warn('[Bot Launch Warning] Telegraf launch deferred:', err.message));
+
+    // Enable graceful stop
+    process.once('SIGINT', () => bot.stop('SIGINT'));
+    process.once('SIGTERM', () => bot.stop('SIGTERM'));
+>>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
+>>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
   }
 }
 
