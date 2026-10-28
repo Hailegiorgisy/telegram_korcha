@@ -31,7 +31,7 @@
 
 | Layer | Technology | Details |
 | :--- | :--- | :--- |
-| **Frontend Storefront** | React 18, Vite, TypeScript, Tailwind CSS v3 | Fast, mobile-first Web App and Telegram Mini App. Features marketplace portal cards with App Store/Play Store links, 8 categorized photo grids, order tracking, and a 3-step quote modal. |
+| **Frontend Storefront** | React 18, Vite, TypeScript, Tailwind CSS v3 | Fast, mobile-first Web App and Telegram Mini App. Features marketplace portal cards with App Store/Play Store links, 6 categorized shelf photo grids, order tracking, and a 3-step quote modal. |
 | **Backend & Web Server** | Node.js (ESM), Express.js, Multer | Production server in `bot.js` serving `dist/` SPA bundle, REST APIs, and file uploads. |
 | **Telegram Bot** | Telegraf Framework (`bot.js`) | Conversational bot matching the 3-step quote wizard, phone validation, and instant ticket dispatch. |
 | **Database & Persistence** | PostgreSQL (`db.js`, `pg.Pool`) + Fallback | ACID-compliant relational persistence with automated SQL migrations (`001_initial_schema.sql`) and resilient in-memory fallback. |
@@ -86,7 +86,7 @@ korcha/
     │   ├── StorefrontHome.tsx          # Hero banner, Marketplace app links & category image cards
     │   └── LinkOrScreenshotQuoteModal.tsx # Guided 3-step quote & phone validation modal
     ├── data/
-    │   └── categories.js               # 8 categories with high-resolution marketing imagery
+    │   └── categories.js               # 6 categories with live product listings and bestseller showcase
     └── services/
         └── pricingEngine.ts            # Dynamic environment rate calculator (HKD, USD, ETB, cargo)
 ```
