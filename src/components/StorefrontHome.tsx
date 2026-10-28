@@ -78,6 +78,34 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
     || 'korcha_support').replace(/^@/, '').trim();
   const supportUrl = `https://t.me/${workerUsername}`;
 
+  // Global Marketplaces with Direct Web, Android (Play Store) & Apple (App Store) Links
+  const marketplaces = [
+    {
+      name: 'Shein',
+      webUrl: 'https://www.shein.com',
+      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.zzkko',
+      appStoreUrl: 'https://apps.apple.com/app/shein-online-fashion/id878577184',
+      badgeAm: 'አልባሳትና ፋሽን',
+      gradient: 'from-black to-stone-800',
+    },
+    {
+      name: 'Amazon',
+      webUrl: 'https://www.amazon.com',
+      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.amazon.mShop.android.shopping',
+      appStoreUrl: 'https://apps.apple.com/app/amazon-shopping/id297606951',
+      badgeAm: 'ዓለም አቀፍ መደብር',
+      gradient: 'from-amber-600 to-yellow-600',
+    },
+    {
+      name: 'AliExpress',
+      webUrl: 'https://www.aliexpress.com',
+      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.alibaba.aliexpresshd',
+      appStoreUrl: 'https://apps.apple.com/app/aliexpress-shopping-app/id436672029',
+      badgeAm: 'ኤሌክትሮኒክስና ልዩ ልዩ',
+      gradient: 'from-red-600 to-rose-600',
+    },
+  ];
+
   // Strict RBAC: Only @korcha_support is authorized to access category & shelf editing
   const [tmaUsername, setTmaUsername] = useState<string>('');
   const isAuthorizedWorker = Boolean(
@@ -429,39 +457,43 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   };
 
   return (
-    <div className="space-y-4 pb-12 animate-fade-in max-w-md mx-auto">
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-5 shadow-xl border border-stone-800">
-        <div className="relative z-10 space-y-3">
-          <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-semibold border border-amber-500/30">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ</span>
+    <div className="space-y-3 pb-10 animate-fade-in max-w-md mx-auto">
+      {/* Truly Mini, Compact Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-3.5 shadow-lg border border-stone-800">
+        <div className="relative z-10 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-semibold border border-amber-500/30">
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ</span>
+            </div>
+            <span className="text-[9px] font-bold text-amber-400 bg-amber-950/70 px-2 py-0.5 rounded-md border border-amber-700/50">
+              40% ቅድመ ክፍያ
+            </span>
           </div>
 
-          <h2 className="text-xl font-extrabold leading-tight">
-            የፈለጉትን እቃ ይምረጡ፣ <br />
-            እኛ በርዎ ድረስ እናደርሳለን!
+          <h2 className="text-sm font-extrabold leading-snug">
+            የፈለጉትን እቃ ይምረጡ፣ እኛ በርዎ ድረስ እናደርሳለን!
           </h2>
 
-          <p className="text-xs text-stone-300 leading-relaxed">
-            ከ Shein, Amazon ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ስክሪንሾት ያስገቡ። ሰራተኞቻችን ወጪውን አስልተው ያቀርቡልዎታል።
+          <p className="text-[11px] text-stone-300 leading-tight">
+            ከ Shein, Amazon ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ስክሪንሾት ያስገቡ።
           </p>
 
           {/* Primary Action Buttons */}
-          <div className="grid grid-cols-2 gap-2.5 pt-1">
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             <button
               onClick={() => onOpenQuoteModal('link')}
-              className="py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+              className="py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer"
             >
-              <LinkIcon className="w-4 h-4" />
+              <LinkIcon className="w-3.5 h-3.5" />
               <span>ሊንክ ያስገቡ</span>
             </button>
 
             <button
               onClick={() => onOpenQuoteModal('screenshot')}
-              className="py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center space-x-2 border border-white/15 active:scale-95 transition-all cursor-pointer"
+              className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-white/15 active:scale-95 transition-all cursor-pointer"
             >
-              <Camera className="w-4 h-4 text-amber-400" />
+              <Camera className="w-3.5 h-3.5 text-amber-400" />
               <span>ስክሪንሾት ላክ</span>
             </button>
           </div>
@@ -470,66 +502,99 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-600/20 rounded-full blur-3xl pointer-events-none" />
       </div>
 
-      {/* ADVERTISEMENT BANNER: Telebirr & CBE Birr Payment Options (Not in menu) */}
-      <div className="rounded-3xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/60 p-4 space-y-3 shadow-xs">
+      {/* 1. GLOBAL MARKETPLACES (Direct Web + Android Play Store & Apple App Store Links) */}
+      <div className="space-y-1.5 pt-0.5">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs">🌍</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-stone-700">
+              ዓለም አቀፍ ገበያዎች (Global Marketplaces)
+            </h3>
+          </div>
+          <span className="text-[10px] text-amber-700 font-semibold">ሊንክ ኮፒ አድርገው ይዘዙ</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1.5">
+          {marketplaces.map((m) => (
+            <div
+              key={m.name}
+              className="p-2 rounded-xl bg-white border border-stone-200/90 shadow-2xs flex flex-col justify-between space-y-1.5 text-center transition-all hover:border-amber-300"
+            >
+              <a
+                href={m.webUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block"
+                title={`${m.name} ድረ-ገጽ ክፈት`}
+              >
+                <div className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${m.gradient} text-white font-black text-xs flex items-center justify-center mx-auto mb-1 shadow-2xs group-hover:scale-105 transition-transform`}>
+                  {m.name === 'Shein' ? 'S' : m.name === 'Amazon' ? 'a' : 'A'}
+                </div>
+                <p className="font-bold text-xs text-stone-900 group-hover:text-amber-700 flex items-center justify-center space-x-0.5 leading-tight">
+                  <span>{m.name}</span>
+                  <ExternalLink className="w-2.5 h-2.5 text-stone-400" />
+                </p>
+                <p className="text-[8px] text-stone-400 line-clamp-1 mt-0.5">{m.badgeAm}</p>
+              </a>
+
+              {/* Play Store (Android) & App Store (Apple) Download Badges */}
+              <div className="pt-1 border-t border-stone-100 grid grid-cols-2 gap-1 text-[8px] font-bold">
+                <a
+                  href={m.playStoreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-0.5 px-0.5 rounded bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200/70 transition-colors flex items-center justify-center leading-none"
+                  title={`${m.name} Google Play Store (Android)`}
+                >
+                  Android
+                </a>
+                <a
+                  href={m.appStoreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-0.5 px-0.5 rounded bg-sky-50 text-sky-800 hover:bg-sky-100 border border-sky-200/70 transition-colors flex items-center justify-center leading-none"
+                  title={`${m.name} Apple App Store (iPhone)`}
+                >
+                  Apple
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ADVERTISEMENT BANNER: Compact Telebirr & CBE Birr Payment Options */}
+      <div className="rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-purple-500/5 border border-amber-300/60 p-2.5 space-y-1.5 shadow-2xs">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <span className="w-7 h-7 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+          <div className="flex items-center space-x-1.5">
+            <span className="w-5 h-5 rounded-md bg-amber-600 text-white flex items-center justify-center font-black text-[10px] shadow-2xs">
               ETB
             </span>
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md inline-block mb-0.5">
-                📢 ማስታወቂያ (Payment Advertisement)
-              </span>
-              <h3 className="font-extrabold text-xs text-stone-900 leading-tight">
-                በ Telebirr ወይም CBE Birr ይክፈሉ!
-              </h3>
-              <p className="text-[10px] text-amber-800 font-semibold">
-                የውጭ ምንዛሪ ወይም ቪዛ ካርድ አያስፈልግዎትም • 100% በብር
-              </p>
-            </div>
+            <span className="font-extrabold text-xs text-stone-900 leading-tight">
+              በ Telebirr ወይም CBE Birr ይክፈሉ!
+            </span>
           </div>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-200">
-            0% Forex Fee
+          <span className="px-1.5 py-0.2 rounded-md bg-emerald-100 text-emerald-800 text-[9px] font-bold border border-emerald-200">
+            0% Forex Fee • 40% ቅድመ ክፍያ
           </span>
         </div>
 
-        {/* Dual Marketing Payment Advertisement Cards */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* Telebirr Ad Card */}
-          <div className="p-3 rounded-2xl bg-white border border-amber-200/80 shadow-2xs text-left">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-black text-[10px]">
-                ቴሌብር (Telebirr)
-              </span>
-              <Zap className="w-3.5 h-3.5 text-amber-600" />
+        {/* Dual Compact Payment Badges */}
+        <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+          <div className="py-1 px-2 rounded-xl bg-white border border-amber-200/80 flex items-center space-x-1.5 shadow-2xs">
+            <Zap className="w-3 h-3 text-amber-600 shrink-0" />
+            <div className="truncate">
+              <span className="font-bold text-stone-900">ቴሌብር (Telebirr)</span>
+              <p className="text-[8px] text-stone-400 leading-none">ቅጽበታዊ ማረጋገጫ</p>
             </div>
-            <p className="font-bold text-xs text-stone-900">Telebirr Instant</p>
-            <p className="text-[10px] text-stone-500 mt-0.5">ቅጽበታዊ ማረጋገጫ • 40% ቅድመ ክፍያ</p>
           </div>
 
-          {/* CBE Birr Ad Card */}
-          <div className="p-3 rounded-2xl bg-white border border-purple-200/80 shadow-2xs text-left">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-900 font-black text-[10px]">
-                CBE Birr (ንግድ ባንክ)
-              </span>
-              <CreditCard className="w-3.5 h-3.5 text-purple-600" />
+          <div className="py-1 px-2 rounded-xl bg-white border border-purple-200/80 flex items-center space-x-1.5 shadow-2xs">
+            <CreditCard className="w-3 h-3 text-purple-600 shrink-0" />
+            <div className="truncate">
+              <span className="font-bold text-stone-900">CBE (ንግድ ባንክ)</span>
+              <p className="text-[8px] text-stone-400 leading-none">አስተማማኝ የባንክ ክፍያ</p>
             </div>
-            <p className="font-bold text-xs text-stone-900">CBE Birr / CBE</p>
-            <p className="text-[10px] text-stone-500 mt-0.5">በኢትዮጵያ ንግድ ባንክ • ደህንነቱ የተጠበቀ</p>
-          </div>
-        </div>
-
-        {/* Marketing Feature Bullets */}
-        <div className="grid grid-cols-2 gap-2 pt-1 text-center border-t border-amber-200/50">
-          <div className="text-[10px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
-            <Check className="w-3.5 h-3.5 text-emerald-600" />
-            <span>40% ቅድመ ክፍያ</span>
-          </div>
-          <div className="text-[10px] text-stone-600 font-semibold flex items-center justify-center space-x-1">
-            <Check className="w-3.5 h-3.5 text-emerald-600" />
-            <span>60% ሲረከቡ (COD)</span>
           </div>
         </div>
       </div>
@@ -679,7 +744,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
           )}
         </div>
 
-        {/* Compact 6-Category Grid with Smaller Features */}
+        {/* Compact, Highly Visible 6-Category Grid (Mini App Optimized) */}
         <div className="grid grid-cols-3 gap-1.5">
           {categories.map((cat) => {
             const isSelected = cat.id === activeCatId;
@@ -689,22 +754,26 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               <button
                 key={cat.id}
                 onClick={() => handleCategoryClick(cat.id)}
-                className={`py-2 px-1.5 rounded-xl border text-center transition-all cursor-pointer relative flex flex-col items-center justify-center min-h-[64px] ${
+                className={`py-1.5 px-2 rounded-xl border text-center transition-all cursor-pointer relative flex flex-col items-center justify-center min-h-[46px] ${
                   isSelected
-                    ? 'border-amber-600 bg-amber-500/10 shadow-xs ring-1 ring-amber-500 text-amber-950'
-                    : 'border-stone-200/80 bg-white hover:bg-stone-50 shadow-2xs text-stone-800'
+                    ? 'border-amber-600 bg-amber-500/15 shadow-xs ring-1 ring-amber-500 text-amber-950 font-black'
+                    : 'border-stone-200/90 bg-white hover:bg-stone-50 shadow-2xs text-stone-800'
                 }`}
               >
-                <span className="text-base mb-0.5">{cat.icon}</span>
-                <p className={`font-bold text-[10px] leading-tight line-clamp-1 ${isSelected ? 'text-amber-900 font-extrabold' : 'text-stone-800'}`}>
-                  {cat.nameAm}
-                </p>
-                <span className="text-[8px] text-stone-400 line-clamp-1">{cat.nameEn}</span>
-                {count > 0 && (
-                  <span className="mt-0.5 px-1 rounded-full bg-amber-100 text-amber-900 text-[8px] font-bold">
-                    {count}
+                <div className="flex items-center space-x-1">
+                  <span className="text-xs leading-none">{cat.icon}</span>
+                  <span className={`text-[10px] font-bold leading-tight line-clamp-1 ${isSelected ? 'text-amber-950 font-black' : 'text-stone-900'}`}>
+                    {cat.nameAm}
                   </span>
-                )}
+                </div>
+                <div className="flex items-center space-x-1 mt-0.5">
+                  <span className="text-[8px] text-stone-400 font-medium leading-none">{cat.nameEn}</span>
+                  {count > 0 && (
+                    <span className="px-1 py-0.2 rounded-full bg-amber-100 text-amber-900 text-[7px] font-black leading-none">
+                      {count}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
