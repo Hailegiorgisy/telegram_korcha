@@ -11,7 +11,8 @@
     "start:web": "node bot.js",
     "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'",
     "preview": "vite preview",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "git-push": "node push.cjs"
   },
   "dependencies": {
     "@types/node": "^20.11.24",

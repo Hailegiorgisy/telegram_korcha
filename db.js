@@ -1949,4 +1949,18 @@ ${messages.length > 0 ? `💬 <b>የተመዘገቡ መልዕክቶች:</b> ${me
   };
 }
 
+
+// 16. Graceful pool & background worker shutdown
+export async function closePool() {
+  if (reconciliationInterval) {
+    clearInterval(reconciliationInterval);
+    reconciliationInterval = null;
+  }
+  if (pool) {
+    try {
+      await pool.end();
+    } catch (_) {}
+  }
+}
+
 export default pool;
