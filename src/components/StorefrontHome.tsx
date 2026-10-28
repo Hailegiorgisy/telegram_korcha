@@ -596,23 +596,32 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                     </p>
                   </div>
 
-                  {/* Actions: Buy / Edit (if worker) */}
+                  {/* Actions: Buy (Customer) or Edit/Delete (Worker) */}
                   <div className="pt-1 flex items-center space-x-1.5">
-                    <button
-                      onClick={() => handleBuyClick(item)}
-                      className="flex-1 py-1.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1"
-                    >
-                      <ShoppingBag className="w-3 h-3" />
-                      <span>ግዛ (Buy)</span>
-                    </button>
-
-                    {isAuthorizedWorker && isWorkerMode && (
+                    {isAuthorizedWorker && isWorkerMode ? (
+                      <div className="flex items-center space-x-1 w-full">
+                        <button
+                          onClick={() => handleOpenEditProduct(item)}
+                          className="flex-1 py-1.5 px-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-300 font-bold text-[11px] shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>አስተካክል (Edit)</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProduct(item.id)}
+                          className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors"
+                          title="አጥፋ"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        onClick={() => handleOpenEditProduct(item)}
-                        className="p-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
-                        title="አስተካክል"
+                        onClick={() => handleBuyClick(item)}
+                        className="flex-1 py-1.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1"
                       >
-                        <Edit2 className="w-3 h-3" />
+                        <ShoppingBag className="w-3 h-3" />
+                        <span>ግዛ (Buy)</span>
                       </button>
                     )}
                   </div>
@@ -781,31 +790,31 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                         </div>
 
                         <div className="flex items-center space-x-1 pt-0.5">
-                          <button
-                            onClick={() => handleBuyClick(prod)}
-                            className="flex-1 py-1.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1"
-                          >
-                            <ShoppingBag className="w-3 h-3" />
-                            <span>ግዛ (Buy)</span>
-                          </button>
-
-                          {isAuthorizedWorker && isWorkerMode && (
-                            <div className="flex space-x-0.5">
+                          {isAuthorizedWorker && isWorkerMode ? (
+                            <div className="flex items-center space-x-1 w-full">
                               <button
                                 onClick={() => handleOpenEditProduct(prod)}
-                                className="p-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700"
-                                title="አስተካክል"
+                                className="flex-1 py-1.5 px-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-300 font-bold text-[11px] shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1"
                               >
                                 <Edit2 className="w-3 h-3" />
+                                <span>አስተካክል (Edit)</span>
                               </button>
                               <button
                                 onClick={() => handleDeleteProduct(prod.id)}
-                                className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600"
+                                className="p-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors"
                                 title="አጥፋ"
                               >
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
+                          ) : (
+                            <button
+                              onClick={() => handleBuyClick(prod)}
+                              className="flex-1 py-1.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] shadow-xs active:scale-95 transition-all cursor-pointer flex items-center justify-center space-x-1"
+                            >
+                              <ShoppingBag className="w-3 h-3" />
+                              <span>ግዛ (Buy)</span>
+                            </button>
                           )}
                         </div>
                       </div>

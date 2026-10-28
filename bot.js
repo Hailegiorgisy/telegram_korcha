@@ -18,6 +18,8 @@ import {
   createOrder,
   getOrderByCode,
   getOrdersByPhone,
+  getPendingQuotes,
+  getPendingOrders,
   updateOrderStatus,
   recordCustomerPing,
   recordOrderLookup,
@@ -145,6 +147,41 @@ function getMainMenuKeyboard() {
     ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
     [Markup.button.webApp('🛍️ ሚኒ አፑን ክፈት (Open Mini App)', WEB_APP_URL)],
   ]).resize();
+}
+
+// Dedicated Worker Operations Menu Keyboard (Exclusively for @korcha_support)
+function getWorkerMenuKeyboard() {
+  return Markup.keyboard([
+    ['📋 ያልተመለሱ ጥያቄዎች (Pending Quotes)', '💰 የክፍያ ማረጋገጫዎች (Pending Deposits)'],
+    ['🛒 የመደርደሪያ እቃዎች አስተዳድር', '💬 የደንበኞች መልዕክቶች'],
+    [Markup.button.webApp('🛠️ የሰራተኛ ሚኒ አፕ (Worker TMA)', WEB_APP_URL)],
+  ]).resize();
+}
+
+function isWorkerContext(ctx) {
+  const username = ctx.from?.username;
+  const chatId = String(ctx.chat?.id || '');
+  const userId = String(ctx.from?.id || '');
+  return isAuthorizedWorkerUsername(username) || 
+         (WORKER_CHAT_ID && (chatId === String(WORKER_CHAT_ID) || userId === String(WORKER_CHAT_ID)));
+}
+
+async function sendWorkerHub(ctx) {
+  const workerHubMsg = `
+👨‍💼 <b>የኮርቻ ሰራተኛ መቆጣጠሪያ ማዕከል (Korcha Support Operations Hub)</b>
+━━━━━━━━━━━━━━━━━━━━
+ሰላም <b>@${escapeHtml(WORKER_USERNAME)}</b>! ለእርስዎ የሚያስፈልጉ የስራ ተግባራት ብቻ ተዘጋጅተዋል፡
+
+📋 <b>ዋጋ ያልተሰጣቸው ጥያቄዎች:</b> <code>/quotes</code>
+💰 <b>የክፍያ ማረጋገጫ የሚጠብቁ:</b> <code>/orders</code>
+🛒 <b>የመደርደሪያ እቃዎች አስተዳደር:</b> <code>/shelf</code> ወይም <code>/addproduct</code>
+💬 <b>ለደንበኛ መልስ ለመስጠት:</b> <code>/reply &lt;ትኬት/ስልክ&gt; &lt;መልዕክት&gt;</code>
+✅ <b>ክፍያ አረጋግጦ ማድረሻ ቀን ለመላክ:</b> <code>/confirm &lt;ኮድ&gt; &lt;ቀን&gt;</code>
+━━━━━━━━━━━━━━━━━━━━
+👉 ከታች ያሉትን የሰራተኛ ቁልፎች ይጫኑ 👇
+`.trim();
+
+  return ctx.replyWithHTML(workerHubMsg, getWorkerMenuKeyboard());
 }
 
 // Helper: Finalize and Save Quote Request to DB & Notify Worker
@@ -312,6 +349,10 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     bot.start(async (ctx) => {
       const userId = ctx.from.id;
       clearSession(userId);
+
+      if (isWorkerContext(ctx)) {
+        return sendWorkerHub(ctx);
+      }
 
       const welcomeMessage = `
 👋 <b>እንኳን ወደ ኮርቻ (KORCHA) በደህና መጡ!</b>
@@ -837,8 +878,102 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 
 
 
+    // WORKER COMMAND: 📋 ያልተመለሱ ጥያቄዎች (Pending Quotes)
+    bot.hears(['📋 ያልተመለሱ ጥያቄዎች (Pending Quotes)', '/quotes', '/pending'], async (ctx) => {
+      if (!isWorkerContext(ctx)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+      const quotes = await getPendingQuotes(5);
+      if (!quotes || quotes.length === 0) {
+        return ctx.replyWithHTML('✅ <b>በአሁኑ ሰዓት ዋጋ ያልተሰላለት አዲስ የእቃ ጥያቄ የለም!</b>', getWorkerMenuKeyboard());
+      }
+
+      let text = `📋 <b>ዋጋ ያልተሰጣቸው አዳዲስ የእቃ ጥያቄዎች (${quotes.length}):</b>\n━━━━━━━━━━━━━━━━━━━━\n`;
+      for (const q of quotes) {
+        text += `🏷️ <b>ኮድ:</b> <code>${q.quote_code}</code>\n`;
+        text += `📱 <b>ስልክ:</b> <code>${q.customer_phone || 'N/A'}</code>\n`;
+        text += `🛍️ <b>ዓይነት:</b> ${q.source_type === 'link' ? 'ሊንክ' : 'ስክሪንሾት'}\n`;
+        if (q.product_url) text += `🔗 <b>ሊንክ:</b> ${q.product_url}\n`;
+        text += `📝 <b>ዝርዝር:</b> ${escapeHtml(q.details || 'N/A')}\n`;
+        text += `👉 <b>ዋጋ ለመመለስ፡</b>\n<code>/reply ${q.quote_code} ዋጋው ... ብር ነው። 40% ቅድመ ክፍያ ... ብር በቴሌብር/CBE ይክፈሉ።</code>\n━━━━━━━━━━━━━━━━━━━━\n`;
+      }
+      return ctx.replyWithHTML(text, getWorkerMenuKeyboard());
+    });
+
+    // WORKER COMMAND: 💰 የክፍያ ማረጋገጫዎች (Pending Deposits)
+    bot.hears(['💰 የክፍያ ማረጋገጫዎች (Pending Deposits)', '/orders', '/unconfirmed'], async (ctx) => {
+      if (!isWorkerContext(ctx)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+      const orders = await getPendingOrders(5);
+      if (!orders || orders.length === 0) {
+        return ctx.replyWithHTML('✅ <b>ማረጋገጫ የሚጠብቅ የክፍያ ትዕዛዝ የለም!</b>', getWorkerMenuKeyboard());
+      }
+
+      let text = `💰 <b>ክፍያ ማረጋገጫ የሚጠብቁ ትዕዛዞች (${orders.length}):</b>\n━━━━━━━━━━━━━━━━━━━━\n`;
+      for (const o of orders) {
+        text += `🏷️ <b>ትዕዛዝ:</b> <code>${o.order_code}</code>\n`;
+        text += `📱 <b>ስልክ:</b> <code>${o.customer_phone}</code>\n`;
+        text += `💵 <b>ጠቅላላ ዋጋ:</b> ${o.total_price_etb || 'N/A'} ETB\n`;
+        text += `💳 <b>የ40% ቅድመ ክፍያ:</b> ${o.deposit_amount_etb || 'N/A'} ETB\n`;
+        text += `👉 <b>ክፍያውን ለማረጋገጥ፡</b>\n<code>/confirm ${o.order_code} በ10-14 ቀን</code>\n━━━━━━━━━━━━━━━━━━━━\n`;
+      }
+      return ctx.replyWithHTML(text, getWorkerMenuKeyboard());
+    });
+
+    // WORKER COMMAND: 🛒 የመደርደሪያ እቃዎች አስተዳድር
+    bot.hears(['🛒 የመደርደሪያ እቃዎች አስተዳድር', 'የመደርደሪያ እቃዎች አስተዳድር'], async (ctx) => {
+      if (!isWorkerContext(ctx)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+      const shelfHelp = `
+🛒 <b>የመደርደሪያ እቃዎች አስተዳደር (Shelf Operations)</b>
+━━━━━━━━━━━━━━━━━━━━
+🔹 <b>አዲስ እቃ ለመጨመር፡</b>
+<code>/addproduct ስም | ሳይዝ | ዋጋ | ምድብ | ፎቶ_URL</code>
+(ምድቦች: <code>womens, mens, electronics, beauty, shoes, home</code>)
+
+🔹 <b>የእቃ ዋጋ ወይም ሁኔታ ለማስተካከል፡</b>
+<code>/editproduct &lt;ID&gt; | price_etb | 2500</code>
+
+🔹 <b>እቃ ለማጥፋት፡</b>
+<code>/deleteproduct &lt;ID&gt;</code>
+
+🔹 <b>ሁሉንም እቃዎች ለማየት፡</b>
+<code>/shelf</code>
+━━━━━━━━━━━━━━━━━━━━
+💡 <i>በቀላሉ በፎቶና በቅጽ ለማስተካከል ሚኒ አፑን መክፈት ይችላሉ።</i>
+`.trim();
+
+      return ctx.replyWithHTML(shelfHelp, Markup.inlineKeyboard([
+        [Markup.button.webApp('🛠️ ሚኒ አፕ ላይ አስተካክል (Open Mini App)', WEB_APP_URL)]
+      ]));
+    });
+
+    // WORKER COMMAND: 💬 የደንበኞች መልዕክቶች
+    bot.hears(['💬 የደንበኞች መልዕክቶች', 'የደንበኞች መልዕክቶች'], async (ctx) => {
+      if (!isWorkerContext(ctx)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው (Authorized workers only).');
+      }
+      const msgTips = `
+💬 <b>የደንበኞች መልዕክትና ጥያቄዎች አያያዝ</b>
+━━━━━━━━━━━━━━━━━━━━
+ደንበኞች በሚኒ አፕ ወይም በቦት መልዕክት ሲልኩ በቀጥታ እዚህ ቴሌግራም ላይ ይደርስዎታል!
+
+👉 <b>ለማንኛውም ደንበኛ መልስ ለመስጠት፡</b>
+1. የደረሰዎትን መልዕክት <b>Swipe አድርገው ቴሌግራም ላይ Reply</b> ያድርጉ (ቦቱ ራሱ ይልካል)
+ወይም
+2. <code>/reply &lt;ትኬት_ኮድ&gt; &lt;የእርስዎ መልዕክት&gt;</code> ብለው ይጻፉ።
+━━━━━━━━━━━━━━━━━━━━
+`.trim();
+      return ctx.replyWithHTML(msgTips, getWorkerMenuKeyboard());
+    });
+
     // Trigger: 🔗 ሊንክ ያስገቡ
     bot.hears(['🔗 ሊንክ ያስገቡ (Insert Link)', '/link', 'ሊንክ ያስገቡ'], async (ctx) => {
+      if (isWorkerContext(ctx)) {
+        return sendWorkerHub(ctx);
+      }
       const session = getSession(ctx.from.id);
       session.state = 'AWAITING_LINK';
       session.data = { sourceType: 'link' };
@@ -851,6 +986,9 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 
     // Trigger: 📸 ፎቶ / ስክሪንሾት ላክ
     bot.hears(['📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)', '/photo', 'ፎቶ ላክ', 'ስክሪንሾት ላክ'], async (ctx) => {
+      if (isWorkerContext(ctx)) {
+        return sendWorkerHub(ctx);
+      }
       const session = getSession(ctx.from.id);
       session.state = 'AWAITING_PHOTO';
       session.data = { sourceType: 'screenshot' };
@@ -863,6 +1001,12 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 
     // Trigger: 💬 ከሰራተኛ ጋር አውራ — Activates continuous two-way chat right inside the Bot!
     bot.hears([new RegExp(`ከሰራተኛ ጋር አውራ`, 'i'), '/support', '/chat'], async (ctx) => {
+      if (isWorkerContext(ctx)) {
+        return ctx.replyWithHTML(
+          `👨‍💼 እርስዎ ራሶት ዋናው ሰራተኛ <b>@${escapeHtml(WORKER_USERNAME)}</b> ነዎት! የደንበኞችን ጥያቄዎች ለማየትና ለመመለስ <code>/quotes</code> ወይም <code>/reply</code> ይጠቀሙ።`,
+          getWorkerMenuKeyboard()
+        );
+      }
       const userId = ctx.from.id;
       const session = getSession(userId);
       session.state = 'IDLE';
@@ -950,6 +1094,9 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     // Trigger: 🏠 ወደ ዋና ሜኑ / ዋና ገጽ (Point 6)
     bot.hears(['ወደ ዋና ሜኑ', 'ዋና ሜኑ', 'ዋና ገጽ', '/menu', 'menu', 'home', 'Home'], async (ctx) => {
       resetSessionCompletely(ctx.from.id);
+      if (isWorkerContext(ctx)) {
+        return sendWorkerHub(ctx);
+      }
       await ctx.reply('🏠 ወደ ዋና ገጽ ተመልሰዋል (Main Menu) — ከታች ካሉት አማራጮች ይምረጡ፡', getMainMenuKeyboard());
     });
 
@@ -1132,6 +1279,196 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
           ]
         ])
       );
+    });
+
+    // Robust Document Handler: Supports PDF receipts (e.g., CBE / Telebirr PDF exports), files & support attachments
+    bot.on('document', async (ctx) => {
+      const session = getSession(ctx.from.id);
+      const doc = ctx.message.document;
+      const fileId = doc.file_id;
+      const fileName = doc.file_name || 'document.pdf';
+      const userId = ctx.from.id;
+      const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+
+      // 1. PAYMENT RECEIPT DOCUMENT (e.g., CBE Birr / Bank PDF Receipt)
+      if (session.state === 'AWAITING_PAYMENT_RECEIPT' || (session.activeTicket && session.state === 'CHATTING_WITH_SUPPORT')) {
+        const code = session.data?.ticketCode || session.activeTicket;
+        session.state = 'CHATTING_WITH_SUPPORT';
+
+        await addTicketMessage({
+          ticketCode: code,
+          senderRole: 'customer',
+          senderName: username,
+          senderTelegramId: userId,
+          customerPhone: session.data?.phone || null,
+          messageText: `📄 [የክፍያ ሰነድ/ደረሰኝ ተልኳል: ${fileName}]`,
+        });
+
+        await ctx.replyWithHTML(
+          `✅ <b>የክፍያ ሰነድዎ/ደረሰኝዎ ደርሶናል!</b>\n\n📄 <b>ፋይል:</b> <code>${escapeHtml(fileName)}</code>\n🏷️ <b>ትኬት / ትዕዛዝ:</b> <code>${escapeHtml(code)}</code>\n⏳ ሰራተኛችን ክፍያውን አረጋግጦ የማድረሻ ቀኑን ያሳውቅዎታል! ጥቂት ደቂቃ ይጠብቁ።`,
+          Markup.keyboard([
+            ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
+            ['🏠 ወደ ዋና ገጽ (Main Menu)']
+          ]).resize()
+        );
+
+        if (WORKER_CHAT_ID && bot) {
+          const receiptAlert = `
+💰 <b>አዲስ የክፍያ ሰነድ/ደረሰኝ (PDF/Doc) ደርሷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት / ትዕዛዝ:</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
+📱 <b>ስልክ:</b> <code>${escapeHtml(session.data?.phone || 'N/A')}</code>
+📄 <b>ፋይል:</b> ${escapeHtml(fileName)}
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ክፍያውን አረጋግጠው ለደንበኛው የማድረሻ ቀን ለመላክ፡</b>
+<code>/confirm ${code} በ10-14 ቀን</code>
+ወይም
+<code>/reply ${code} ክፍያዎ ተፈጽሟል። ዕቃዎ በ ... ይደርሳል።</code>
+`.trim();
+
+          const buttons = [];
+          if (ctx.from?.username) {
+            buttons.push([Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)]);
+          }
+
+          await bot.telegram.sendDocument(WORKER_CHAT_ID, fileId, {
+            caption: receiptAlert,
+            parse_mode: 'HTML',
+            ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      // 2. SUPPORT CHAT DOCUMENT ATTACHMENT
+      if (session.activeTicket) {
+        const code = session.activeTicket;
+        await addTicketMessage({
+          ticketCode: code,
+          senderRole: 'customer',
+          senderName: username,
+          senderTelegramId: userId,
+          customerPhone: session.data?.phone || null,
+          messageText: `📄 [ሰነድ ተልኳል: ${fileName}]`,
+        });
+
+        await ctx.replyWithHTML(
+          `✅ <b>ሰነዱ ለሰራተኛ ደርሷል!</b> ሰራተኛችን አይቶ መልስ ይሰጥዎታል።`,
+          Markup.keyboard([
+            ['📦 የትዕዛዝ ሁኔታ መከታተያ', '🏠 ወደ ዋና ገጽ (Main Menu)']
+          ]).resize()
+        );
+
+        if (WORKER_CHAT_ID && bot) {
+          const alert = `
+📄 <b>አዲስ የደንበኛ ሰነድ/ፋይል ለትኬት ደርሷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት:</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)}
+📄 <b>ፋይል:</b> ${escapeHtml(fileName)}
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>መልስ ለመስጠት፡</b>
+<code>/reply ${code} ...</code>
+`.trim();
+          await bot.telegram.sendDocument(WORKER_CHAT_ID, fileId, {
+            caption: alert,
+            parse_mode: 'HTML',
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      // 3. Fallback: general document received outside ticket
+      const recoveredTicket = await getLatestCustomerTicketByTelegramId(userId);
+      const code = recoveredTicket || `KC-${String(userId).slice(-6)}`;
+      session.activeTicket = code;
+      session.state = 'CHATTING_WITH_SUPPORT';
+
+      await addTicketMessage({
+        ticketCode: code,
+        senderRole: 'customer',
+        senderName: username,
+        senderTelegramId: userId,
+        customerPhone: session.data?.phone || null,
+        messageText: `📄 [ሰነድ ተልኳል: ${fileName}]`,
+      });
+
+      await ctx.replyWithHTML(
+        `✅ <b>ሰነዱ/ፋይሉ ደርሶናል!</b> ለሰራተኛችን ተልኳል (ትኬት <code>${escapeHtml(code)}</code>)።`,
+        Markup.keyboard([
+          ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
+          ['🏠 ወደ ዋና ገጽ (Main Menu)']
+        ]).resize()
+      );
+
+      if (WORKER_CHAT_ID && bot) {
+        await bot.telegram.sendDocument(WORKER_CHAT_ID, fileId, {
+          caption: `📄 <b>አዲስ ሰነድ ከደንበኛ ደርሷል!</b>\nትኬት: <code>${code}</code>\nደንበኛ: ${escapeHtml(username)}\nፋይል: ${escapeHtml(fileName)}\n\n👉 መልስ ለመስጠት: <code>/reply ${code} ...</code>`,
+          parse_mode: 'HTML',
+        }).catch(() => {});
+      }
+    });
+
+    // Robust Voice Handler: Supports Voice Notes for customers who prefer speaking in Amharic
+    bot.on('voice', async (ctx) => {
+      const session = getSession(ctx.from.id);
+      const voice = ctx.message.voice;
+      const fileId = voice.file_id;
+      const duration = voice.duration || 0;
+      const userId = ctx.from.id;
+      const username = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+
+      // Recover active ticket if not in session
+      if (!session.activeTicket && session.state === 'IDLE') {
+        const recoveredTicket = await getLatestCustomerTicketByTelegramId(userId);
+        session.activeTicket = recoveredTicket || `KC-${String(userId).slice(-6)}`;
+      }
+
+      const code = session.activeTicket || `KC-${String(userId).slice(-6)}`;
+      session.state = 'CHATTING_WITH_SUPPORT';
+      session.activeTicket = code;
+
+      await addTicketMessage({
+        ticketCode: code,
+        senderRole: 'customer',
+        senderName: username,
+        senderTelegramId: userId,
+        customerPhone: session.data?.phone || null,
+        messageText: `🎤 [የድምጽ መልዕክት ተልኳል (${duration} ሰከንድ)]`,
+      });
+
+      await ctx.replyWithHTML(
+        `✅ <b>የድምጽ መልዕክትዎ ለሰራተኛ ደርሷል!</b>\n\n🏷️ <b>ትኬት:</b> <code>${escapeHtml(code)}</code>\n⏱️ <b>ርዝመት:</b> ${duration} ሰከንድ\n\n👉 ሰራተኛችን አዳምጦ በአጭር ጊዜ ውስጥ መልስ ይሰጥዎታል።`,
+        Markup.keyboard([
+          ['💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')', '📦 የትዕዛዝ ሁኔታ መከታተያ'],
+          ['🏠 ወደ ዋና ገጽ (Main Menu)']
+        ]).resize()
+      );
+
+      if (WORKER_CHAT_ID && bot) {
+        const voiceAlert = `
+🎤 <b>አዲስ የደንበኛ የድምጽ መልዕክት ደርሷል (Voice Note)!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(code)}</code>
+👤 <b>ደንበኛ:</b> ${escapeHtml(username)} (ID: <code>${escapeHtml(userId)}</code>)
+⏱️ <b>ርዝመት:</b> ${duration} ሰከንድ
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ለደንበኛው በቀጥታ መልስ ለመስጠት፡</b>
+<code>/reply ${code} <የእርስዎ ምላሽ></code>
+`.trim();
+
+        const buttons = [];
+        if (ctx.from?.username) {
+          buttons.push([Markup.button.url('💬 የደንበኛ ቴሌግራም', `https://t.me/${ctx.from.username.replace(/^@/, '')}`)]);
+        }
+
+        await bot.telegram.sendVoice(WORKER_CHAT_ID, fileId, {
+          caption: voiceAlert,
+          parse_mode: 'HTML',
+          ...(buttons.length > 0 ? Markup.inlineKeyboard(buttons) : {})
+        }).catch(() => {});
+      }
     });
 
     // Marketplace selection callback handler (triggers after screenshot insertion)
@@ -2361,15 +2698,44 @@ app.post('/api/orders/:code/messages', async (req, res) => {
     const quote = await getQuoteByCode(code);
     const cleanPhone = normalizePhone(phone || order?.customer_phone || quote?.customer_phone || null);
 
-    // 1. Save customer message to ticket chat thread
+    const isWorkerSender = isAuthorizedWorkerUsername(senderName) || isAuthorizedWorkerUsername(req.headers['x-telegram-username']);
+    const senderRole = isWorkerSender ? 'worker' : 'customer';
+
+    // 1. Save message to ticket chat thread
     const savedMsg = await addTicketMessage({
       ticketCode: code,
-      senderRole: 'customer',
-      senderName: senderName || 'Customer',
+      senderRole,
+      senderName: senderName || (isWorkerSender ? `@${WORKER_USERNAME}` : 'Customer'),
       senderTelegramId: telegramId || order?.customer_telegram_id || quote?.customer_telegram_id || null,
       customerPhone: cleanPhone,
       messageText: messageText.trim(),
     });
+
+    if (isWorkerSender) {
+      // Direct push to customer on Telegram Bot if customer telegram ID exists
+      const targetTelegramId = order?.customer_telegram_id || quote?.customer_telegram_id;
+      if (bot && targetTelegramId) {
+        const directCustomerMsg = `
+💬 <b>ከኮርቻ ሰራተኛ የተሰጠ መልዕክት (Support Reply):</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት (Ticket):</b> <code>${escapeHtml(code)}</code>
+📝 "${escapeHtml(messageText.trim())}"
+━━━━━━━━━━━━━━━━━━━━
+👉 በዋጋው ከተስማሙ <b>"✅ በዋጋው ተስማምቻለሁ"</b> የሚለውን ይጫኑ ወይም ለሰራተኛው እዚህ በቀጥታ ይጻፉ።
+`.trim();
+        bot.telegram.sendMessage(targetTelegramId, directCustomerMsg, {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback('✅ በዋጋው ተስማምቻለሁ', `agree_price:${code}`),
+              Markup.button.callback('❌ ዋጋው አልተስማማሁም', `decline_price:${code}`)
+            ],
+            [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)]
+          ])
+        }).catch(() => {});
+      }
+      return res.json({ success: true, message: savedMsg });
+    }
 
     // 2. Also record in inquiry_pings for history audit
     await recordCustomerPing({

@@ -63,6 +63,10 @@ export function App() {
 
   const workerUsername = ((typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
     || 'korcha_support').replace(/^@/, '');
+  const tmaUser = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
+  const isAuthorizedWorker = Boolean(
+    tmaUser?.username && tmaUser.username.replace(/^@/, '').toLowerCase() === workerUsername.toLowerCase()
+  );
 
   const getDefaultSupportCode = () => {
     const tmaUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -234,8 +238,8 @@ export function App() {
     const optimisticMsg = {
       id: Date.now(),
       ticket_code: orderCode,
-      sender_role: 'customer',
-      sender_name: tmaUser?.first_name || 'እርስዎ',
+      sender_role: isAuthorizedWorker ? 'worker' : 'customer',
+      sender_name: isAuthorizedWorker ? `@${workerUsername}` : (tmaUser?.first_name || 'እርስዎ'),
       message_text: messageText,
       created_at: new Date().toISOString(),
     };
@@ -374,14 +378,15 @@ export function App() {
         setActiveTab={(tab) => setActiveTab(tab as 'home' | 'orders' | 'messages')}
         orderCount={userOrders.length}
         messageCount={workerRepliesCount || conversations.length}
-        onOpenQuoteModal={handleOpenQuoteModal}
+        onOpenQuoteModal={isAuthorizedWorker ? undefined : handleOpenQuoteModal}
+        tmaUser={tmaUser || undefined}
       />
 
       {/* Main Container */}
       <main className="max-w-md mx-auto px-4 py-4">
         {activeTab === 'home' && (
           <StorefrontHome
-            onOpenQuoteModal={handleOpenQuoteModal}
+            onOpenQuoteModal={isAuthorizedWorker ? () => {} : handleOpenQuoteModal}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             onShelfOrderCreated={(orderCode, phone, openMessages) => {
@@ -540,32 +545,57 @@ export function App() {
                     {activeConversation.latestWorkerResponse}
                   </p>
 
-                  {/* Customer Decision Buttons: Agree / Decline */}
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200/80">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const agreeMsg = `✅ በዋጋው ተስማምቻለሁ! 40% ቅድመ ክፍያ በቴሌብር ወይም በCBE አስገባለሁ።`;
-                        setDirectChatInput(agreeMsg);
-                        handleSendFromMessagesTab(agreeMsg);
-                      }}
-                      className="py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] flex items-center justify-center space-x-1 shadow-xs active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span>✅ በዋጋው ተስማምቻለሁ</span>
-                    </button>
+                  {/* Customer Decision Buttons vs Worker Action Controls */}
+                  {!isAuthorizedWorker ? (
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200/80">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const agreeMsg = `✅ በዋጋው ተስማምቻለሁ! 40% ቅድመ ክፍያ በቴሌብር ወይም በCBE አስገባለሁ።`;
+                          setDirectChatInput(agreeMsg);
+                          handleSendFromMessagesTab(agreeMsg);
+                        }}
+                        className="py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] flex items-center justify-center space-x-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                      >
+                        <span>✅ በዋጋው ተስማምቻለሁ</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const declineMsg = `❌ ዋጋው አልተስማማሁም። የተሻለ ወይም ርካሽ አማራጭ ካለ ቢያሳውቁኝ።`;
-                        setDirectChatInput(declineMsg);
-                        handleSendFromMessagesTab(declineMsg);
-                      }}
-                      className="py-2 px-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold text-[11px] flex items-center justify-center space-x-1 shadow-2xs active:scale-95 transition-all cursor-pointer"
-                    >
-                      <span>❌ ዋጋው አልተስማማሁም</span>
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const declineMsg = `❌ ዋጋው አልተስማማሁም። የተሻለ ወይም ርካሽ አማራጭ ካለ ቢያሳውቁኝ።`;
+                          setDirectChatInput(declineMsg);
+                          handleSendFromMessagesTab(declineMsg);
+                        }}
+                        className="py-2 px-2.5 rounded-xl bg-white hover:bg-stone-100 text-stone-800 border border-stone-300 font-bold text-[11px] flex items-center justify-center space-x-1 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                      >
+                        <span>❌ ዋጋው አልተስማማሁም</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-amber-200/80">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const quotePrompt = `የእቃው ጠቅላላ ዋጋ ... ብር ነው። የ40% ቅድመ ክፍያ ... ብር ነው።`;
+                          setDirectChatInput(quotePrompt);
+                        }}
+                        className="py-1.5 px-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center space-x-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                      >
+                        <span>💰 ዋጋ አስታውቅ (Quote)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const confirmPrompt = `ክፍያዎ ተፈጽሟል። ዕቃዎ በ10-14 ቀን ይደርሳል።`;
+                          setDirectChatInput(confirmPrompt);
+                        }}
+                        className="py-1.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center justify-center space-x-1 shadow-xs active:scale-95 transition-all cursor-pointer"
+                      >
+                        <span>🎉 ክፍያ አረጋግጥ (Confirm)</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 

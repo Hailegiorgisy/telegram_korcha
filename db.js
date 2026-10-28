@@ -356,6 +356,25 @@ export async function getQuotesByPhone(phone) {
   return results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
+// 3d. Get Pending Quotes for Worker
+export async function getPendingQuotes(limit = 10) {
+  if (await checkPG()) {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM quotes WHERE status = 'pending_review' ORDER BY created_at DESC LIMIT $1",
+        [limit]
+      );
+      return rows;
+    } catch (e) {
+      console.warn('[DB Fallback] getPendingQuotes fallback:', e.message);
+    }
+  }
+  return Array.from(inMemoryStore.quotes.values())
+    .filter(q => q.status === 'pending_review')
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit);
+}
+
 // 3c. Resolve any Tracking Target (Order Code, Quote Code, Tracker Number, or Phone Number)
 export async function resolveTrackingTarget(targetInput) {
   if (!targetInput) return null;
@@ -582,6 +601,25 @@ export async function getOrdersByPhone(phone) {
     }
   }
   return results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+// 6b. Get Pending Orders (Awaiting 40% deposit) for Worker
+export async function getPendingOrders(limit = 10) {
+  if (await checkPG()) {
+    try {
+      const { rows } = await pool.query(
+        "SELECT * FROM orders WHERE status = 'pending_deposit' ORDER BY created_at DESC LIMIT $1",
+        [limit]
+      );
+      return rows;
+    } catch (e) {
+      console.warn('[DB Fallback] getPendingOrders fallback:', e.message);
+    }
+  }
+  return Array.from(inMemoryStore.orders.values())
+    .filter(o => o.status === 'pending_deposit')
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit);
 }
 
 // 7. Update Order Status
