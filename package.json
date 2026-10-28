@@ -11,7 +11,8 @@
     "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-		"git-push": "node push.cjs"
+		"git-push": "node push.cjs",
+			"check": "node -e \"import('./bot.js').then(()=>console.log('✅ bot.js starts cleanly with zero errors!')).catch(e=>console.error('❌ EXACT CRASH ERROR:', e.stack||e.message));\""
   },
   "dependencies": {
     "@types/node": "^20.11.24",
