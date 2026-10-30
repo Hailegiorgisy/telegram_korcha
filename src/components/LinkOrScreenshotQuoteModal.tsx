@@ -37,8 +37,14 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
 
   // Step 1: Link or Screenshot
   const [productUrl, setProductUrl] = useState('');
-  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([]);
+  const [screenshotPreviews, setScreenshotPreviews] = useState<string[]>([]);
+  const [telegramUsername, setTelegramUsername] = useState<string>(() => {
+    try {
+      const u = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
+      return u ? String(u).replace(/^@/, '') : '';
+    } catch { return ''; }
+  });
   const [marketplace, setMarketplace] = useState<string>('Shein');
 
   // Step 2: Product Details (size, color, quantity, notes)
@@ -88,11 +94,17 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setScreenshotFile(file);
-      setScreenshotPreview(URL.createObjectURL(file));
+    if (e.target.files && e.target.files.length) {
+      const incoming = Array.from(e.target.files).slice(0, 10);
+      const nextFiles = [...screenshotFiles, ...incoming].slice(0, 10);
+      setScreenshotFiles(nextFiles);
+      setScreenshotPreviews(nextFiles.map((f) => URL.createObjectURL(f)));
     }
+  };
+
+  const removeScreenshot = (index: number) => {
+    setScreenshotFiles((prev) => prev.filter((_, i) => i !== index));
+    setScreenshotPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleNextStep1 = () => {
@@ -100,8 +112,8 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       alert('እባክዎ የእቃውን ሊንክ ያስገቡ (Please enter the product link)');
       return;
     }
-    if (sourceType === 'screenshot' && !screenshotFile) {
-      alert('እባክዎ የስክሪንሾት ፎቶ ይምረጡ (Please choose a screenshot image)');
+    if (sourceType === 'screenshot' && screenshotFiles.length === 0) {
+      alert('እባክዎ ቢያንስ አንድ ስክሪንሾት/ፎቶ ይምረጡ (Please choose at least one screenshot)');
       return;
     }
     setStep(2);
@@ -125,10 +137,14 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       if (sourceType === 'link') {
         formData.append('productUrl', productUrl);
       }
-      if (screenshotFile) {
-        formData.append('screenshot', screenshotFile);
+      if (screenshotFiles.length > 0) {
+        screenshotFiles.forEach((file) => formData.append('screenshots', file));
         formData.append('marketplace', marketplace);
       }
+      // Prefer scraped Telegram username; allow manual override
+      const tmaUserName = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
+      const finalUsername = (telegramUsername || tmaUserName || '').replace(/^@/, '').trim();
+      if (finalUsername) formData.append('telegramUsername', finalUsername);
       formData.append('size', size);
       formData.append('color', color);
       formData.append('quantity', quantity);
@@ -138,7 +154,6 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       formData.append('phone', cleanPhone);
       const tmaUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
       if (tmaUser?.id) formData.append('telegramId', String(tmaUser.id));
-      if (tmaUser?.username) formData.append('telegramUsername', String(tmaUser.username));
 
       // Submit to backend (include Telegram initData when running inside TMA)
       const initData = (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) || '';
@@ -170,8 +185,14 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
   const resetAndClose = () => {
     setStep(1);
     setProductUrl('');
-    setScreenshotFile(null);
-    setScreenshotPreview(null);
+    setScreenshotFiles([]);
+    setScreenshotPreviews([]);
+    setTelegramUsername(() => {
+      try {
+        const u = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
+        return u ? String(u).replace(/^@/, '') : '';
+      } catch { return ''; }
+    });
     setMarketplace('Shein');
     setSize('');
     setColor('');
@@ -249,35 +270,46 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
               ) : (
                 <div className="space-y-3">
                   <label className="block text-xs font-bold text-stone-700">
-                    የእቃውን ስክሪንሾት ወይም ፎቶ ይምረጡ
+                    የእቃውን ስክሪንሾቶች / ፎቶዎች ይምረጡ (ፊት, ጀርባ, ጎን...)
                   </label>
+                  {screenshotPreviews.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {screenshotPreviews.map((src, i) => (
+                        <div key={i} className="relative group">
+                          <img src={src} alt={`Shot ${i + 1}`} className="h-24 w-full object-cover rounded-lg border border-stone-200" />
+                          <button
+                            type="button"
+                            onClick={() => removeScreenshot(i)}
+                            className="absolute top-1 right-1 bg-rose-600 text-white rounded-full w-5 h-5 text-[10px] font-bold"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="border-2 border-dashed border-stone-300 hover:border-amber-500 rounded-2xl p-4 text-center cursor-pointer transition-colors relative bg-stone-50/50">
                     <input
                       type="file"
                       accept="image/*"
+                      multiple
                       onChange={handleFileChange}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     />
-                    {screenshotPreview ? (
-                      <div className="space-y-2">
-                        <img
-                          src={screenshotPreview}
-                          alt="Screenshot Preview"
-                          className="max-h-36 mx-auto rounded-lg object-contain shadow-xs"
-                        />
-                        <p className="text-[11px] text-amber-700 font-bold">ምስሉን ለመቀየር ይንኩ</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5 py-2">
-                        <Camera className="w-8 h-8 text-stone-400 mx-auto" />
-                        <p className="text-xs font-bold text-stone-700">ስክሪንሾት ለመጫን እዚህ ይንኩ</p>
-                        <p className="text-[10px] text-stone-500">PNG, JPG, WEBP (እስከ 10MB)</p>
-                      </div>
-                    )}
+                    <div className="space-y-1.5 py-2">
+                      <Camera className="w-8 h-8 text-stone-400 mx-auto" />
+                      <p className="text-xs font-bold text-stone-700">
+                        {screenshotPreviews.length ? 'ተጨማሪ ፎቶ ለመጨመር ይንኩ' : 'ስክሪንሾት/ፎቶ ለመጫን እዚህ ይንኩ'}
+                      </p>
+                      <p className="text-[10px] text-stone-500">
+                        ብዙ ፎቶ (እስከ 10) · PNG, JPG, WEBP · እስከ 10MB በአንዱ
+                        {screenshotPreviews.length ? ` · ${screenshotPreviews.length} ተመርጧል` : ''}
+                      </p>
+                    </div>
                   </div>
 
                   {/* List of marketplaces appears only AFTER screenshot is inserted */}
-                  {screenshotPreview && (
+                  {screenshotPreviews.length > 0 && (
                     <div className="pt-2 space-y-1.5 animate-fade-in text-left">
                       <label className="block text-xs font-bold text-stone-700">
                         ስክሪንሾቱ ከየትኛው ገበያ የተወሰደ ነው? (Marketplace)
@@ -479,6 +511,23 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                 )}
                 <p className="mt-1 text-[11px] text-stone-500">
                   ሰራተኛችን የእቃውን ዋጋ አስልቶ በዚህ ስልክ ወይም በቴሌግራም ያሳውቅዎታል
+                </p>
+              </div>
+
+              {/* Telegram username — auto from TMA when available, else manual */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                  የቴሌግራም Username (አማራጭ)
+                </label>
+                <input
+                  type="text"
+                  value={telegramUsername}
+                  onChange={(e) => setTelegramUsername(e.target.value.replace(/^@/, ''))}
+                  placeholder="@username"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-sm font-semibold outline-hidden focus:ring-2 focus:ring-amber-500"
+                />
+                <p className="mt-1 text-[11px] text-stone-500">
+                  ከቴሌግራም ሚኒ አፕ ከከፈቱ አውቶማቲክ ይሞላል። ከሌለዎት ባዶ መተው ይችላሉ።
                 </p>
               </div>
 

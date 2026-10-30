@@ -300,14 +300,22 @@ async function finalizeQuoteRequest(ctx, data, phone) {
 
     // 2. Save quote to DB with customer telegram ID (fail-safe)
     try {
+      const photoIds = Array.isArray(safeData.photoFileIds) && safeData.photoFileIds.length
+        ? safeData.photoFileIds
+        : (safeData.photoFileId ? [safeData.photoFileId] : []);
+      const tgUsername = ctx.from?.username
+        || safeData.telegramUsername
+        || null;
       await createQuote({
         quoteCode,
         customerId: customer ? customer.id : null,
         customerTelegramId: userId,
+        customerTelegramUsername: tgUsername,
         customerPhone: cleanPhone,
         sourceType,
         productUrl: safeData.productUrl || null,
-        screenshotUrl: safeData.photoFileId || null,
+        screenshotUrl: photoIds[0] || null,
+        screenshotUrls: photoIds,
         details: safeData.details || (safeData.marketplace ? `[ገበያ: ${safeData.marketplace}]` : 'N/A'),
       });
 
@@ -402,17 +410,23 @@ ${safeData.marketplace ? `🌐 <b>የተመረጠ ገበያ:</b> ${escapeHtml(sa
         }
         const workerKeyboard = workerButtons.length > 0 ? Markup.inlineKeyboard(workerButtons) : undefined;
 
-        if (safeData.photoFileId) {
-          // Telegram photo caption limit is 1024 characters
-          const safeCaption = workerNotification.length > 1000 
-            ? workerNotification.substring(0, 997) + '...' 
-            : workerNotification;
+        const allPhotoIds = Array.isArray(safeData.photoFileIds) && safeData.photoFileIds.length
+          ? safeData.photoFileIds
+          : (safeData.photoFileId ? [safeData.photoFileId] : []);
 
-          await bot.telegram.sendPhoto(WORKER_CHAT_ID, safeData.photoFileId, {
+        if (allPhotoIds.length > 0) {
+          const safeCaption = workerNotification.length > 1000
+            ? workerNotification.substring(0, 997) + '...'
+            : workerNotification;
+          // First photo carries the caption; remaining photos follow as album extras
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, allPhotoIds[0], {
             caption: safeCaption,
             parse_mode: 'HTML',
             ...(workerKeyboard || {})
           });
+          for (let i = 1; i < allPhotoIds.length; i++) {
+            await bot.telegram.sendPhoto(WORKER_CHAT_ID, allPhotoIds[i]).catch(() => {});
+          }
         } else {
           await bot.telegram.sendMessage(WORKER_CHAT_ID, workerNotification, {
             parse_mode: 'HTML',
@@ -1166,11 +1180,17 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       }
       const session = getSession(ctx.from.id);
       session.state = 'AWAITING_PHOTO';
-      session.data = { sourceType: 'screenshot' };
+      session.data = { sourceType: 'screenshot', photoFileIds: [] };
 
       await ctx.replyWithHTML(
-        `📸 <b>የእቃውን ፎቶ ወይም ስክሪንሾት ይላኩ፡</b>\n\nከ Shein, Amazon ወይም AliExpress ላይ የተነሳውን ግልጽ ፎቶ/ስክሪንሾት እዚህ ይላኩልን 👇`,
-        Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+        `📸 <b>የእቃውን ፎቶ/ስክሪንሾቶች ይላኩ፡</b>
+\nከ Shein, Amazon ወይም AliExpress ላይ ግልጽ ፎቶዎችን ይላኩ (ፊት, ጀርባ, ጎን, ዝርዝር...).
+\n✅ <b>አንድ ወይም ከአንድ በላይ</b> ፎቶ መላክ ይችላሉ።
+\nሁሉንም ከላኩ በኋላ <b>«✅ ፎቶዎች ጨርሻለሁ»</b> ይጫኑ።`,
+        Markup.keyboard([
+          ['✅ ፎቶዎች ጨርሻለሁ (Done)'],
+          ['❌ ሰርዝ (Cancel)']
+        ]).resize()
       );
     });
 
@@ -1433,16 +1453,45 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         return;
       }
 
-      // 3. NEW PRODUCT QUOTE SCREENSHOT
+      // 3. NEW PRODUCT QUOTE — accumulate multiple screenshots
+      if (session.state === 'AWAITING_PHOTO' || session.state === 'AWAITING_MORE_PHOTOS') {
+        const ids = Array.isArray(session.data.photoFileIds) ? session.data.photoFileIds : [];
+        ids.push(fileId);
+        session.data = {
+          ...session.data,
+          sourceType: 'screenshot',
+          photoFileIds: ids,
+          photoFileId: ids[0],
+        };
+        session.state = 'AWAITING_MORE_PHOTOS';
+        const count = ids.length;
+        await ctx.replyWithHTML(
+          `✅ <b>ፎቶ #${count} ተቀብለናል!</b>
+
+ተጨማሪ ፎቶ (ጀርባ, ጎን, ዝርዝር...) ካለ አሁን ይላኩ።
+ሁሉን ከጨረሱ <b>«✅ ፎቶዎች ጨርሻለሁ»</b> ይጫኑ።`,
+          Markup.keyboard([
+            ['✅ ፎቶዎች ጨርሻለሁ (Done)'],
+            ['❌ ሰርዝ (Cancel)']
+          ]).resize()
+        );
+        return;
+      }
+
+      // Fallback: single photo without prior AWAITING_PHOTO state
       session.state = 'AWAITING_MARKETPLACE';
       session.data = {
         ...session.data,
         sourceType: 'screenshot',
+        photoFileIds: [fileId],
         photoFileId: fileId,
       };
 
       await ctx.replyWithHTML(
-        `✅ <b>ፎቶው/ስክሪንሾቱ ደርሶናል!</b>\n\n📌 <b>ይህ ስክሪንሾት ከየትኛው ገበያ የተወሰደ ነው?</b>\n(Which marketplace is this screenshot from?)`,
+        `✅ <b>ፎቶው/ስክሪንሾቱ ደርሶናል!</b>
+
+📌 <b>ይህ ስክሪንሾት ከየትኛው ገበያ የተወሰደ ነው?</b>
+(Which marketplace is this screenshot from?)`,
         Markup.inlineKeyboard([
           [
             Markup.button.callback('🛍️ Shein', 'market:Shein'),
@@ -1964,6 +2013,35 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         return ctx.replyWithHTML(autoWelcome, getMainMenuKeyboard());
       }
 
+      // Finished collecting multiple photos → marketplace selection
+      if (session.state === 'AWAITING_MORE_PHOTOS' || (session.state === 'AWAITING_PHOTO' && session.data?.photoFileIds?.length)) {
+        if (text.includes('ጨርሻለሁ') || text.toLowerCase().includes('done') || text.includes('✅')) {
+          const ids = session.data.photoFileIds || [];
+          if (!ids.length) {
+            return ctx.reply('⚠️ ቢያንስ አንድ ፎቶ ይላኩ።');
+          }
+          session.state = 'AWAITING_MARKETPLACE';
+          return ctx.replyWithHTML(
+            `✅ <b>${ids.length} ፎቶ(ዎች) ተቀብለናል!</b>
+
+📌 <b>ይህ ስክሪንሾት ከየትኛው ገበያ የተወሰደ ነው?</b>`,
+            Markup.inlineKeyboard([
+              [
+                Markup.button.callback('🛍️ Shein', 'market:Shein'),
+                Markup.button.callback('📦 Amazon', 'market:Amazon')
+              ],
+              [
+                Markup.button.callback('🌐 AliExpress', 'market:AliExpress'),
+                Markup.button.callback('✨ ሌላ / Other', 'market:Other')
+              ]
+            ])
+          );
+        }
+        return ctx.replyWithHTML(
+          `ተጨማሪ ፎቶ ይላኩ ወይም <b>«✅ ፎቶዎች ጨርሻለሁ»</b> ይጫኑ።`
+        );
+      }
+
       // Fallback: Awaiting Marketplace via Text
       if (session.state === 'AWAITING_MARKETPLACE') {
         session.data.marketplace = text;
@@ -2007,12 +2085,49 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       if (session.state === 'AWAITING_PHONE') {
         if (!isValidEthiopianPhone(text)) {
           return ctx.replyWithHTML(
-            `⚠️ <b>ትክክለኛ ያልሆነ ስልክ ቁጥር!</b>\n\nእባክዎ ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (<code>09**** / 07****</code>):\nምሳሌ: <code>0912345678</code> ወይም <code>0712345678</code>`
+            `⚠️ <b>ትክክለኛ ያልሆነ ስልክ ቁጥር!</b>
+
+እባክዎ ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (<code>09**** / 07****</code>):
+ምሳሌ: <code>0912345678</code> ወይም <code>0712345678</code>`
           );
         }
 
         const cleanPhone = normalizePhone(text);
-        return finalizeQuoteRequest(ctx, session.data, cleanPhone);
+        session.data.phone = cleanPhone;
+
+        // Auto-capture Telegram @username when the account has one
+        if (ctx.from?.username) {
+          session.data.telegramUsername = ctx.from.username;
+          return finalizeQuoteRequest(ctx, session.data, cleanPhone);
+        }
+
+        // No username on account — ask once (optional skip)
+        session.state = 'AWAITING_USERNAME';
+        return ctx.replyWithHTML(
+          `📱 ስልክ ተመዝግቧል።
+
+👤 <b>የቴሌግራም Username</b> ካለዎት ያስገቡ (ምሳሌ: <code>@myname</code>)።
+ከሌለዎት <b>«ዝለል (Skip)»</b> ይጫኑ።`,
+          Markup.keyboard([
+            ['ዝለል (Skip)'],
+            ['❌ ሰርዝ (Cancel)']
+          ]).resize()
+        );
+      }
+
+      // 3b. Optional Telegram username (when not present on the Telegram account)
+      if (session.state === 'AWAITING_USERNAME') {
+        if (text.includes('ዝለል') || text.toLowerCase().includes('skip')) {
+          return finalizeQuoteRequest(ctx, session.data, session.data.phone);
+        }
+        const uname = text.replace(/^@/, '').trim();
+        if (uname.length >= 3 && /^[a-zA-Z0-9_]{3,32}$/.test(uname)) {
+          session.data.telegramUsername = uname;
+          return finalizeQuoteRequest(ctx, session.data, session.data.phone);
+        }
+        return ctx.replyWithHTML(
+          `⚠️ ልክ ያልሆነ username። ምሳሌ: <code>@myname</code> ወይም <b>ዝለል (Skip)</b> ይጫኑ።`
+        );
       }
 
       // 4. Awaiting Tracking Input: Automatic Response + Instant Worker Notification + Direct Reply Routing
@@ -2147,7 +2262,22 @@ ${workerNoteDisplay}━━━━━━━━━━━━━━━━━━━━
       if (session.state === 'AWAITING_PHONE') {
         const rawPhone = ctx.message.contact.phone_number;
         const cleanPhone = normalizePhone(rawPhone);
-        return finalizeQuoteRequest(ctx, session.data, cleanPhone);
+        session.data.phone = cleanPhone;
+        if (ctx.from?.username) {
+          session.data.telegramUsername = ctx.from.username;
+          return finalizeQuoteRequest(ctx, session.data, cleanPhone);
+        }
+        session.state = 'AWAITING_USERNAME';
+        return ctx.replyWithHTML(
+          `📱 ስልክ ተመዝግቧል።
+
+👤 <b>የቴሌግራም Username</b> ካለዎት ያስገቡ (ምሳሌ: <code>@myname</code>)።
+ከሌለዎት <b>«ዝለል (Skip)»</b> ይጫኑ።`,
+          Markup.keyboard([
+            ['ዝለል (Skip)'],
+            ['❌ ሰርዝ (Cancel)']
+          ]).resize()
+        );
       }
     });
 
@@ -2230,8 +2360,8 @@ app.use(express.urlencoded({ extended: true }));
 const upload = multer({
   dest: uploadsDir,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB maximum upload size
-    files: 1, // Only 1 file per request
+    fileSize: 10 * 1024 * 1024, // 10 MB maximum upload size per file
+    files: 10, // Multiple screenshots (front/back/side/detail)
   },
   fileFilter: (req, file, cb) => {
     const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
@@ -2298,19 +2428,35 @@ app.get('/api/test-notify', async (req, res) => {
 
 // POST /api/quotes with Abuse Protection (Rate limiting + Multer validation)
 app.post('/api/quotes', quoteSubmissionLimiter, (req, res, next) => {
-  upload.single('screenshot')(req, res, (err) => {
+  // Accept multiple screenshots: field name "screenshots" (preferred) or single "screenshot"
+  upload.array('screenshots', 10)(req, res, (err) => {
     if (err) {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({ success: false, error: 'የፎቶው መጠን ከ10MB መብለጥ የለበትም (Image size exceeds 10MB limit).' });
       }
-      return res.status(400).json({ success: false, error: err.message });
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({ success: false, error: 'ቢበዛ 10 ፎቶዎች ብቻ (Maximum 10 screenshots).' });
+      }
+      // Fallback: try single field name for older clients
+      return upload.single('screenshot')(req, res, (err2) => {
+        if (err2) {
+          return res.status(400).json({ success: false, error: err2.message || err.message });
+        }
+        next();
+      });
     }
     next();
   });
 }, async (req, res) => {
   try {
-    const { sourceType, productUrl, size, color, quantity, details, phone, telegramId, marketplace } = req.body;
-    const screenshotFile = req.file;
+    const {
+      sourceType, productUrl, size, color, quantity, details, phone,
+      telegramId, telegramUsername, marketplace
+    } = req.body;
+
+    const files = Array.isArray(req.files) && req.files.length
+      ? req.files
+      : (req.file ? [req.file] : []);
 
     if (!phone || !isValidEthiopianPhone(phone)) {
       return res.status(400).json({ success: false, error: 'ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ (09**** / 07****)' });
@@ -2321,61 +2467,81 @@ app.post('/api/quotes', quoteSubmissionLimiter, (req, res, next) => {
     const quoteCode = await generateUniqueQuoteCode();
 
     const parsedTgId = telegramId ? parseInt(telegramId, 10) : null;
+    const cleanUsername = telegramUsername
+      ? String(telegramUsername).replace(/^@/, '').trim()
+      : null;
+    const screenshotPaths = files.map(f => f.filename);
+
+    // Upsert customer with username when provided
+    try {
+      await upsertCustomer({
+        telegramId: parsedTgId,
+        telegramUsername: cleanUsername,
+        firstName: null,
+        phone: cleanPhone,
+      });
+    } catch (_) {}
+
     await createQuote({
       quoteCode,
       customerPhone: cleanPhone,
       customerTelegramId: parsedTgId,
-      sourceType: sourceType || 'link',
+      customerTelegramUsername: cleanUsername,
+      sourceType: sourceType || (files.length ? 'screenshot' : 'link'),
       productUrl: productUrl || null,
-      screenshotUrl: screenshotFile ? screenshotFile.filename : null,
+      screenshotUrl: screenshotPaths[0] || null,
+      screenshotUrls: screenshotPaths,
       size,
       color,
       quantity: parseInt(quantity || '1', 10),
       details: combinedDetails,
     });
 
-    // Record initial quote request in continuous ticket chat thread so customer sees it in TMA Messages tab
-    await addTicketMessage({
-      ticketCode: quoteCode,
-      senderRole: 'customer',
-      senderName: req.body.telegramUsername ? `@${String(req.body.telegramUsername).replace(/^@/, '')}` : cleanPhone,
-      senderTelegramId: parsedTgId,
-      customerPhone: cleanPhone,
-      messageText: `🛍️ የዋጋ ግምት ጥያቄ (${sourceType === 'screenshot' ? 'Screenshot' : 'Link'}): ${productUrl ? productUrl + ' | ' : ''}${combinedDetails}`,
-    });
+    try {
+      await addTicketMessage({
+        ticketCode: quoteCode,
+        senderRole: 'customer',
+        senderName: cleanUsername ? `@${cleanUsername}` : cleanPhone,
+        senderTelegramId: parsedTgId,
+        customerPhone: cleanPhone,
+        messageText: `🛍️ የዋጋ ግምት ጥያቄ (${sourceType === 'screenshot' || files.length ? 'Screenshot' : 'Link'}): ${productUrl ? productUrl + ' | ' : ''}${combinedDetails}${files.length ? ` | ${files.length} ፎቶ(ዎች)` : ''}`,
+      });
+    } catch (_) {}
 
+    // Notify worker
     if (WORKER_CHAT_ID && bot) {
-      const linkHtml = productUrl 
-        ? `<a href="${escapeHtml(productUrl)}">${escapeHtml(productUrl)}</a>` 
-        : 'N/A';
-
-      const workerMsg = `
-🔔 <b>አዲስ ጥያቄ ከ Web / Mini App ደርሷል!</b>
-━━━━━━━━━━━━━━━━━━━━
-🏷️ <b>Quote:</b> <code>${escapeHtml(quoteCode)}</code>
-📱 <b>ስልክ:</b> <code>${escapeHtml(cleanPhone)}</code>
-${marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(combinedDetails)}
-🔗 <b>ሊንክ:</b> ${linkHtml}
-━━━━━━━━━━━━━━━━━━━━
-👉 <b>ለደንበኛው በቀጥታ በቦት መልስ ለመስጠት፡</b>
-<code>/reply ${quoteCode} ዋጋው 3,000 ብር ነው። 40% ቅድመ ክፍያ 1,200 ብር ነው። ከተስማሙ የዋጋው 40% በቴሌብር (${escapeHtml(TELEBIRR_PHONE)}) ወይንም በ CBE (${escapeHtml(CBE_ACCOUNT)}) ያስገቡ:: ዕቃዎት በ10-14 ቀን ይደርሳል:: (እቃው ከ Shelf ከሆነ በአንድ ቀን ውስጥ ይደርሳል)::</code>
-`;
       try {
-        const workerButtons = [];
-        if (req.body.telegramUsername) {
-          workerButtons.push([
-            Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${req.body.telegramUsername.replace(/^@/, '')}`)
-          ]);
-        }
-        const workerKeyboard = workerButtons.length > 0 ? Markup.inlineKeyboard(workerButtons) : undefined;
+        const unameDisplay = cleanUsername ? `@${cleanUsername}` : 'N/A';
+        const workerMsg = `
+🔔 <b>አዲስ የእቃ ዋጋ ጥያቄ (Mini App)!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>Quote Code:</b> <code>${escapeHtml(quoteCode)}</code>
+👤 <b>Username:</b> ${escapeHtml(unameDisplay)}
+📱 <b>ስልክ:</b> <code>${escapeHtml(cleanPhone)}</code>
+${parsedTgId ? `🆔 <b>Telegram ID:</b> <code>${escapeHtml(parsedTgId)}</code>\n` : ''}📌 <b>ዓይነት:</b> ${escapeHtml((sourceType || 'link').toUpperCase())}
+📸 <b>ፎቶዎች:</b> ${files.length}
+${marketplace ? `🌐 <b>ገበያ:</b> ${escapeHtml(marketplace)}\n` : ''}📝 <b>ዝርዝር:</b> ${escapeHtml(combinedDetails)}
+🔗 <b>ሊንክ:</b> ${productUrl ? escapeHtml(productUrl) : 'N/A'}
+━━━━━━━━━━━━━━━━━━━━
+👉 <code>/reply ${quoteCode} ...</code>
+`.trim();
 
-        if (screenshotFile) {
+        const workerButtons = [];
+        if (cleanUsername) {
+          workerButtons.push([Markup.button.url('💬 በቴሌግራም መልስ', `https://t.me/${cleanUsername}`)]);
+        }
+        const workerKeyboard = workerButtons.length ? Markup.inlineKeyboard(workerButtons) : undefined;
+
+        if (files.length > 0) {
           const safeCaption = workerMsg.length > 1000 ? workerMsg.substring(0, 997) + '...' : workerMsg;
-          await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: screenshotFile.path }, {
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: files[0].path }, {
             caption: safeCaption,
             parse_mode: 'HTML',
             ...(workerKeyboard || {}),
           });
+          for (let i = 1; i < files.length; i++) {
+            await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: files[i].path }).catch(() => {});
+          }
         } else {
           await bot.telegram.sendMessage(WORKER_CHAT_ID, workerMsg, {
             parse_mode: 'HTML',
@@ -2387,12 +2553,13 @@ ${marketplace ? `🌐 <b>ገበያ (Marketplace):</b> ${escapeHtml(marketplace)}
       }
     }
 
-    res.json({ success: true, quoteCode });
+    res.json({ success: true, quoteCode, screenshotCount: files.length, telegramUsername: cleanUsername });
   } catch (err) {
     console.error('[API Quote Error]', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // GET /api/orders/lookup with Rate Limiter (Notifies @korcha_support & returns Automatic Response)
 app.get('/api/orders/lookup', orderLookupLimiter, async (req, res) => {

@@ -258,36 +258,47 @@ export async function createQuote({
   quoteCode,
   customerId,
   customerTelegramId,
+  customerTelegramUsername,
   customerPhone,
   sourceType,
   productUrl,
   screenshotUrl,
+  screenshotUrls,
   size,
   color,
   quantity = 1,
   details
 }) {
   const worker = process.env.WORKER_TELEGRAM_USERNAME || 'korcha_support';
-  
+  const urls = Array.isArray(screenshotUrls)
+    ? screenshotUrls.filter(Boolean)
+    : (screenshotUrl ? [screenshotUrl] : []);
+  const primaryScreenshot = urls[0] || screenshotUrl || null;
+  const cleanUsername = customerTelegramUsername
+    ? String(customerTelegramUsername).replace(/^@/, '').trim()
+    : null;
+
   if (await checkPG()) {
     try {
       const query = `
         INSERT INTO quotes (
-          quote_code, customer_id, customer_telegram_id, customer_phone, source_type,
-          product_url, screenshot_url, size, color, quantity, details,
-          status, assigned_worker
+          quote_code, customer_id, customer_telegram_id, customer_telegram_username,
+          customer_phone, source_type, product_url, screenshot_url, screenshot_urls,
+          size, color, quantity, details, status, assigned_worker
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending_review', $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, 'pending_review', $14)
         RETURNING *;
       `;
       const values = [
         quoteCode,
         customerId || null,
         customerTelegramId || null,
+        cleanUsername,
         customerPhone,
         sourceType,
         productUrl || null,
-        screenshotUrl || null,
+        primaryScreenshot,
+        JSON.stringify(urls),
         size || null,
         color || null,
         quantity,
@@ -307,10 +318,12 @@ export async function createQuote({
     quote_code: quoteCode,
     customer_id: customerId || null,
     customer_telegram_id: customerTelegramId || null,
+    customer_telegram_username: cleanUsername,
     customer_phone: customerPhone,
     source_type: sourceType,
     product_url: productUrl || null,
-    screenshot_url: screenshotUrl || null,
+    screenshot_url: primaryScreenshot,
+    screenshot_urls: urls,
     size: size || null,
     color: color || null,
     quantity: parseInt(quantity || 1, 10),
