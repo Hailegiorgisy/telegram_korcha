@@ -87,7 +87,8 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || undefined,
   host: process.env.PGHOST || 'localhost',
   user: process.env.PGUSER || 'postgres',
-  password: process.env.PGPASSWORD || 'postgres',
+  // Never hard-code production passwords. Empty password only allowed for local dev.
+  password: process.env.PGPASSWORD || (process.env.NODE_ENV === 'production' ? undefined : 'postgres'),
   database: process.env.PGDATABASE || 'korcha_db',
   port: parseInt(process.env.PGPORT || '5432', 10),
   max: 20,
@@ -1949,10 +1950,6 @@ ${messages.length > 0 ? `💬 <b>የተመዘገቡ መልዕክቶች:</b> ${me
   };
 }
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
 
 // 16. Graceful pool & background worker shutdown
 export async function closePool() {
@@ -1967,9 +1964,4 @@ export async function closePool() {
   }
 }
 
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 6b9085509255e81cb82a0ceba8286e72df6635b4
->>>>>>> eb981920930fbc86e21a6b9264634519f3a3d4e7
 export default pool;

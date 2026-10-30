@@ -166,5 +166,22 @@ git push origin main
 
 ---
 
+
+
+## 🔒 Security Notes (Important)
+
+1. **Telegram Mini App initData validation** — Worker and privileged API routes require a valid `X-Telegram-Init-Data` header. The server verifies the HMAC signature against `TELEGRAM_BOT_TOKEN`. Spoofing a username header is not enough.
+
+2. **Worker RBAC** — Only the Telegram account matching `WORKER_TELEGRAM_USERNAME` (default `korcha_support`), proven via validated initData, can price quotes, confirm deposits, or manage shelf products.
+
+3. **Local development bypass** — Set `NODE_ENV=development` and `ALLOW_WORKER_BYPASS=1` only on a local machine if you need username-only access without the Mini App.
+
+4. **Rate limiting** — Quote submission, order lookup, and customer pings are rate-limited per IP.
+
+5. **Quote codes** — Ticket codes are generated with uniqueness checks against quotes and orders.
+
+6. **Sessions** — Bot wizard sessions are backed up to `tmp/sessions.json` every 30s so short restarts do not wipe in-progress flows. Prefer DB-backed ticket state for long-term recovery.
+
+
 ## 📄 License
 Private & Proprietary — Developed for Korcha Cross-Border E-Commerce (Addis Ababa, Ethiopia).

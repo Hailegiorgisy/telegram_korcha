@@ -140,25 +140,28 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       if (tmaUser?.id) formData.append('telegramId', String(tmaUser.id));
       if (tmaUser?.username) formData.append('telegramUsername', String(tmaUser.username));
 
-      // Submit to backend
+      // Submit to backend (include Telegram initData when running inside TMA)
+      const initData = (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) || '';
       const res = await fetch('/api/quotes', {
         method: 'POST',
+        headers: initData ? { 'X-Telegram-Init-Data': initData } : undefined,
         body: formData,
       });
 
       const data = await res.json();
-      if (data.success) {
-        const qCode = data.quoteCode || 'KC-QUOTE';
+      if (data.success && data.quoteCode) {
+        const qCode = data.quoteCode;
         setSubmittedQuoteCode(qCode);
         if (onQuoteSubmitted) onQuoteSubmitted(qCode, cleanPhone);
         setStep(4);
       } else {
         alert(data.error || 'ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።');
       }
-    } catch (err) {
-      const fallbackCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
-      setSubmittedQuoteCode(fallbackCode);
-      setStep(4);
+    } catch (err: any) {
+      alert(
+        'ኢንተርኔት ወይም አገልጋይ ስህተት ተከስቷል። እባክዎ እንደገና ይሞክሩ።\n' +
+        (err?.message ? String(err.message) : '')
+      );
     } finally {
       setIsSubmitting(false);
     }

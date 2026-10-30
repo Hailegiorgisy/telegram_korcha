@@ -70,6 +70,16 @@ export function App() {
     || 'korcha_support').replace(/^@/, '');
   const tgUser = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
 
+  const getInitDataHeaders = (): Record<string, string> => {
+    const initData = (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) || '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (initData) headers['X-Telegram-Init-Data'] = initData;
+    // Username header is informational only; server requires validated initData for worker routes
+    if (tgUser?.username) headers['X-Telegram-Username'] = String(tgUser.username);
+    return headers;
+  };
+
+
   // Multi-Signal Robust Worker Detection: Telegram context + URL param + LocalStorage toggle
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const isUrlWorker = Boolean(
@@ -113,7 +123,7 @@ export function App() {
   const fetchWorkerOverview = async (silent = true) => {
     if (!silent) setIsLoadingWorkerOverview(true);
     try {
-      const res = await fetch('/api/worker/overview');
+      const res = await fetch('/api/worker/overview', { headers: getInitDataHeaders() });
       const data = await res.json();
       if (data.success) {
         setWorkerOverview({
@@ -155,7 +165,7 @@ export function App() {
     try {
       const res = await fetch('/api/worker/quote', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getInitDataHeaders(),
         body: JSON.stringify({
           quoteCode,
           totalPriceEtb: Number(form.total),
@@ -191,7 +201,7 @@ export function App() {
     try {
       const res = await fetch('/api/worker/notes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getInitDataHeaders(),
         body: JSON.stringify({
           referenceCode,
           noteText,
@@ -224,7 +234,7 @@ export function App() {
 
   const handleCopyDossier = async (referenceCode: string) => {
     try {
-      const res = await fetch(`/api/worker/dossier/${encodeURIComponent(referenceCode)}`);
+      const res = await fetch(`/api/worker/dossier/${encodeURIComponent(referenceCode)}`, { headers: getInitDataHeaders() });
       const data = await res.json();
       if (data?.formattedDossierText) {
         await navigator.clipboard.writeText(data.formattedDossierText);
@@ -247,7 +257,7 @@ export function App() {
     try {
       const res = await fetch('/api/worker/confirm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getInitDataHeaders(),
         body: JSON.stringify({
           orderCode,
           deliveryWindow,
