@@ -37,6 +37,7 @@ const inMemoryStore = {
       size: 'S, M, L, XL',
       price_etb: 2850,
       photo_url: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500&auto=format&fit=crop&q=80',
+      photo_urls: ['https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500&auto=format&fit=crop&q=80'],
       is_bestseller: true,
       created_by: 'korcha_support',
       syncedToPg: false,
@@ -1291,15 +1292,21 @@ export async function addShelfProduct({
   size = null,
   priceEtb,
   photoUrl,
+  photoUrls,
   isBestseller = false,
   createdBy = 'korcha_support',
 }) {
   const now = new Date().toISOString();
+  const photoList = Array.isArray(photoUrls) && photoUrls.length
+    ? photoUrls.map(String).map(s => s.trim()).filter(Boolean)
+    : (photoUrl ? [String(photoUrl).trim()] : []);
+  const primary = photoList[0] || photoUrl || '';
+
   if (await checkPG()) {
     try {
       const q = `
-        INSERT INTO shelf_products (category_id, name, size, price_etb, photo_url, is_bestseller, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO shelf_products (category_id, name, size, price_etb, photo_url, photo_urls, is_bestseller, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8)
         RETURNING *;
       `;
       const { rows } = await pool.query(q, [
@@ -1307,7 +1314,8 @@ export async function addShelfProduct({
         name,
         size || null,
         parseFloat(priceEtb),
-        photoUrl,
+        primary,
+        JSON.stringify(photoList),
         Boolean(isBestseller),
         createdBy || 'korcha_support',
       ]);
@@ -1323,7 +1331,8 @@ export async function addShelfProduct({
     name,
     size: size || null,
     price_etb: parseFloat(priceEtb),
-    photo_url: photoUrl,
+    photo_url: primary,
+    photo_urls: photoList,
     is_bestseller: Boolean(isBestseller),
     created_by: createdBy || 'korcha_support',
     syncedToPg: false,
@@ -1362,6 +1371,17 @@ export async function updateShelfProduct(id, updates = {}) {
         fields.push(`photo_url = $${idx++}`);
         values.push(updates.photoUrl);
       }
+      if (updates.photoUrls !== undefined) {
+        const list = Array.isArray(updates.photoUrls)
+          ? updates.photoUrls.map(String).map(s => s.trim()).filter(Boolean)
+          : [];
+        fields.push(`photo_urls = $${idx++}::jsonb`);
+        values.push(JSON.stringify(list));
+        if (list.length && updates.photoUrl === undefined) {
+          fields.push(`photo_url = $${idx++}`);
+          values.push(list[0]);
+        }
+      }
       if (updates.categoryId !== undefined) {
         fields.push(`category_id = $${idx++}`);
         values.push(updates.categoryId);
@@ -1391,6 +1411,7 @@ export async function updateShelfProduct(id, updates = {}) {
       size: updates.size !== undefined ? updates.size : existing.size,
       price_etb: updates.priceEtb !== undefined ? parseFloat(updates.priceEtb) : existing.price_etb,
       photo_url: updates.photoUrl !== undefined ? updates.photoUrl : existing.photo_url,
+      photo_urls: updates.photoUrls !== undefined ? updates.photoUrls : (existing.photo_urls || []),
       category_id: updates.categoryId !== undefined ? updates.categoryId : existing.category_id,
       is_bestseller: updates.isBestseller !== undefined ? Boolean(updates.isBestseller) : existing.is_bestseller,
       syncedToPg: false,

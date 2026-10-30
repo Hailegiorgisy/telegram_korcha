@@ -68,10 +68,19 @@ export function App() {
 
   const workerUsername = ((typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
     || 'korcha_support').replace(/^@/, '');
-  const tgUser = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
+
+  // Telegram Mini App user — must be component-scoped (used by Header and handlers)
+  const tgUser =
+    typeof window !== 'undefined'
+      ? (window as any)?.Telegram?.WebApp?.initDataUnsafe?.user ?? null
+      : null;
+  const tmaUser = tgUser;
 
   const getInitDataHeaders = (): Record<string, string> => {
-    const initData = (typeof window !== 'undefined' && window.Telegram?.WebApp?.initData) || '';
+    const initData =
+      typeof window !== 'undefined'
+        ? ((window as any)?.Telegram?.WebApp?.initData as string) || ''
+        : '';
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (initData) headers['X-Telegram-Init-Data'] = initData;
     // Username header is informational only; server requires validated initData for worker routes
@@ -90,11 +99,25 @@ export function App() {
   );
   const isStorageWorker = typeof localStorage !== 'undefined' && localStorage.getItem('korcha_worker_active') === 'true';
 
-  const isAuthorizedWorker = Boolean(
-    isUrlWorker ||
-    isStorageWorker ||
-    (tgUser?.username && tgUser.username.replace(/^@/, '').toLowerCase() === workerUsername.toLowerCase())
+  const telegramMatchesWorker = Boolean(
+    tgUser?.username &&
+    String(tgUser.username).replace(/^@/, '').toLowerCase() === workerUsername.toLowerCase()
   );
+
+  // Worker Mini App: real Telegram username match OR explicit ?role=worker / ?worker=1
+  // (localStorage alone is never enough for API, but helps UI when username matches)
+  const isAuthorizedWorker = Boolean(
+    telegramMatchesWorker ||
+    isUrlWorker ||
+    (isStorageWorker && telegramMatchesWorker)
+  );
+
+  // Persist worker flag only when Telegram identity matches
+  useEffect(() => {
+    if (telegramMatchesWorker || isUrlWorker) {
+      try { localStorage.setItem('korcha_worker_active', 'true'); } catch (_) {}
+    }
+  }, [telegramMatchesWorker, isUrlWorker]);
 
   const handleToggleWorker = () => {
     const next = !isAuthorizedWorker;

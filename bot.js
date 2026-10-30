@@ -243,7 +243,7 @@ function getWorkerMenuKeyboard() {
   return Markup.keyboard([
     ['📋 ያልተመለሱ ጥያቄዎች (Pending Quotes)', '💰 የክፍያ ማረጋገጫዎች (Pending Deposits)'],
     ['🛒 የመደርደሪያ እቃዎች አስተዳድር', '💬 የደንበኞች መልዕክቶች'],
-    [Markup.button.webApp('🛠️ የሰራተኛ ሚኒ አፕ (Worker TMA)', WEB_APP_URL)],
+    [Markup.button.webApp('🛠️ የሰራተኛ ሚኒ አፕ (Worker TMA)', WEB_APP_URL + (WEB_APP_URL.includes('?') ? '&' : '?') + 'role=worker')],
   ]).resize();
 }
 
@@ -1135,7 +1135,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 `.trim();
 
       return ctx.replyWithHTML(shelfHelp, Markup.inlineKeyboard([
-        [Markup.button.webApp('🛠️ ሚኒ አፕ ላይ አስተካክል (Open Mini App)', WEB_APP_URL)]
+        [Markup.button.webApp('🛠️ ሚኒ አፕ ላይ አስተካክል (Open Mini App)', WEB_APP_URL + (WEB_APP_URL.includes('?') ? '&' : '?') + 'role=worker')]
       ]));
     });
 
@@ -2935,16 +2935,18 @@ ${cleanUsername ? `👤 <b>Username:</b> @${escapeHtml(cleanUsername)}
 // POST /api/shelf: Add new product (korcha_support edit/add)
 app.post('/api/shelf', requireWorkerRBAC, async (req, res) => {
   try {
-    const { categoryId, name, size, priceEtb, photoUrl, isBestseller, createdBy } = req.body;
-    if (!name || !priceEtb || !photoUrl) {
-      return res.status(400).json({ success: false, error: 'Name, price, and photoUrl are required' });
+    const { categoryId, name, size, priceEtb, photoUrl, photoUrls, isBestseller, createdBy } = req.body;
+    const urls = Array.isArray(photoUrls) ? photoUrls.filter(Boolean) : (photoUrl ? [photoUrl] : []);
+    if (!name || !priceEtb || urls.length === 0) {
+      return res.status(400).json({ success: false, error: 'Name, price, and at least one photoUrl are required' });
     }
     const product = await addShelfProduct({
       categoryId: categoryId || 'miscellaneous',
       name,
       size: size || null,
       priceEtb: parseFloat(priceEtb),
-      photoUrl,
+      photoUrl: urls[0],
+      photoUrls: urls,
       isBestseller: Boolean(isBestseller),
       createdBy: createdBy || 'korcha_support',
     });

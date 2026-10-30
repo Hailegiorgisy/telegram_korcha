@@ -68,6 +68,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
     size: '',
     priceEtb: '',
     photoUrl: '',
+    photoUrlsText: '',
     categoryId: 'womens',
     isBestseller: false,
   });
@@ -123,6 +124,29 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
     (tmaUsername && tmaUsername.toLowerCase() === workerUsername.toLowerCase())
   );
 
+  const getProductPhotos = (item: any): string[] => {
+    if (!item) return [];
+    let urls: string[] = [];
+    if (Array.isArray(item.photo_urls)) urls = item.photo_urls.filter(Boolean);
+    else if (typeof item.photo_urls === 'string') {
+      try { urls = JSON.parse(item.photo_urls); } catch { urls = []; }
+    }
+    if (Array.isArray(item.photoUrls)) urls = [...urls, ...item.photoUrls];
+    const primary = item.photo_url || item.photoUrl || item.image;
+    if (primary && !urls.includes(primary)) urls = [primary, ...urls];
+    return Array.from(new Set(urls.filter(Boolean)));
+  };
+
+  // Image lightbox / zoom state
+  const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+
+  const openLightbox = (photos: string[], index = 0) => {
+    if (!photos.length) return;
+    setZoom(1);
+    setLightbox({ photos, index });
+  };
+
   useEffect(() => {
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     const rawUsername = tgUser?.username || '';
@@ -138,10 +162,14 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
       setIsUsernameScraped(true);
     }
 
-    if (isUrlWorker || isStorageWorker || (cleanUsername && cleanUsername.toLowerCase() === workerUsername.toLowerCase())) {
-      setIsWorkerMode(true);
-    } else {
-      setIsWorkerMode(false);
+    const isWorkerUser = Boolean(
+      isUrlWorker ||
+      isStorageWorker ||
+      (cleanUsername && cleanUsername.toLowerCase() === workerUsername.toLowerCase())
+    );
+    setIsWorkerMode(isWorkerUser);
+    if (isWorkerUser) {
+      try { localStorage.setItem('korcha_worker_active', 'true'); } catch (_) {}
     }
   }, [workerUsername]);
 
@@ -359,6 +387,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
       size: prod.size || '',
       priceEtb: String(prod.price_etb || prod.priceEtb || ''),
       photoUrl: prod.photo_url || prod.photoUrl || prod.image || '',
+      photoUrlsText: getProductPhotos(prod).join('\n'),
       categoryId: prod.category_id || prod.categoryId || 'womens',
       isBestseller: Boolean(prod.is_bestseller || prod.isBestseller),
     });
@@ -372,7 +401,11 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
       alert(`⛔ ይህ ፈቃድ ለ @${workerUsername} ብቻ የተሰጠ ነው!`);
       return;
     }
-    if (!editorForm.name.trim() || !editorForm.priceEtb || !editorForm.photoUrl.trim()) {
+    const parsedUrls = (editorForm.photoUrlsText || editorForm.photoUrl || '')
+      .split(/[\n,]+/)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    if (!editorForm.name.trim() || !editorForm.priceEtb || parsedUrls.length === 0) {
       alert('እባክዎ የስም፣ የዋጋ እና የፎቶ ሊንክ ያስገቡ');
       return;
     }
@@ -391,7 +424,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             name: editorForm.name.trim(),
             size: editorForm.size.trim() || null,
             priceEtb: parseFloat(editorForm.priceEtb),
-            photoUrl: editorForm.photoUrl.trim(),
+            photoUrl: parsedUrls[0],
+            photoUrls: parsedUrls,
             categoryId: editorForm.categoryId,
             isBestseller: editorForm.isBestseller,
             workerUsername: tmaUsername,
@@ -417,7 +451,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             name: editorForm.name.trim(),
             size: editorForm.size.trim() || null,
             priceEtb: parseFloat(editorForm.priceEtb),
-            photoUrl: editorForm.photoUrl.trim(),
+            photoUrl: parsedUrls[0],
+            photoUrls: parsedUrls,
             categoryId: editorForm.categoryId,
             isBestseller: editorForm.isBestseller,
             createdBy: tmaUsername,
@@ -632,7 +667,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         {/* Collection of item pictures & cards */}
         <div className="grid grid-cols-2 gap-2.5">
           {bestSellers.map((item: any) => {
-            const photo = item.photo_url || item.photoUrl || item.image;
+            const photos = getProductPhotos(item);
+            const photo = photos[0];
             const name = item.name || item.title;
             const price = item.price_etb || item.priceEtb;
             const size = item.size;
@@ -645,10 +681,16 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                 {/* Photo with Badge */}
                 <div className="relative aspect-square w-full bg-stone-100 overflow-hidden">
                   <img 
-                    src={photo} 
+                    src={photo}
+                    onClick={() => openLightbox(photos, 0)}
+                    role="button"
+                    style={{ cursor: 'zoom-in' }} 
                     alt={name}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
+                    onClick={() => openLightbox(photos, 0)}
+                    role="button"
+                    style={{ cursor: 'zoom-in' }}
                   />
                   <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded-md bg-stone-900/80 backdrop-blur-xs text-amber-400 font-extrabold text-[9px] flex items-center space-x-1">
                     <Flame className="w-3 h-3 text-red-400 fill-red-400" />
@@ -840,7 +882,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                 /* Product Grid for category */
                 <div className="grid grid-cols-2 gap-2.5">
                   {categoryProducts.map((prod: any) => {
-                    const photo = prod.photo_url || prod.photoUrl || prod.image;
+                    const photos = getProductPhotos(prod);
+                    const photo = photos[0];
                     const name = prod.name || prod.title;
                     const price = prod.price_etb || prod.priceEtb;
                     const size = prod.size;
@@ -853,6 +896,9 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                         <div className="relative aspect-square w-full rounded-xl overflow-hidden bg-stone-100">
                           <img
                             src={photo}
+                    onClick={() => openLightbox(photos, 0)}
+                    role="button"
+                    style={{ cursor: 'zoom-in' }}
                             alt={name}
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -938,7 +984,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   src={prodPhoto}
                   alt={prodName}
                   className="w-16 h-16 rounded-2xl object-cover border border-stone-200 shrink-0"
-                />
+                / onClick={() => openLightbox(getProductPhotos(selectedBuyProduct), 0)} style={{cursor:"zoom-in"}}>
                 <div>
                   <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[10px]">
                     ⚡ የShelf ቀጥታ ግዢ (1-2 ቀን አቅርቦት)
@@ -1255,16 +1301,21 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
               {/* Photo URL */}
               <div>
-                <label className="block font-bold text-stone-700 mb-1">የፎቶ ሊንክ (Photo URL)</label>
-                <input
-                  type="url"
+                <label className="block font-bold text-stone-700 mb-1">የፎቶ ሊንኮች (Photo URLs — አንድ በአንድ መስመር)</label>
+                <textarea
                   required
-                  placeholder="https://images.unsplash.com/..."
-                  value={editorForm.photoUrl}
-                  onChange={(e) => setEditorForm({ ...editorForm, photoUrl: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 outline-hidden font-medium"
+                  rows={3}
+                  placeholder={"https://example.com/front.jpg\nhttps://example.com/back.jpg\nhttps://example.com/side.jpg"}
+                  value={editorForm.photoUrlsText || editorForm.photoUrl || ''}
+                  onChange={(e) => setEditorForm({
+                    ...editorForm,
+                    photoUrlsText: e.target.value,
+                    photoUrl: e.target.value.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean)[0] || '',
+                  })}
+                  className="w-full px-3 py-2 rounded-xl border border-stone-300 focus:ring-2 focus:ring-amber-500 outline-hidden font-medium text-xs"
                 />
-                {editorForm.photoUrl && (
+                <p className="text-[10px] text-stone-500 mt-1">ብዙ ፎቶዎችን እያንዳንዱን በአዲስ መስመር ያስገቡ (front, back, side...)</p>
+                {(editorForm.photoUrlsText || editorForm.photoUrl) && (
                   <div className="mt-1.5 w-16 h-16 rounded-xl overflow-hidden border border-stone-200">
                     <img 
                       src={editorForm.photoUrl} 
@@ -1406,6 +1457,51 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full-screen image lightbox with zoom */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-3"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="absolute top-3 right-3 flex items-center space-x-2 z-[110]" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => setZoom((z) => Math.max(1, z - 0.5))} className="w-10 h-10 rounded-full bg-white/20 text-white text-xl font-bold">−</button>
+            <span className="text-white text-xs font-bold w-12 text-center">{Math.round(zoom * 100)}%</span>
+            <button type="button" onClick={() => setZoom((z) => Math.min(4, z + 0.5))} className="w-10 h-10 rounded-full bg-white/20 text-white text-xl font-bold">+</button>
+            <button type="button" onClick={() => setLightbox(null)} className="w-10 h-10 rounded-full bg-white/20 text-white text-lg font-bold">×</button>
+          </div>
+          <div className="relative max-w-full max-h-[75vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={lightbox.photos[lightbox.index]}
+              alt="Product detail"
+              style={{ transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.15s ease' }}
+              className="max-w-full max-h-[75vh] object-contain select-none"
+              draggable={false}
+            />
+          </div>
+          {lightbox.photos.length > 1 && (
+            <div className="flex items-center space-x-3 mt-4" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-xs font-bold"
+                onClick={() => { setZoom(1); setLightbox((lb) => lb ? { ...lb, index: (lb.index - 1 + lb.photos.length) % lb.photos.length } : null); }}
+              >
+                ‹ ቀዳሚ
+              </button>
+              <span className="text-white text-xs font-bold">{lightbox.index + 1} / {lightbox.photos.length}</span>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg bg-white/20 text-white text-xs font-bold"
+                onClick={() => { setZoom(1); setLightbox((lb) => lb ? { ...lb, index: (lb.index + 1) % lb.photos.length } : null); }}
+              >
+                ቀጣይ ›
+              </button>
+            </div>
+          )}
+          <p className="text-white/70 text-[10px] mt-2">እጅዎን በመንካት ያጉላሉ · ከበስተጀርባ በመንካት ይዝጉ</p>
+        </div>
+      )}
+
     </div>
   );
 };
