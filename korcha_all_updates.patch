@@ -1,5 +1,5 @@
 From 30d24d93038ad299d8b58cbe4b6c789be0a19715 Mon Sep 17 00:00:00 2001
-From: Hailegiorgisy <hailegiorgisy@gmail.com>
+From: Hailegiorgisy <hgyirgu1@gmail.com>
 Date: Fri, 30 Oct 2026 05:58:58 +0000
 Subject: [PATCH 1/2] fix(plesk): switch to Express server-side architecture,
  add app.js, and fix passenger socket binding

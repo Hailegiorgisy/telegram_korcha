@@ -1,4 +1,4 @@
-// src/App.tsx: Main Application Component with Enhanced Order (እዘዝ) Access across Customer & Worker modes
+// src/App.tsx: Main Application Component with Strict Role Separation
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import StorefrontHome from './components/StorefrontHome';
@@ -45,13 +45,6 @@ export function App() {
     'ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል። ትንሽ ይጠብቁ።'
   );
 
-  // Ping & Direct Messaging state
-  const [pingingCode, setPingingCode] = useState<string | null>(null);
-  const [pingSuccess, setPingSuccess] = useState<Record<string, boolean>>({});
-  const [replyInput, setReplyInput] = useState<Record<string, string>>({});
-  const [isSendingReply, setIsSendingReply] = useState<Record<string, boolean>>({});
-  const [ticketChatMessages, setTicketChatMessages] = useState<Record<string, any[]>>({});
-
   // Dedicated TMA Messages / Support Center state
   const [savedCodes, setSavedCodes] = useState<string[]>(() => {
     try {
@@ -64,9 +57,6 @@ export function App() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedConvCode, setSelectedConvCode] = useState<string>('');
   const [isLoadingConversations, setIsLoadingConversations] = useState<boolean>(false);
-  const [msgFilterInput, setMsgFilterInput] = useState<string>('');
-  const [directChatInput, setDirectChatInput] = useState<string>('');
-  const [isSendingDirectChat, setIsSendingDirectChat] = useState<boolean>(false);
 
   const workerUsername = ((typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) 
     || 'korcha_support').replace(/^@/, '');
@@ -109,10 +99,6 @@ export function App() {
     stats: { pendingQuotesCount: 0, pendingOrdersCount: 0, totalConversationsCount: 0, pendingMerchantsCount: 0 },
   });
   const [isLoadingWorkerOverview, setIsLoadingWorkerOverview] = useState(false);
-  const [pricingForm, setPricingForm] = useState<Record<string, { total: string; deposit: string; note: string }>>({});
-  const [isSubmittingQuote, setIsSubmittingQuote] = useState<Record<string, boolean>>({});
-  const [confirmDeliveryForm, setConfirmDeliveryForm] = useState<Record<string, string>>({});
-  const [isConfirmingOrder, setIsConfirmingOrder] = useState<Record<string, boolean>>({});
 
   const fetchWorkerOverview = async (silent = true) => {
     if (!silent) setIsLoadingWorkerOverview(true);
@@ -160,6 +146,8 @@ export function App() {
   }, [isAuthorizedWorker]);
 
   const handleOpenQuoteModal = (mode: 'link' | 'screenshot' = 'link') => {
+    // Only customers can open the order quote modal; workers do not place customer orders
+    if (isAuthorizedWorker) return;
     setQuoteModalMode(mode);
     setIsQuoteModalOpen(true);
   };
@@ -224,18 +212,19 @@ export function App() {
         messageCount={isAuthorizedWorker ? workerOverview.conversations.length : conversations.length}
         pendingQuotesCount={workerOverview.pendingQuotes.length}
         merchantPendingCount={workerOverview.stats?.pendingMerchantsCount || 0}
-        onOpenQuoteModal={handleOpenQuoteModal}
+        onOpenQuoteModal={isAuthorizedWorker ? undefined : handleOpenQuoteModal}
         isWorker={isAuthorizedWorker}
         onToggleWorker={handleToggleWorker}
       />
 
       <main className="flex-1 max-w-md mx-auto w-full p-2.5">
-        {/* TAB 1: STOREFRONT & DIRECT SHELF ORDERING */}
+        {/* TAB 1: SHELF / STOREFRONT — WORKERS EDIT, CUSTOMERS ORDER */}
         {activeTab === 'home' && (
           <StorefrontHome
-            onOpenQuoteModal={handleOpenQuoteModal}
+            onOpenQuoteModal={isAuthorizedWorker ? () => {} : handleOpenQuoteModal}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            isWorker={isAuthorizedWorker}
             onShelfOrderCreated={(orderCode, phone, openMessages) => {
               rememberTicketAndPhone(orderCode, phone);
               setSelectedConvCode(orderCode);
@@ -245,53 +234,61 @@ export function App() {
           />
         )}
 
-        {/* TAB 2 (WORKER): PENDING QUOTES */}
+        {/* TAB 2 (WORKER ONLY): PENDING QUOTES TO PRICE */}
         {activeTab === 'quotes' && isAuthorizedWorker && (
-          <div className="p-4 bg-white rounded-2xl shadow-xs text-center space-y-2">
-            <h3 className="font-extrabold text-sm text-stone-900">ዋጋ ያልተሰጣቸው ጥያቄዎች</h3>
-            <p className="text-xs text-stone-500">በአጠቃላይ {workerOverview.pendingQuotes.length} ጥያቄዎች ይጠብቃሉ</p>
+          <div className="p-4 bg-white rounded-2xl shadow-xs text-center space-y-2 border border-stone-200">
+            <h3 className="font-extrabold text-sm text-stone-900">ዋጋ ያልተሰጣቸው ጥያቄዎች (Worker Pricing Hub)</h3>
+            <p className="text-xs text-stone-500">በአጠቃላይ {workerOverview.pendingQuotes.length} ጥያቄዎች ዋጋ ማስተካከል ይጠብቃሉ</p>
           </div>
         )}
 
         {/* TAB 3: CUSTOMER ORDERS TRACKER OR WORKER DEPOSIT VERIFICATION */}
         {activeTab === 'orders' && (
           <div className="space-y-3">
-            <div className="p-4 bg-white rounded-2xl shadow-xs border border-stone-200">
-              <h3 className="font-extrabold text-xs text-stone-900 mb-2 flex items-center space-x-1.5">
-                <Package className="w-4 h-4 text-amber-600" />
-                <span>የትዕዛዝ ሁኔታ መከታተያ (Track Order)</span>
-              </h3>
-              <div className="flex space-x-2">
-                <input
-                  type="text"
-                  value={searchPhone}
-                  onChange={(e) => setSearchPhone(e.target.value)}
-                  placeholder="ስልክ ቁጥር (09.../07...) ወይም ኮድ"
-                  className="flex-1 px-3 py-2 text-xs rounded-xl border border-stone-300 bg-stone-50"
-                />
-                <button
-                  onClick={() => fetchCustomerConversations(false)}
-                  className="px-3.5 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
-                >
-                  ፈልግ
-                </button>
+            {isAuthorizedWorker ? (
+              <div className="p-4 bg-white rounded-2xl shadow-xs border border-stone-200 text-center space-y-1">
+                <h3 className="font-extrabold text-xs text-stone-900">የክፍያ ማረጋገጫዎች (Worker Confirmations)</h3>
+                <p className="text-xs text-stone-500">{workerOverview.pendingOrders.length} ክፍያዎች ማረጋገጫ ይጠብቃሉ</p>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="p-4 bg-white rounded-2xl shadow-xs border border-stone-200">
+                  <h3 className="font-extrabold text-xs text-stone-900 mb-2 flex items-center space-x-1.5">
+                    <Package className="w-4 h-4 text-amber-600" />
+                    <span>የትዕዛዝ ሁኔታ መከታተያ (Track Order)</span>
+                  </h3>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={searchPhone}
+                      onChange={(e) => setSearchPhone(e.target.value)}
+                      placeholder="ስልክ ቁጥር (09.../07...) ወይም ኮድ"
+                      className="flex-1 px-3 py-2 text-xs rounded-xl border border-stone-300 bg-stone-50"
+                    />
+                    <button
+                      onClick={() => fetchCustomerConversations(false)}
+                      className="px-3.5 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+                    >
+                      ፈልግ
+                    </button>
+                  </div>
+                </div>
 
-            {/* Quick Order Action from Tracker Screen */}
-            <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-between">
-              <div>
-                <p className="font-bold text-xs text-amber-950">አዲስ እቃ ማዘዝ ይፈልጋሉ?</p>
-                <p className="text-[10px] text-amber-800">ከ Shein ወይም Amazon ሊንክ አስገብተው ይዘዙ</p>
-              </div>
-              <button
-                onClick={() => handleOpenQuoteModal('link')}
-                className="py-1.5 px-3 rounded-xl bg-amber-600 text-white font-bold text-xs flex items-center space-x-1 shadow-xs"
-              >
-                <ShoppingBag className="w-3.5 h-3.5" />
-                <span>አሁን እዘዝ</span>
-              </button>
-            </div>
+                <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200 flex items-center justify-between">
+                  <div>
+                    <p className="font-bold text-xs text-amber-950">አዲስ እቃ ማዘዝ ይፈልጋሉ?</p>
+                    <p className="text-[10px] text-amber-800">ከ Shein ወይም Amazon ሊንክ አስገብተው ይዘዙ</p>
+                  </div>
+                  <button
+                    onClick={() => handleOpenQuoteModal('link')}
+                    className="py-1.5 px-3 rounded-xl bg-amber-600 text-white font-bold text-xs flex items-center space-x-1 shadow-xs"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>አሁን እዘዝ</span>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -300,9 +297,11 @@ export function App() {
           <div className="p-4 bg-white rounded-2xl shadow-xs border border-stone-200 space-y-2">
             <h3 className="font-extrabold text-xs text-stone-900 flex items-center space-x-1.5">
               <MessageCircle className="w-4 h-4 text-amber-600" />
-              <span>ከሰራተኛ ጋር የቀጥታ ውይይት (@{workerUsername})</span>
+              <span>{isAuthorizedWorker ? 'የደንበኞች መልዕክቶች (Support Inbox)' : `ከሰራተኛ ጋር የቀጥታ ውይይት (@${workerUsername})`}</span>
             </h3>
-            <p className="text-xs text-stone-500">የዋጋ ግምገማ፣ የደረሰኝ ማረጋገጫ እና ወቅታዊ መረጃ እዚህ ይደርስዎታል</p>
+            <p className="text-xs text-stone-500">
+              {isAuthorizedWorker ? 'ከደንበኞች የተላኩ ጥያቄዎች እና መልዕክቶች' : 'የዋጋ ግምገማ፣ የደረሰኝ ማረጋገጫ እና ወቅታዊ መረጃ እዚህ ይደርስዎታል'}
+            </p>
           </div>
         )}
 
@@ -320,19 +319,21 @@ export function App() {
         )}
       </main>
 
-      {/* Quote Order Modal */}
-      <LinkOrScreenshotQuoteModal
-        isOpen={isQuoteModalOpen}
-        onClose={() => setIsQuoteModalOpen(false)}
-        initialMode={quoteModalMode}
-        preferredPayment={preferredPayment}
-        onQuoteSubmitted={(code, phone) => {
-          rememberTicketAndPhone(code, phone);
-          setSelectedConvCode(code);
-          fetchCustomerConversations(true);
-          setActiveTab('messages');
-        }}
-      />
+      {/* Quote Order Modal — Strictly for Customers */}
+      {!isAuthorizedWorker && isQuoteModalOpen && (
+        <LinkOrScreenshotQuoteModal
+          isOpen={isQuoteModalOpen}
+          onClose={() => setIsQuoteModalOpen(false)}
+          initialMode={quoteModalMode}
+          preferredPayment={preferredPayment}
+          onQuoteSubmitted={(code, phone) => {
+            rememberTicketAndPhone(code, phone);
+            setSelectedConvCode(code);
+            fetchCustomerConversations(true);
+            setActiveTab('messages');
+          }}
+        />
+      )}
     </div>
   );
 }

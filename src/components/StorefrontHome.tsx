@@ -1,22 +1,23 @@
-// src/components/StorefrontHome.tsx: Customer Storefront with High-Visibility Order CTAs
+// src/components/StorefrontHome.tsx: Role-Separated Storefront: Workers Edit, Customers Order
 import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, 
   ExternalLink, 
   Sparkles, 
-  ArrowRight, 
   CheckCircle2, 
   Clock, 
   ShieldCheck, 
   Truck, 
   Search, 
-  Filter, 
   CreditCard,
   MessageCircle,
   Link as LinkIcon,
   Camera,
   ChevronRight,
-  X
+  X,
+  Edit,
+  Trash2,
+  PlusCircle
 } from 'lucide-react';
 
 interface Product {
@@ -42,6 +43,7 @@ interface StorefrontHomeProps {
   selectedCategory: string;
   onSelectCategory: (catId: string) => void;
   onShelfOrderCreated?: (orderCode: string, phone: string, openMessages?: boolean) => void;
+  isWorker?: boolean;
 }
 
 export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
@@ -49,6 +51,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   selectedCategory,
   onSelectCategory,
   onShelfOrderCreated,
+  isWorker = false,
 }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([
@@ -63,7 +66,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Shelf Checkout Modal State
+  // Customer Checkout Modal State
   const [selectedProductForOrder, setSelectedProductForOrder] = useState<Product | null>(null);
   const [checkoutPhone, setCheckoutPhone] = useState<string>(() => {
     try { return localStorage.getItem('korcha_customer_phone') || ''; } catch { return ''; }
@@ -71,6 +74,22 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<'telebirr' | 'cbe_birr'>('telebirr');
   const [isSubmittingOrder, setIsSubmittingOrder] = useState<boolean>(false);
   const [confirmedOrder, setConfirmedOrder] = useState<any | null>(null);
+
+  // Worker Shelf Editing State
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editPrice, setEditPrice] = useState<string>('');
+  const [editName, setEditName] = useState<string>('');
+  const [editSize, setEditSize] = useState<string>('');
+  const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
+
+  // Worker Add Product Modal State
+  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [newName, setNewName] = useState<string>('');
+  const [newPrice, setNewPrice] = useState<string>('');
+  const [newSize, setNewSize] = useState<string>('Standard');
+  const [newCategory, setNewCategory] = useState<string>('womens');
+  const [newPhotoUrl, setNewPhotoUrl] = useState<string>('');
+  const [isAddingProduct, setIsAddingProduct] = useState<boolean>(false);
 
   const workerUsername = ((typeof import.meta !== 'undefined' && import.meta.env?.VITE_WORKER_TELEGRAM_USERNAME) || 'korcha_support').replace(/^@/, '');
   const tgUser = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
@@ -103,7 +122,107 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
     }
   };
 
-  // Submit Direct Shelf Order
+  // Worker: Save Edited Shelf Product
+  const handleSaveProductEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/shelf/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-telegram-username': workerUsername,
+        },
+        body: JSON.stringify({
+          name: editName.trim() || editingProduct.name,
+          priceEtb: parseFloat(editPrice) || editingProduct.price_etb,
+          size: editSize.trim() || editingProduct.size,
+          workerUsername,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ የእቃው መረጃ ተስተካክሏል!');
+        setEditingProduct(null);
+        fetchShelfData();
+      } else {
+        alert(data.error || 'ማስተካከል አልተቻለም');
+      }
+    } catch (err: any) {
+      alert('ስህተት: ' + err.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Worker: Delete Shelf Product
+  const handleDeleteProduct = async (productId: number) => {
+    if (!confirm('ይህ እቃ ከመደርደሪያው ላይ እንዲሰረዝ እርግጠኛ ነዎት?')) return;
+    try {
+      const res = await fetch(`/api/shelf/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-telegram-username': workerUsername,
+        },
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ እቃው ከመደርደሪያው ተሰርዟል');
+        fetchShelfData();
+      } else {
+        alert(data.error || 'መሰረዝ አልተቻለም');
+      }
+    } catch (err: any) {
+      alert('ስህተት: ' + err.message);
+    }
+  };
+
+  // Worker: Add New Shelf Product
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim() || !newPrice.trim()) {
+      alert('እባክዎ የእቃውን ስም እና ዋጋ ያስገቡ');
+      return;
+    }
+    setIsAddingProduct(true);
+    try {
+      const res = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-telegram-username': workerUsername,
+        },
+        body: JSON.stringify({
+          name: newName.trim(),
+          priceEtb: parseFloat(newPrice),
+          size: newSize.trim() || 'Standard',
+          categoryId: newCategory,
+          photoUrl: newPhotoUrl.trim() || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=80',
+          createdBy: workerUsername,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('✅ አዲስ እቃ መደርደሪያው ላይ ተጨምሯል!');
+        setIsAddModalOpen(false);
+        setNewName('');
+        setNewPrice('');
+        setNewSize('Standard');
+        setNewPhotoUrl('');
+        fetchShelfData();
+      } else {
+        alert(data.error || 'እቃ መጨመር አልተቻለም');
+      }
+    } catch (err: any) {
+      alert('ስህተት: ' + err.message);
+    } finally {
+      setIsAddingProduct(false);
+    }
+  };
+
+  // Customer: Submit Direct Shelf Order
   const handleDirectShelfOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedProductForOrder) return;
@@ -158,57 +277,92 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
 
   return (
     <div className="space-y-3 pb-16 animate-fade-in max-w-md mx-auto px-1">
-      {/* 1. HERO BANNER: TWO BIG PRIMARY ORDER ACTIONS */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-4 shadow-lg border border-amber-900/30">
-        <div className="relative z-10 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
-              <Sparkles className="w-3 h-3 text-amber-400" />
-              <span>የውጭ ገበያ እቃ አቅራቢ</span>
-            </span>
-            <span className="text-[9px] font-bold text-amber-300 bg-amber-900/60 px-2 py-0.5 rounded-md border border-amber-600/40">
-              40% ቅድመ ክፍያ • በብር
-            </span>
-          </div>
-
-          <div className="flex items-start justify-between gap-2.5">
-            <div className="space-y-1">
-              <h2 className="text-sm font-extrabold leading-snug text-white">
-                የፈለጉትን እቃ ይምረጡ፣ በርዎ ድረስ እናደርሳለን!
-              </h2>
-              <p className="text-[11px] text-stone-300 leading-tight">
-                ከ Shein, Amazon ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ፎቶ አስገብተው አሁኑኑ እዘዙ።
-              </p>
+      {/* 1. TOP BANNER: ROLE-BASED (WORKER HUB vs CUSTOMER STOREFRONT) */}
+      {isWorker ? (
+        /* WORKER OPERATIONS BANNER: INVENTORY MANAGEMENT FOCUS (NO ORDER BUTTONS) */
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-900 via-amber-950 to-stone-950 text-white p-4 shadow-lg border border-amber-900/40">
+          <div className="relative z-10 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>የሰራተኛ መደርደሪያ አስተዳደር (Worker Inventory Manager)</span>
+              </span>
+              <span className="text-[10px] font-bold text-amber-400">@{workerUsername}</span>
             </div>
-            <div className="w-11 h-11 rounded-xl bg-amber-400 p-0.5 border border-amber-500/40 shadow-md shadow-amber-500/20 shrink-0 flex items-center justify-center overflow-hidden">
-              <img src="/logo.png" alt="Korcha" className="w-full h-full object-contain" />
+
+            <h2 className="text-sm font-extrabold leading-snug">
+              የመደርደሪያ እቃዎችን ያስተዳድሩ እና አዲስ እቃ ይጫኑ
+            </h2>
+
+            <p className="text-[11px] text-stone-300 leading-tight">
+              እዚህ እቃዎችን ማስተካከል፣ ዋጋ መቀየር እና አዳዲስ እቃዎችን መጫን ይችላሉ። ደንበኞች ብቻ ናቸው ማዘዝ የሚችሉት።
+            </p>
+
+            {/* Worker Action Button: Add New Product */}
+            <div className="pt-1">
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4 text-stone-950" />
+                <span>+ አዲስ እቃ ወደ መደርደሪያ ጨምር (Add Product)</span>
+              </button>
             </div>
-          </div>
-
-          {/* HIGH-VISIBILITY PROMINENT ORDER BUTTONS */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <button
-              onClick={() => onOpenQuoteModal('link')}
-              className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-black text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
-            >
-              <LinkIcon className="w-4 h-4 text-stone-950" />
-              <span>🔗 በሊንክ እዘዝ (Order)</span>
-            </button>
-
-            <button
-              onClick={() => onOpenQuoteModal('screenshot')}
-              className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-white/20 active:scale-95 transition-all cursor-pointer shadow-xs"
-            >
-              <Camera className="w-4 h-4 text-amber-400" />
-              <span>📸 በፎቶ እዘዝ (Order)</span>
-            </button>
           </div>
         </div>
+      ) : (
+        /* CUSTOMER STOREFRONT BANNER: ORDER ACTIONS */
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-4 shadow-lg border border-amber-900/30">
+          <div className="relative z-10 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                <span>የውጭ ገበያ እቃ አቅራቢ</span>
+              </span>
+              <span className="text-[9px] font-bold text-amber-300 bg-amber-900/60 px-2 py-0.5 rounded-md border border-amber-600/40">
+                40% ቅድመ ክፍያ • በብር
+              </span>
+            </div>
 
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-600/20 rounded-full blur-3xl pointer-events-none" />
-      </div>
+            <div className="flex items-start justify-between gap-2.5">
+              <div className="space-y-1">
+                <h2 className="text-sm font-extrabold leading-snug text-white">
+                  የፈለጉትን እቃ ይምረጡ፣ በርዎ ድረስ እናደርሳለን!
+                </h2>
+                <p className="text-[11px] text-stone-300 leading-tight">
+                  ከ Shein, Amazon ወይም AliExpress የመረጡትን እቃ ሊንክ ወይም ፎቶ አስገብተው አሁኑኑ እዘዙ።
+                </p>
+              </div>
+              <div className="w-11 h-11 rounded-xl bg-amber-400 p-0.5 border border-amber-500/40 shadow-md shadow-amber-500/20 shrink-0 flex items-center justify-center overflow-hidden">
+                <img src="/logo.png" alt="Korcha" className="w-full h-full object-contain" />
+              </div>
+            </div>
 
-      {/* 2. GLOBAL MARKETPLACES SECTION */}
+            {/* HIGH-VISIBILITY PROMINENT ORDER BUTTONS FOR CUSTOMERS */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => onOpenQuoteModal('link')}
+                className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-black text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+              >
+                <LinkIcon className="w-4 h-4 text-stone-950" />
+                <span>🔗 በሊንክ እዘዝ (Order)</span>
+              </button>
+
+              <button
+                onClick={() => onOpenQuoteModal('screenshot')}
+                className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-bold text-xs flex items-center justify-center space-x-1.5 border border-white/20 active:scale-95 transition-all cursor-pointer shadow-xs"
+              >
+                <Camera className="w-4 h-4 text-amber-400" />
+                <span>📸 በፎቶ እዘዝ (Order)</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="absolute -top-12 -right-12 w-48 h-48 bg-amber-600/20 rounded-full blur-3xl pointer-events-none" />
+        </div>
+      )}
+
+      {/* 2. GLOBAL MARKETPLACES SECTION: NO "ORDER" BUTTONS UNDER ICONS */}
       <div className="bg-white rounded-2xl p-3 border border-stone-200/80 shadow-2xs space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-1.5">
@@ -217,31 +371,30 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
               ዓለም አቀፍ ገበያዎች (Global Marketplaces)
             </h3>
           </div>
-          <span className="text-[10px] text-amber-700 font-semibold">ሊንክ ኮፒ አድርገው እዘዙ</span>
+          <span className="text-[10px] text-stone-500">ገበያውን ለመክፈት ይጫኑ</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5">
+        {/* Clean, icon-only display: NO "Order" buttons under icons */}
+        <div className="grid grid-cols-3 gap-2">
           {[
             { name: 'Shein', url: 'https://www.shein.com', gradient: 'from-rose-500 to-pink-600', label: 'ልብሶችና ፋሽን' },
-            { name: 'Amazon', url: 'https://www.amazon.com', gradient: 'from-amber-500 to-orange-600', label: 'ሁሉም ዓይነት' },
+            { name: 'Amazon', url: 'https://www.amazon.com', gradient: 'from-amber-500 to-orange-600', label: 'ሁሉንም ዓይነት' },
             { name: 'AliExpress', url: 'https://www.aliexpress.com', gradient: 'from-red-500 to-amber-600', label: 'ኤሌክትሮኒክስ' },
           ].map((m) => (
-            <div key={m.name} className="p-2 rounded-xl bg-stone-50 border border-stone-200/90 flex flex-col justify-between space-y-1 text-center">
-              <a href={m.url} target="_blank" rel="noopener noreferrer" className="block group">
-                <div className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${m.gradient} text-white font-black text-xs flex items-center justify-center mx-auto mb-1 shadow-2xs group-hover:scale-105 transition-transform`}>
-                  {m.name[0]}
-                </div>
-                <p className="font-extrabold text-[11px] text-stone-900 leading-none">{m.name}</p>
-                <p className="text-[9px] text-stone-500 mt-0.5">{m.label}</p>
-              </a>
-              <button
-                onClick={() => onOpenQuoteModal('link')}
-                className="w-full mt-1 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold text-[10px] flex items-center justify-center space-x-0.5 transition-all"
-              >
-                <span>እዘዝ</span>
-                <ChevronRight className="w-2.5 h-2.5" />
-              </button>
-            </div>
+            <a
+              key={m.name}
+              href={m.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2.5 rounded-xl bg-stone-50 hover:bg-amber-50/50 border border-stone-200/90 flex flex-col items-center justify-center space-y-1 text-center transition-all group active:scale-95 cursor-pointer shadow-2xs"
+              title={`${m.name} ድረ-ገጽ ክፈት`}
+            >
+              <div className={`w-8 h-8 rounded-xl bg-gradient-to-tr ${m.gradient} text-white font-black text-sm flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform`}>
+                {m.name[0]}
+              </div>
+              <p className="font-extrabold text-[11px] text-stone-900 leading-none">{m.name}</p>
+              <p className="text-[9px] text-stone-500 leading-tight">{m.label}</p>
+            </a>
           ))}
         </div>
       </div>
@@ -251,14 +404,13 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         <div className="flex items-center justify-between px-1">
           <h3 className="text-xs font-bold text-stone-800 flex items-center space-x-1">
             <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
-            <span>በአዲስ አበባ ዝግጁ የሆኑ እቃዎች (1-2 ቀን ማድረሻ)</span>
+            <span>{isWorker ? 'የመደርደሪያ እቃዎች አስተዳደር' : 'በአዲስ አበባ ዝግጁ የሆኑ እቃዎች (1-2 ቀን ማድረሻ)'}</span>
           </h3>
           <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-            አሁን ዝግጁ
+            {isWorker ? 'የሰራተኛ እይታ' : 'አሁን ዝግጁ'}
           </span>
         </div>
 
-        {/* Compact Horizontal Scroll or Grid for Categories */}
         <div className="flex space-x-1.5 overflow-x-auto pb-1 scrollbar-none">
           {categories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
@@ -280,7 +432,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </div>
 
-      {/* 4. SHELF PRODUCTS GRID WITH HIGH-VISIBILITY "እዘዝ / ግዛ" BUTTON ON EVERY CARD */}
+      {/* 4. PRODUCT CARDS: WORKERS CAN EDIT (NO ORDER), CUSTOMERS CAN ORDER (NO EDIT) */}
       {isLoading ? (
         <div className="p-8 text-center bg-white rounded-2xl border border-stone-200">
           <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -290,15 +442,21 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         <div className="p-6 text-center bg-white rounded-2xl border border-stone-200 space-y-2">
           <ShoppingBag className="w-8 h-8 text-stone-300 mx-auto" />
           <p className="text-xs font-bold text-stone-700">በዚህ ምድብ ዝግጁ እቃ አልተገኘም</p>
-          <p className="text-[11px] text-stone-500">
-            ከ Shein ወይም Amazon የፈለጉትን እቃ ሊንክ በማስገባት ማዘዝ ይችላሉ!
-          </p>
-          <button
-            onClick={() => onOpenQuoteModal('link')}
-            className="py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
-          >
-            በሊንክ እዘዝ (Custom Order)
-          </button>
+          {isWorker ? (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+            >
+              + አዲስ እቃ ጨምር
+            </button>
+          ) : (
+            <button
+              onClick={() => onOpenQuoteModal('link')}
+              className="py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+            >
+              በሊንክ እዘዝ (Custom Order)
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5">
@@ -333,7 +491,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                 </span>
               </div>
 
-              {/* Product Info & Prominent Order CTA */}
+              {/* Product Info */}
               <div className="p-2.5 space-y-1.5 flex flex-col justify-between flex-1">
                 <div>
                   <h4 className="font-extrabold text-xs text-stone-900 line-clamp-2 leading-snug">
@@ -349,22 +507,53 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                     <span className="text-xs font-black text-amber-700">
                       {Number(p.price_etb).toLocaleString()} ETB
                     </span>
-                    <span className="text-[9px] text-stone-400">
-                      40%: {Math.round(p.price_etb * 0.4).toLocaleString()}
-                    </span>
+                    {!isWorker && (
+                      <span className="text-[9px] text-stone-400">
+                        40%: {Math.round(p.price_etb * 0.4).toLocaleString()}
+                      </span>
+                    )}
                   </div>
 
-                  {/* HIGH-VISIBILITY "እዘዝ / ግዛ" BUTTON */}
-                  <button
-                    onClick={() => {
-                      setSelectedProductForOrder(p);
-                      setConfirmedOrder(null);
-                    }}
-                    className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 shadow-sm active:scale-95 transition-all cursor-pointer"
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5 text-stone-950" />
-                    <span>እዘዝ (Order Now)</span>
-                  </button>
+                  {/* ROLE SEPARATION ON ACTION BUTTONS: */}
+                  {isWorker ? (
+                    /* WORKER CONTROLS: EDIT & DELETE (NO ORDER BUTTON) */
+                    <div className="grid grid-cols-2 gap-1 pt-0.5">
+                      <button
+                        onClick={() => {
+                          setEditingProduct(p);
+                          setEditName(p.name);
+                          setEditPrice(String(p.price_etb));
+                          setEditSize(p.size || 'Standard');
+                        }}
+                        className="py-1.5 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] flex items-center justify-center space-x-1 cursor-pointer active:scale-95 transition-all"
+                        title="ዋጋ እና መረጃ አስተካክል"
+                      >
+                        <Edit className="w-3 h-3 text-amber-700" />
+                        <span>አስተካክል</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteProduct(p.id)}
+                        className="py-1.5 px-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[11px] flex items-center justify-center space-x-1 cursor-pointer active:scale-95 transition-all"
+                        title="ከመደርደሪያ አጥፋ"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-600" />
+                        <span>አጥፋ</span>
+                      </button>
+                    </div>
+                  ) : (
+                    /* CUSTOMER CONTROLS: ORDER NOW (NO EDIT/DELETE) */
+                    <button
+                      onClick={() => {
+                        setSelectedProductForOrder(p);
+                        setConfirmedOrder(null);
+                      }}
+                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 shadow-sm active:scale-95 transition-all cursor-pointer"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5 text-stone-950" />
+                      <span>እዘዝ (Order Now)</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -372,11 +561,184 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       )}
 
-      {/* 5. MODAL: DIRECT SHELF CHECKOUT MODAL */}
-      {selectedProductForOrder && (
+      {/* 5. WORKER MODAL: EDIT PRODUCT DRAWER */}
+      {isWorker && editingProduct && (
+        <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-4 space-y-3.5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+              <h3 className="font-extrabold text-xs text-stone-900 flex items-center space-x-1.5">
+                <Edit className="w-4 h-4 text-amber-600" />
+                <span>የእቃ መረጃ አስተካክል (Edit Product)</span>
+              </h3>
+              <button
+                onClick={() => setEditingProduct(null)}
+                className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProductEdit} className="space-y-2.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-stone-700 mb-0.5">የእቃው ስም</label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-700 mb-0.5">ዋጋ በብር (ETB)</label>
+                  <input
+                    type="number"
+                    required
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-bold text-amber-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-700 mb-0.5">መጠን / ሳይዝ</label>
+                  <input
+                    type="text"
+                    value={editSize}
+                    onChange={(e) => setEditSize(e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="flex-1 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold"
+                >
+                  ሰርዝ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black shadow-xs cursor-pointer"
+                >
+                  {isSavingEdit ? 'እየተቀየረ ነው...' : 'አስቀምጥ (Save)'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. WORKER MODAL: ADD PRODUCT DRAWER */}
+      {isWorker && isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-4 space-y-3.5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+              <h3 className="font-extrabold text-xs text-stone-900 flex items-center space-x-1.5">
+                <PlusCircle className="w-4 h-4 text-amber-600" />
+                <span>አዲስ እቃ ወደ መደርደሪያ ጨምር (Add to Shelf)</span>
+              </h3>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddProduct} className="space-y-2.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-stone-700 mb-0.5">የእቃው ስም</label>
+                <input
+                  type="text"
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="ምሳሌ፡ የሴቶች ሐር ቀሚስ"
+                  className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-700 mb-0.5">ዋጋ በብር (ETB)</label>
+                  <input
+                    type="number"
+                    required
+                    value={newPrice}
+                    onChange={(e) => setNewPrice(e.target.value)}
+                    placeholder="2800"
+                    className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-bold text-amber-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-700 mb-0.5">መጠን / ሳይዝ</label>
+                  <input
+                    type="text"
+                    value={newSize}
+                    onChange={(e) => setNewSize(e.target.value)}
+                    placeholder="S, M, L..."
+                    className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-stone-700 mb-0.5">ምድብ (Category)</label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-medium bg-stone-50"
+                >
+                  <option value="womens">👗 የሴቶች አልባሳት</option>
+                  <option value="kids">🧸 የህጻናት ዕቃዎች</option>
+                  <option value="beauty">💄 ውበትና ሜካፕ</option>
+                  <option value="electronics">📱 ኤሌክትሮኒክስ</option>
+                  <option value="home">🍳 የቤት መገልገያ</option>
+                  <option value="miscellaneous">✨ ሌሎች</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-stone-700 mb-0.5">የፎቶ ሊንክ (Image URL)</label>
+                <input
+                  type="url"
+                  value={newPhotoUrl}
+                  onChange={(e) => setNewPhotoUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/..."
+                  className="w-full px-3 py-1.5 rounded-xl border border-stone-300 font-medium"
+                />
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="flex-1 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold"
+                >
+                  ሰርዝ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAddingProduct}
+                  className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black shadow-xs cursor-pointer"
+                >
+                  {isAddingProduct ? 'እየተጨመረ ነው...' : 'መደርደሪያ ላይ ጫን'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. CUSTOMER MODAL: DIRECT SHELF CHECKOUT (CUSTOMERS ONLY) */}
+      {!isWorker && selectedProductForOrder && (
         <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
           <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-4 space-y-3.5 shadow-2xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700">
@@ -398,7 +760,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             </div>
 
             {confirmedOrder ? (
-              /* ORDER CONFIRMED SCREEN */
               <div className="space-y-3 text-center py-2">
                 <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
                 <h4 className="font-black text-sm text-stone-900">
@@ -429,9 +790,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                 </div>
               </div>
             ) : (
-              /* CHECKOUT FORM */
               <form onSubmit={handleDirectShelfOrder} className="space-y-3">
-                {/* Product Summary */}
                 <div className="flex items-center space-x-3 p-2.5 rounded-2xl bg-stone-50 border border-stone-200">
                   {selectedProductForOrder.photo_url && (
                     <img
@@ -453,7 +812,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   </div>
                 </div>
 
-                {/* Price Breakdown */}
                 <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-[11px] space-y-1">
                   <div className="flex justify-between text-stone-700">
                     <span>አሁን የሚከፈል (40% ቅድመ ክፍያ)፡</span>
@@ -465,7 +823,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   </div>
                 </div>
 
-                {/* Contact Phone */}
                 <div>
                   <label className="block text-[11px] font-bold text-stone-800 mb-1">
                     ስልክ ቁጥርዎን ያስገቡ (Phone Number) <span className="text-red-500">*</span>
@@ -480,7 +837,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   />
                 </div>
 
-                {/* Payment Method Selection */}
                 <div>
                   <label className="block text-[11px] font-bold text-stone-800 mb-1">
                     የቅድመ ክፍያ ዘዴ ይምረጡ
@@ -524,7 +880,6 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   </div>
                 </div>
 
-                {/* Submit Order Button */}
                 <button
                   type="submit"
                   disabled={isSubmittingOrder}
