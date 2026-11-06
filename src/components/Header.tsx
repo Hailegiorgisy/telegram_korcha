@@ -1,6 +1,6 @@
-// src/components/Header.tsx: Polished Telegram Mini App Header with Role-Based Navigation for Customers & @korcha_support
+// src/components/Header.tsx: Telegram Mini App Header with Role-Based Navigation
 import React from 'react';
-import { Home, Package, MessageCircle, Link as LinkIcon, Shield, FileText, CheckCircle2 } from 'lucide-react';
+import { Home, Package, MessageCircle, Link as LinkIcon, Shield, FileText, CheckCircle2, ShoppingBag } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: string;
@@ -8,6 +8,7 @@ interface HeaderProps {
   orderCount?: number;
   messageCount?: number;
   pendingQuotesCount?: number;
+  merchantPendingCount?: number;
   onOpenQuoteModal?: (mode?: 'link' | 'screenshot') => void;
   isTMA?: boolean;
   tmaUser?: { id: number; first_name?: string; username?: string };
@@ -21,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   orderCount = 0,
   messageCount = 0,
   pendingQuotesCount = 0,
+  merchantPendingCount = 0,
   onOpenQuoteModal,
   tmaUser,
   isWorker = false,
@@ -36,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shadow-sm transition-all">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/80 shadow-xs transition-all">
       <div className="max-w-md mx-auto px-4 py-2">
         {/* Top Brand Bar */}
         <div className="flex items-center justify-between">
@@ -44,9 +46,22 @@ export const Header: React.FC<HeaderProps> = ({
             <button 
               onClick={onToggleWorker}
               title={isWorker ? "የሰራተኛ ሞድ (Worker Mode Active - Click to switch)" : "KORCHA Ethiopia (Click to switch mode)"}
-              className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-500 flex items-center justify-center text-white shadow-md shadow-amber-500/20 font-bold text-base cursor-pointer active:scale-95 transition-transform"
+              className="w-9 h-9 rounded-xl bg-amber-400 p-0.5 border border-amber-500/40 shadow-xs shadow-amber-500/20 flex items-center justify-center cursor-pointer active:scale-95 transition-transform overflow-hidden relative"
             >
-              ኮ
+              <img 
+                src="/logo.png" 
+                alt="Korcha Logo" 
+                className="w-full h-full object-contain rounded-lg"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const fallback = target.nextElementSibling;
+                  if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                }}
+              />
+              <span className="hidden w-full h-full bg-gradient-to-tr from-amber-600 to-amber-500 items-center justify-center text-white font-bold text-base rounded-lg">
+                ኮ
+              </span>
             </button>
             <div>
               <div className="flex items-center space-x-1.5">
@@ -67,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Top-Right Badge: Tailored for Worker vs Customer */}
+          {/* Top-Right Badge */}
           {isWorker ? (
             <button
               onClick={onToggleWorker}
@@ -99,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* Clean Navigation Bar - Strictly tailored to user role */}
+        {/* Clean Navigation Bar */}
         <div className="mt-2 flex items-center justify-between border-t border-stone-100 pt-1.5 text-xs gap-1">
           {/* Tab 1: Home / Shelf */}
           <button
@@ -114,7 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
             <span>{isWorker ? 'መደርደሪያ' : 'መነሻ'}</span>
           </button>
 
-          {/* Tab 2: For Worker: Quotes & Pricing (/quotes) | For Customer: ሊንክ ያስገቡ */}
+          {/* Tab 2: For Worker: Quotes & Pricing (/quotes) | For Customer: እዘዝ (Order) */}
           {isWorker ? (
             <button
               onClick={() => setActiveTab('quotes')}
@@ -136,10 +151,11 @@ export const Header: React.FC<HeaderProps> = ({
             onOpenQuoteModal && (
               <button
                 onClick={() => onOpenQuoteModal('link')}
-                className="flex-1 flex items-center justify-center space-x-1 py-1.5 px-1 rounded-lg font-medium text-stone-600 hover:text-stone-900 hover:bg-stone-50 active:scale-95 transition-all cursor-pointer"
+                className="flex-1 flex items-center justify-center space-x-1 py-1.5 px-1 rounded-lg font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 active:scale-95 transition-all cursor-pointer shadow-xs border border-amber-300"
+                title="አዲስ እቃ እዘዝ (በሊንክ ወይም በፎቶ)"
               >
-                <LinkIcon className="w-3.5 h-3.5 text-amber-600" />
-                <span>ሊንክ ያስገቡ</span>
+                <ShoppingBag className="w-3.5 h-3.5 text-amber-700" />
+                <span>እዘዝ (Order)</span>
               </button>
             )
           )}
@@ -217,6 +233,25 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
           )}
+
+          {/* Tab 5 (For Merchant Portal): For Customer or Merchant */}
+          <button
+            onClick={() => setActiveTab('merchant')}
+            className={`relative flex-1 flex items-center justify-center space-x-1 py-1.5 px-1 rounded-lg font-medium transition-all cursor-pointer ${
+              activeTab === 'merchant'
+                ? 'bg-amber-600 text-white font-bold shadow-xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+            }`}
+            title="የአካባቢ ነጋዴዎች እቃ ማስገቢያ (Merchant Portal)"
+          >
+            <ShoppingBag className={`w-3.5 h-3.5 ${activeTab === 'merchant' ? 'text-white' : 'text-amber-600'}`} />
+            <span>{isWorker ? 'የነጋዴ እቃ' : 'ነጋዴ'}</span>
+            {isWorker && merchantPendingCount > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.2 bg-red-600 text-white text-[9px] font-black rounded-full animate-bounce">
+                {merchantPendingCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
     </header>
