@@ -206,20 +206,8 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       await ctx.replyWithHTML(`
 🔗 <b>የእቃውን ድረ-ገጽ ሊንክ እዚህ ይላኩልን፡</b>
 ━━━━━━━━━━━━━━━━━━━━
-እቃውን ከመረጡበት መተግበሪያ ላይ <b>Share / Copy Link</b> አድርገው እዚህ <b>Paste</b> ያድርጉት።
-
-👇 ገና እቃ ካልመረጡ ከታች ያሉትን ገበያዎች ከፍተው መምረጥ ይችላሉ፡
-`, Markup.inlineKeyboard([
-        [
-          Markup.button.url('🛍️ Shein (ፋሽንና አልባሳት)', 'https://www.shein.com'),
-          Markup.button.url('🛒 Amazon (ሁሉም ዓይነት)', 'https://www.amazon.com')
-        ],
-        [
-          Markup.button.url('⚡ AliExpress (ኤሌክትሮኒክስ)', 'https://www.aliexpress.com'),
-          Markup.button.url('🇨🇳 Pinduoduo (የፋብሪካ ዋጋ)', 'https://mobile.yangkeduo.com')
-        ]
-      ]));
-      await ctx.reply('ሊንኩን ከታች ባለው ሳጥን ውስጥ ይጻፉ ወይም ይለጥፉ (Paste) 👇', Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize());
+እቃውን ከመረጡበት ድረ-ገጽ ወይም መተግበሪያ ላይ ሊንኩን ኮፒ (Copy) አድርገው እዚህ ይላኩልን 👇
+`, Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize());
     });
 
     bot.hears(['📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)', '📸 ፎቶ ላክ', '/photo'], async (ctx) => {
@@ -309,6 +297,19 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     // Worker Command: /confirm <code> [delivery_window]
     
     // Callback Query Handler: Customer Price Acceptance & Decline
+        // Callback Query Handler: From which site did you bring this product?
+    bot.action(/^site:(.+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch (_) {}
+      const site = ctx.match[1];
+      const session = getSession(ctx.from.id);
+      session.data.marketplace = site;
+      session.state = 'AWAITING_SPECS';
+      await ctx.replyWithHTML(
+        `✅ <b>የመረጡት ገበያ፡ ${escapeHtml(site)}</b>\n\nአሁን የእቃውን <b>ብዛት፣ መጠን እና ቀለም</b> (ወይም ተጨማሪ ዝርዝር) ጽፈው ይላኩልን 👇`,
+        Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+      );
+    });
+
     bot.action(/^agree_price:(.+)$/, async (ctx) => {
       try { await ctx.answerCbQuery(); } catch (_) {}
       const code = ctx.match[1];
@@ -661,13 +662,34 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 
       if (session.state === 'AWAITING_LINK') {
         session.data.productUrl = text;
+        session.state = 'AWAITING_SITE';
+        return ctx.replyWithHTML(`
+🌐 <b>ይህንን እቃ ከየትኛው ድረ-ገጽ/መተግበሪያ ነው ያመጡት? (From which site did you bring this product?)</b>
+━━━━━━━━━━━━━━━━━━━━
+ከታች ካሉት አማራጮች አንዱን ይምረጡ ወይም የድረ-ገጹን ስም ጽፈው ይላኩልን 👇
+`, Markup.inlineKeyboard([
+          [
+            Markup.button.callback('🛍️ Shein', 'site:Shein'),
+            Markup.button.callback('🛒 Amazon', 'site:Amazon')
+          ],
+          [
+            Markup.button.callback('⚡ AliExpress', 'site:AliExpress'),
+            Markup.button.callback('🇨🇳 Pinduoduo', 'site:Pinduoduo')
+          ],
+          [
+            Markup.button.callback('📦 ሌላ (Other)', 'site:Other')
+          ]
+        ]));
+      }
+
+      if (session.state === 'AWAITING_SITE') {
+        session.data.marketplace = text.trim();
         session.state = 'AWAITING_SPECS';
         return ctx.replyWithHTML(
-          `✅ <b>ሊንኩ ተመዝግቧል!</b>\\n\\nአሁን <b>ብዛት፣ መጠን እና ቀለም</b> ጽፈው ይላኩልን 👇`,
+          `✅ <b>የመረጡት ገበያ፡ ${escapeHtml(text.trim())}</b>\n\nአሁን የእቃውን <b>ብዛት፣ መጠን እና ቀለም</b> (ወይም ተጨማሪ ዝርዝር) ጽፈው ይላኩልን 👇`,
           Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
         );
       }
-
       if (session.state === 'AWAITING_SPECS') {
         session.data.specs = text;
         session.state = 'AWAITING_PHONE';
