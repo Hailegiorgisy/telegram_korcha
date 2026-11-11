@@ -907,7 +907,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                             title="ወደ ግዢ ጋሪ ጨምር"
                           >
                             <ShoppingCart className="w-3 h-3 text-amber-800" />
-                            <span>+ ጋሪ</span>
+                            <span>+ ካርት</span>
                           </button>
 
                           <button
@@ -941,7 +941,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             </div>
             <div className="truncate">
               <p className="text-[11px] font-black text-white leading-tight">
-                ጋሪዎ ውስጥ: {totalCartCount} እቃዎች
+                ካርትዎ ውስጥ: {totalCartCount} እቃዎች
               </p>
               <p className="text-[10px] text-amber-300 font-bold leading-tight">
                 ጠቅላላ፡ {totalCartPrice.toLocaleString()} ETB (40%: {Math.round(totalCartPrice * 0.4).toLocaleString()} ETB)
@@ -954,7 +954,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             className="py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center space-x-1 shrink-0 shadow-xs active:scale-95 transition-all cursor-pointer"
           >
             <ShoppingCart className="w-3.5 h-3.5" />
-            <span>ጋሪ ክፈት</span>
+            <span>ካርት ክፈት</span>
           </button>
         </div>
       )}
@@ -1109,7 +1109,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                     className="py-2.5 px-3 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-xs flex items-center justify-center space-x-1 border border-amber-300 active:scale-95 transition-all cursor-pointer shadow-2xs"
                   >
                     <ShoppingCart className="w-4 h-4 text-amber-800" />
-                    <span>ወደ ጋሪ ጨምር</span>
+                    <span>ወደ ካርት ጨምር</span>
                   </button>
 
                   <button
@@ -1140,7 +1140,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                   <ShoppingCart className="w-4 h-4" />
                 </div>
                 <h3 className="font-extrabold text-xs text-stone-900">
-                  የግዢ ጋሪ (Shopping Cart) — {totalCartCount} እቃዎች
+                  የግዢ ካርት (Shopping Cart) — {totalCartCount} እቃዎች
                 </h3>
               </div>
               <button
@@ -1154,8 +1154,8 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             {cart.length === 0 ? (
               <div className="py-8 text-center space-y-2">
                 <ShoppingCart className="w-10 h-10 text-stone-300 mx-auto" />
-                <p className="font-bold text-xs text-stone-700">ጋሪዎ ባዶ ነው</p>
-                <p className="text-[10px] text-stone-400">ከመደርደሪያው እቃዎችን ወደ ጋሪዎ ይጨምሩ</p>
+                <p className="font-bold text-xs text-stone-700">ካርትዎ ባዶ ነው</p>
+                <p className="text-[10px] text-stone-400">ከመደርደሪያው እቃዎችን ወደ ካርትዎ ይጨምሩ</p>
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -1213,7 +1213,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
                 {/* Total & Deposit Breakdown */}
                 <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
                   <div className="flex justify-between font-bold text-stone-900">
-                    <span>ጠቅላላ የጋሪ ዋጋ፡</span>
+                    <span>ጠቅላላ የካርት ዋጋ፡</span>
                     <span className="text-amber-900 font-black">{totalCartPrice.toLocaleString()} ETB</span>
                   </div>
                   <div className="flex justify-between text-[11px] text-emerald-800">

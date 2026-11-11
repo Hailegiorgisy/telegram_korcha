@@ -46,6 +46,13 @@
         display: block;
         background-color: #f5f5f4;
       }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
     </style>
   </head>
   <body>
@@ -63,8 +70,30 @@
       (function() {
         const { useState, useEffect, createElement: h } = React;
 
-        // Structured Shelves by Country / Market Hub
+        // Structured Shelves: China (Top) and 3 Regional Marts (USA, Arabian, Korean)
         const INITIAL_PRODUCTS = [
+          {
+            id: 5,
+            country: 'CHINA',
+            category: 'Electronics',
+            name: "Wireless ANC Bluetooth Earbuds with Smart LED Display",
+            size: "One Size",
+            price_etb: 1950,
+            photo_url: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&auto=format&fit=crop&q=80",
+            description: "ከቻይና ቀጥታ ፋብሪካ የሚመጣ ድምፅ መከላከያ ያለው ኤርፎን።",
+            is_bestseller: true
+          },
+          {
+            id: 6,
+            country: 'CHINA',
+            category: 'Kitchen & Home',
+            name: "Multifunctional Electric Hot Pot & Cooker",
+            size: "1.8L",
+            price_etb: 2600,
+            photo_url: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=500&auto=format&fit=crop&q=80",
+            description: "ለፈጣን ምግብ ማብሰያ ተመራጭ የቻይና እቃ።",
+            is_bestseller: false
+          },
           {
             id: 1,
             country: 'USA',
@@ -108,34 +137,29 @@
             photo_url: "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=500&auto=format&fit=crop&q=80",
             description: "የዱባይ እና ሳውዲ ልዩ መአዛ ያለው የቅንጦት ሽቶ።",
             is_bestseller: true
-          },
-          {
-            id: 5,
-            country: 'CHINA',
-            category: 'Electronics',
-            name: "Wireless ANC Bluetooth Earbuds with Smart LED Display",
-            size: "One Size",
-            price_etb: 1950,
-            photo_url: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&auto=format&fit=crop&q=80",
-            description: "ከቻይና ቀጥታ ፋብሪካ የሚመጣ ድምፅ መከላከያ ያለው ኤርፎን።",
-            is_bestseller: true
           }
         ];
 
-        const COUNTRIES = [
+        const CHINA_CATEGORIES = ['All', 'Electronics', 'Kitchen & Home', 'Clothing', 'Others'];
+
+        const THREE_REGIONS = [
           { id: 'USA', name: 'USA Mart', flag: '🇺🇸', categories: ['All', 'Food', 'Supplements', 'Skin care products', 'Others'] },
           { id: 'ARABIAN', name: 'Arabian Mart', flag: '🇸🇦 🇦🇪', categories: ['All', 'Perfume & Oud', 'Abaya & Fashion', 'Supplements', 'Others'] },
-          { id: 'KOREAN', name: 'Korean Mart', flag: '🇰🇷', categories: ['All', 'Skin care products'] },
-          { id: 'CHINA', name: 'China (ቻይና)', flag: '🇨🇳', categories: ['All', 'Electronics', 'Kitchen & Home', 'Clothing', 'Others'] }
+          { id: 'KOREAN', name: 'Korean Mart', flag: '🇰🇷', categories: ['All', 'Skin care products'] }
         ];
 
         function KorchaApp() {
           const [activeTab, setActiveTab] = useState('home');
           const [products, setProducts] = useState(INITIAL_PRODUCTS);
-          const [selectedCountry, setSelectedCountry] = useState('USA');
-          const [selectedCategory, setSelectedCategory] = useState('All');
 
-          // Worker state & role separation
+          // China shelf category filter
+          const [chinaCategory, setChinaCategory] = useState('All');
+
+          // Three regions shelf state
+          const [selectedRegion, setSelectedRegion] = useState('USA');
+          const [regionCategory, setRegionCategory] = useState('All');
+
+          // Worker role detection
           const urlParams = new URLSearchParams(window.location.search);
           const tgUser = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user : null;
           const tgUsername = tgUser && tgUser.username ? tgUser.username.replace('@', '').toLowerCase() : '';
@@ -143,7 +167,7 @@
           const [workerPreviewCustomer, setWorkerPreviewCustomer] = useState(false);
           const isWorkerModeActive = isAuthorizedWorker && !workerPreviewCustomer;
 
-          // Cart state
+          // Cart state (Changed to ካርት)
           const [cart, setCart] = useState(function() {
             try {
               const raw = localStorage.getItem('korcha_cart');
@@ -160,12 +184,12 @@
           const [quotePhone, setQuotePhone] = useState('');
           const [quoteSite, setQuoteSite] = useState('');
 
-          // Worker modals: Add Product & Edit Product
+          // Worker Add/Edit Product state
           const [isAddProductOpen, setIsAddProductOpen] = useState(false);
           const [editingProduct, setEditingProduct] = useState(null);
           const [newProdName, setNewProdName] = useState('');
-          const [newProdCountry, setNewProdCountry] = useState('USA');
-          const [newProdCategory, setNewProdCategory] = useState('Food');
+          const [newProdCountry, setNewProdCountry] = useState('CHINA');
+          const [newProdCategory, setNewProdCategory] = useState('Electronics');
           const [newProdPrice, setNewProdPrice] = useState('');
           const [newProdSize, setNewProdSize] = useState('Standard');
           const [newProdPhoto, setNewProdPhoto] = useState('');
@@ -178,7 +202,7 @@
           const [newMsgText, setNewMsgText] = useState('');
           const [chatPhone, setChatPhone] = useState('');
 
-          // Order Tracking state
+          // Tracker state
           const [searchCode, setSearchCode] = useState('');
           const [trackedResult, setTrackedResult] = useState(null);
           const [isTracking, setIsTracking] = useState(false);
@@ -186,7 +210,7 @@
           // Zoom state
           const [zoomedProduct, setZoomedProduct] = useState(null);
 
-          // Load live products from backend
+          // Fetch products from backend
           useEffect(function() {
             fetch('/api/shelf')
               .then(function(res) { return res.json(); })
@@ -198,7 +222,7 @@
               .catch(function() {});
           }, []);
 
-          // Sync cart
+          // Sync cart to localStorage
           useEffect(function() {
             try { localStorage.setItem('korcha_cart', JSON.stringify(cart)); } catch (e) {}
           }, [cart]);
@@ -233,14 +257,22 @@
           const totalCartPrice = cart.reduce(function(s, i) { return s + (i.product.price_etb * i.quantity); }, 0);
           const totalCartCount = cart.reduce(function(s, i) { return s + i.quantity; }, 0);
 
-          // Filter shelf products by selected country and category
-          const displayedProducts = products.filter(function(p) {
-            const matchesCountry = (p.country || 'USA').toUpperCase() === selectedCountry.toUpperCase();
-            const matchesCategory = selectedCategory === 'All' || !p.category || p.category.toLowerCase() === selectedCategory.toLowerCase();
-            return matchesCountry && matchesCategory;
+          // Products filtered for China Shelf (Top)
+          const chinaProducts = products.filter(function(p) {
+            const isChina = (p.country || '').toUpperCase() === 'CHINA';
+            const matchesCat = chinaCategory === 'All' || !p.category || p.category.toLowerCase() === chinaCategory.toLowerCase();
+            return isChina && matchesCat;
           });
 
-          // Worker CRUD functions
+          // Products filtered for Three Regions Shelf (Below China)
+          const activeRegionObj = THREE_REGIONS.find(function(r) { return r.id === selectedRegion; }) || THREE_REGIONS[0];
+          const regionProducts = products.filter(function(p) {
+            const isReg = (p.country || '').toUpperCase() === selectedRegion.toUpperCase();
+            const matchesCat = regionCategory === 'All' || !p.category || p.category.toLowerCase() === regionCategory.toLowerCase();
+            return isReg && matchesCat;
+          });
+
+          // Worker CRUD handlers
           const handleSaveNewProduct = function(e) {
             e.preventDefault();
             if (!newProdName.trim() || !newProdPrice) {
@@ -295,7 +327,7 @@
             setEditingProduct(null);
           };
 
-          // Chat send function
+          // Chat send handler
           const handleSendChatMessage = function(e) {
             e.preventDefault();
             if (!newMsgText.trim()) return;
@@ -307,7 +339,6 @@
             };
             setChatMessages(function(prev) { return prev.concat([msg]); });
             setNewMsgText('');
-            // Forward to server
             fetch('/api/quotes', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -318,10 +349,63 @@
             }).catch(function() {});
           };
 
-          const activeCountryObj = COUNTRIES.find(function(c) { return c.id === selectedCountry; }) || COUNTRIES[0];
+          // Render Product Card Component Helper
+          const renderProductCard = function(p) {
+            return h('div', { key: p.id, className: 'bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs flex flex-col justify-between' },
+              // Image
+              h('div', {
+                onClick: function() { setZoomedProduct(p); },
+                className: 'relative aspect-square bg-stone-100 cursor-pointer overflow-hidden'
+              },
+                h('img', { src: p.photo_url, alt: p.name, className: 'w-full h-full object-cover' }),
+                p.is_bestseller ? h('span', { className: 'absolute top-1 left-1 bg-amber-500 text-stone-950 font-black text-[8px] px-1.5 py-0.2 rounded' }, 'ተወዳጅ') : null,
+                h('span', { className: 'absolute bottom-1 right-1 bg-stone-900/70 text-white text-[8px] px-1.5 py-0.2 rounded font-bold' }, '🔍 አጉላ')
+              ),
+
+              // Details
+              h('div', { className: 'p-2 space-y-1 flex flex-col justify-between flex-1' },
+                h('div', null,
+                  h('h4', { className: 'font-extrabold text-[11px] text-stone-900 line-clamp-2 leading-tight' }, p.name),
+                  p.size ? h('p', { className: 'text-[9px] text-stone-500' }, 'መጠን: ' + p.size) : null
+                ),
+
+                h('div', { className: 'pt-1 border-t border-stone-100 space-y-1' },
+                  h('div', { className: 'flex items-baseline justify-between' },
+                    h('span', { className: 'text-xs font-black text-amber-700' }, Number(p.price_etb).toLocaleString() + ' ETB'),
+                    !isWorkerModeActive ? h('span', { className: 'text-[8px] text-stone-400' }, '40%: ' + Math.round(p.price_etb * 0.4).toLocaleString()) : null
+                  ),
+
+                  // ROLE-BASED CONTROLS: (Changed to ካርት)
+                  isWorkerModeActive ? (
+                    h('div', { className: 'grid grid-cols-2 gap-1 pt-0.5' },
+                      h('button', {
+                        onClick: function() { setEditingProduct(Object.assign({}, p)); },
+                        className: 'py-1 px-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300'
+                      }, '✏️ አርም'),
+                      h('button', {
+                        onClick: function() { handleDeleteProduct(p.id); },
+                        className: 'py-1 px-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-[10px] border border-red-200'
+                      }, '🗑️ አጥፋ')
+                    )
+                  ) : (
+                    h('div', { className: 'grid grid-cols-2 gap-1 pt-0.5' },
+                      h('button', {
+                        onClick: function() { addToCart(p); },
+                        className: 'py-1 px-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[10px] border border-amber-300'
+                      }, '+ ካርት'),
+                      h('button', {
+                        onClick: function() { setQuoteMode('screenshot'); setQuoteSpecs(p.name); setQuoteSite(p.country || 'International'); setIsQuoteOpen(true); },
+                        className: 'py-1 px-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-[10px] shadow-xs'
+                      }, 'እዘዝ')
+                    )
+                  )
+                )
+              )
+            );
+          };
 
           return h('div', { className: 'max-w-md mx-auto min-h-screen pb-20 bg-stone-100 flex flex-col' },
-            // Top App Bar
+            // App Header
             h('header', { className: 'sticky top-0 z-30 bg-white border-b border-stone-200 px-4 py-2.5 shadow-xs' },
               h('div', { className: 'flex items-center justify-between' },
                 h('div', { className: 'flex items-center space-x-2' },
@@ -342,12 +426,12 @@
 
                   !isWorkerModeActive && totalCartCount > 0 ? h('button', {
                     onClick: function() { setIsCartOpen(true); },
-                    className: 'px-2.5 py-1 rounded-full bg-amber-500 text-stone-950 font-bold text-xs flex items-center space-x-1 shadow-xs cursor-pointer active:scale-95'
+                    className: 'px-2.5 py-1.5 rounded-full bg-amber-500 text-stone-950 font-bold text-xs flex items-center space-x-1 shadow-xs cursor-pointer active:scale-95'
                   }, '🛒 ' + totalCartCount) : null
                 )
               ),
 
-              // Navigation Tabs (3 Clean Action Tabs)
+              // Navigation Tabs
               h('div', { className: 'flex items-center justify-between border-t border-stone-100 mt-2 pt-1.5 gap-1.5' },
                 h('button', {
                   onClick: function() { setActiveTab('home'); },
@@ -367,26 +451,36 @@
             ),
 
             // Main Content Area
-            h('main', { className: 'p-3 space-y-3 flex-1' },
+            h('main', { className: 'p-3 space-y-3.5 flex-1' },
               activeTab === 'home' ? [
-                // Worker Operations Header Banner (Shown ONLY for Workers)
+                // Worker Admin Banner
                 isWorkerModeActive ? h('div', { key: 'worker-bar', className: 'p-3 rounded-2xl bg-gradient-to-r from-stone-900 to-amber-950 text-white border border-amber-500/40 space-y-2' },
                   h('div', { className: 'flex items-center justify-between' },
                     h('span', { className: 'px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/40' }, '🛠️ የሰራተኛ መደርደሪያ መቆጣጠሪያ'),
                     h('span', { className: 'text-[10px] text-amber-400 font-bold' }, '@korcha_support')
                   ),
                   h('p', { className: 'text-xs text-stone-300' }, 'እቃዎችን መደመር፣ ዋጋ መቀየር እና ከመደርደሪያ ማጥፋት ይችላሉ።'),
-                  h('button', {
-                    onClick: function() {
-                      setNewProdCountry(selectedCountry);
-                      setNewProdCategory(selectedCategory === 'All' ? activeCountryObj.categories[1] || 'General' : selectedCategory);
-                      setIsAddProductOpen(true);
-                    },
-                    className: 'w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 shadow-md cursor-pointer'
-                  }, '+ አዲስ እቃ ወደ ' + activeCountryObj.name + ' ጨምር')
+                  h('div', { className: 'grid grid-cols-2 gap-1.5' },
+                    h('button', {
+                      onClick: function() {
+                        setNewProdCountry('CHINA');
+                        setNewProdCategory('Electronics');
+                        setIsAddProductOpen(true);
+                      },
+                      className: 'py-2 px-2 rounded-xl bg-amber-500 text-stone-950 font-black text-[11px] shadow-xs cursor-pointer'
+                    }, '+ እቃ ወደ ቻይና መደርደሪያ'),
+                    h('button', {
+                      onClick: function() {
+                        setNewProdCountry(selectedRegion);
+                        setNewProdCategory(activeRegionObj.categories[1] || 'General');
+                        setIsAddProductOpen(true);
+                      },
+                      className: 'py-2 px-2 rounded-xl bg-amber-400 text-stone-950 font-black text-[11px] shadow-xs cursor-pointer'
+                    }, '+ እቃ ወደ ' + activeRegionObj.name)
+                  )
                 ) : null,
 
-                // Customer Order CTA Banner (Shown ONLY for Customers)
+                // Customer Order CTA Banner
                 !isWorkerModeActive ? h('div', { key: 'hero', className: 'relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-3.5 shadow-md border border-amber-900/30' },
                   h('div', { className: 'relative z-10 space-y-2' },
                     h('div', { className: 'flex items-center justify-between' },
@@ -396,144 +490,114 @@
                     h('h2', { className: 'text-sm font-extrabold leading-snug' }, 'ከፈለጉት ሀገር እቃ ይዘዙ፣ በርዎ ድረስ እናደርሳለን!'),
                     h('div', { className: 'grid grid-cols-2 gap-2 pt-1' },
                       h('button', {
-                        onClick: function() { setQuoteMode('link'); setQuoteSite(activeCountryObj.name); setIsQuoteOpen(true); },
+                        onClick: function() { setQuoteMode('link'); setQuoteSite('China Direct'); setIsQuoteOpen(true); },
                         className: 'py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 active:scale-95 cursor-pointer shadow-xs'
                       }, '🔗 በሊንክ እዘዝ'),
                       h('button', {
-                        onClick: function() { setQuoteMode('screenshot'); setQuoteSite(activeCountryObj.name); setIsQuoteOpen(true); },
+                        onClick: function() { setQuoteMode('screenshot'); setQuoteSite('International'); setIsQuoteOpen(true); },
                         className: 'py-2 px-2.5 rounded-xl bg-white/15 text-white font-bold text-xs flex items-center justify-center space-x-1 border border-white/20 active:scale-95 cursor-pointer'
                       }, '📸 በፎቶ እዘዝ')
                     )
                   )
                 ) : null,
 
-                // 1. The Regional Marketplaces ARE the Shelf (Comment 1 & 2)
-                h('div', { key: 'country-tabs', className: 'bg-white rounded-2xl p-2.5 border border-stone-200 space-y-2 shadow-2xs' },
-                  h('div', { className: 'flex items-center justify-between text-[10px] font-bold text-stone-500 px-0.5' },
-                    h('span', null, 'የገበያ መነሻ ሀገሮች (Sourcing Hubs):'),
-                    h('span', { className: 'text-amber-700' }, 'እቃዎችን ለማየት ይጫኑ')
+                // ==========================================
+                // 1. CHINA SHELF (SEPARATE & AT THE VERY TOP)
+                // ==========================================
+                h('div', { key: 'china-shelf-box', className: 'bg-white rounded-2xl p-3 border-2 border-red-500/30 shadow-xs space-y-2' },
+                  h('div', { className: 'flex items-center justify-between pb-1 border-b border-stone-100' },
+                    h('div', { className: 'flex items-center space-x-1.5' },
+                      h('span', { className: 'text-base' }, '🇨🇳'),
+                      h('h3', { className: 'font-black text-xs text-stone-900' }, 'የቻይና መደርደሪያ (China Shelf)'),
+                      h('span', { className: 'px-1.5 py-0.2 rounded-md bg-red-100 text-red-800 font-bold text-[9px]' }, 'የፋብሪካ ዋጋ')
+                    ),
+                    !isWorkerModeActive ? h('button', {
+                      onClick: function() { setQuoteMode('link'); setQuoteSite('China Market'); setIsQuoteOpen(true); },
+                      className: 'text-[10px] font-bold text-amber-700 hover:text-amber-800'
+                    }, 'ከቻይና እዘዝ →') : null
                   ),
 
-                  // 4 Country Hubs: USA Mart, Arabian Mart, Korean Mart, China
-                  h('div', { className: 'grid grid-cols-4 gap-1' },
-                    COUNTRIES.map(function(c) {
-                      const isSelected = selectedCountry === c.id;
-                      return h('button', {
-                        key: c.id,
-                        onClick: function() {
-                          setSelectedCountry(c.id);
-                          setSelectedCategory('All');
-                        },
-                        className: 'py-2 px-1 rounded-xl text-center border transition-all cursor-pointer ' + (isSelected ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs' : 'border-stone-200 bg-stone-50 text-stone-700 font-bold hover:bg-amber-50')
-                      },
-                        h('span', { className: 'text-sm block leading-none' }, c.flag),
-                        h('span', { className: 'text-[9.5px] block font-extrabold truncate mt-1' }, c.name)
-                      );
-                    })
-                  ),
-
-                  // Category Pills for the selected country
-                  h('div', { className: 'pt-1.5 border-t border-stone-100 flex items-center space-x-1 overflow-x-auto no-scrollbar' },
-                    activeCountryObj.categories.map(function(cat) {
-                      const isCatActive = selectedCategory === cat;
+                  // China Shelf Category Filter Pills
+                  h('div', { className: 'flex items-center space-x-1 overflow-x-auto no-scrollbar pt-0.5' },
+                    CHINA_CATEGORIES.map(function(cat) {
+                      const isCatActive = chinaCategory === cat;
                       return h('button', {
                         key: cat,
-                        onClick: function() { setSelectedCategory(cat); },
-                        className: 'shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ' + (isCatActive ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200')
+                        onClick: function() { setChinaCategory(cat); },
+                        className: 'shrink-0 px-2.5 py-1 rounded-full text-[9.5px] font-bold border transition-all cursor-pointer ' + (isCatActive ? 'bg-red-600 text-white border-red-600 shadow-xs' : 'bg-stone-50 text-stone-700 border-stone-200 hover:bg-stone-100')
                       }, cat);
                     })
+                  ),
+
+                  // China Products Display
+                  chinaProducts.length > 0 ? h('div', { className: 'grid grid-cols-2 gap-2 pt-1' },
+                    chinaProducts.map(renderProductCard)
+                  ) : (
+                    h('div', { className: 'p-3 bg-red-50/50 rounded-xl text-center space-y-1.5 border border-red-100' },
+                      h('p', { className: 'text-[11px] font-bold text-stone-700' }, 'በዚህ ምድብ የፈለጉትን የቻይና እቃ በሊንክ ወይም በፎቶ ማዘዝ ይችላሉ!'),
+                      h('button', {
+                        onClick: function() { setQuoteMode('link'); setQuoteSite('China Market'); setIsQuoteOpen(true); },
+                        className: 'px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold text-[10px] shadow-xs'
+                      }, 'ከቻይና እቃ እዘዝ')
+                    )
                   )
                 ),
 
-                // 2. The Dynamic Product Shelf for selected Country & Category
-                h('div', { key: 'shelf-view', className: 'space-y-2' },
-                  h('div', { className: 'flex items-center justify-between px-0.5' },
-                    h('h3', { className: 'text-xs font-black text-stone-900 flex items-center space-x-1' },
-                      h('span', null, activeCountryObj.flag),
-                      h('span', null, activeCountryObj.name + ' የመደርደሪያ እቃዎች (' + displayedProducts.length + ')')
-                    ),
-                    isWorkerModeActive ? h('button', {
-                      onClick: function() {
-                        setNewProdCountry(selectedCountry);
-                        setNewProdCategory(selectedCategory === 'All' ? activeCountryObj.categories[1] || 'General' : selectedCategory);
-                        setIsAddProductOpen(true);
-                      },
-                      className: 'text-[10px] font-black text-amber-700 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-md border border-amber-300'
-                    }, '+ አዲስ እቃ') : null
+                // ==========================================
+                // 2. THE THREE REGIONAL MARTS (USA, ARABIAN, KOREAN)
+                // ==========================================
+                h('div', { key: 'three-regions-box', className: 'bg-white rounded-2xl p-3 border border-stone-200 shadow-xs space-y-2.5' },
+                  h('div', { className: 'flex items-center justify-between pb-1 border-b border-stone-100' },
+                    h('h3', { className: 'font-black text-xs text-stone-900' }, 'ዓለም አቀፍ መደርደሪያዎች (International Marts)'),
+                    h('span', { className: 'text-[9.5px] text-amber-700 font-bold' }, activeRegionObj.name)
                   ),
 
-                  displayedProducts.length > 0 ? h('div', { className: 'grid grid-cols-2 gap-2' },
-                    displayedProducts.map(function(p) {
-                      return h('div', { key: p.id, className: 'bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs flex flex-col justify-between' },
-                        // Image & Zoom
-                        h('div', {
-                          onClick: function() { setZoomedProduct(p); },
-                          className: 'relative aspect-square bg-stone-100 cursor-pointer overflow-hidden'
+                  // 3 Country Buttons
+                  h('div', { className: 'grid grid-cols-3 gap-1.5' },
+                    THREE_REGIONS.map(function(r) {
+                      const isSelected = selectedRegion === r.id;
+                      return h('button', {
+                        key: r.id,
+                        onClick: function() {
+                          setSelectedRegion(r.id);
+                          setRegionCategory('All');
                         },
-                          h('img', { src: p.photo_url, alt: p.name, className: 'w-full h-full object-cover' }),
-                          p.is_bestseller ? h('span', { className: 'absolute top-1 left-1 bg-amber-500 text-stone-950 font-black text-[8px] px-1.5 py-0.2 rounded' }, 'ተወዳጅ') : null,
-                          h('span', { className: 'absolute bottom-1 right-1 bg-stone-900/70 text-white text-[8px] px-1.5 py-0.2 rounded font-bold' }, '🔍 አጉላ')
-                        ),
-
-                        // Info
-                        h('div', { className: 'p-2 space-y-1 flex flex-col justify-between flex-1' },
-                          h('div', null,
-                            h('h4', { className: 'font-extrabold text-[11px] text-stone-900 line-clamp-2 leading-tight' }, p.name),
-                            p.size ? h('p', { className: 'text-[9px] text-stone-500' }, 'መጠን: ' + p.size) : null
-                          ),
-
-                          h('div', { className: 'pt-1 border-t border-stone-100 space-y-1' },
-                            h('div', { className: 'flex items-baseline justify-between' },
-                              h('span', { className: 'text-xs font-black text-amber-700' }, Number(p.price_etb).toLocaleString() + ' ETB'),
-                              !isWorkerModeActive ? h('span', { className: 'text-[8px] text-stone-400' }, '40%: ' + Math.round(p.price_etb * 0.4).toLocaleString()) : null
-                            ),
-
-                            // ROLE-SEPARATED BUTTONS (Comment 4)
-                            isWorkerModeActive ? (
-                              // WORKER CONTROLS: EDIT & DELETE (NO ORDER BUTTONS)
-                              h('div', { className: 'grid grid-cols-2 gap-1 pt-0.5' },
-                                h('button', {
-                                  onClick: function() { setEditingProduct(Object.assign({}, p)); },
-                                  className: 'py-1 px-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300'
-                                }, '✏️ አርም'),
-                                h('button', {
-                                  onClick: function() { handleDeleteProduct(p.id); },
-                                  className: 'py-1 px-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-[10px] border border-red-200'
-                                }, '🗑️ አጥፋ')
-                              )
-                            ) : (
-                              // CUSTOMER CONTROLS: ADD TO CART & ORDER NOW
-                              h('div', { className: 'grid grid-cols-2 gap-1 pt-0.5' },
-                                h('button', {
-                                  onClick: function() { addToCart(p); },
-                                  className: 'py-1 px-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[10px] border border-amber-300'
-                                }, '+ ጋሪ'),
-                                h('button', {
-                                  onClick: function() { setQuoteMode('screenshot'); setQuoteSpecs(p.name); setIsQuoteOpen(true); },
-                                  className: 'py-1 px-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-[10px] shadow-xs'
-                                }, 'እዘዝ')
-                              )
-                            )
-                          )
-                        )
+                        className: 'py-2 px-1 rounded-xl text-center border transition-all cursor-pointer ' + (isSelected ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs' : 'border-stone-200 bg-stone-50 text-stone-700 font-bold hover:bg-amber-50')
+                      },
+                        h('span', { className: 'text-sm block leading-none' }, r.flag),
+                        h('span', { className: 'text-[10px] block font-extrabold truncate mt-1' }, r.name)
                       );
                     })
+                  ),
+
+                  // Category Pills for the selected region
+                  h('div', { className: 'flex items-center space-x-1 overflow-x-auto no-scrollbar pt-0.5' },
+                    activeRegionObj.categories.map(function(cat) {
+                      const isCatActive = regionCategory === cat;
+                      return h('button', {
+                        key: cat,
+                        onClick: function() { setRegionCategory(cat); },
+                        className: 'shrink-0 px-2.5 py-1 rounded-full text-[9.5px] font-bold border transition-all cursor-pointer ' + (isCatActive ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200')
+                      }, cat);
+                    })
+                  ),
+
+                  // Region Products Grid
+                  regionProducts.length > 0 ? h('div', { className: 'grid grid-cols-2 gap-2 pt-1' },
+                    regionProducts.map(renderProductCard)
                   ) : (
-                    // Empty Shelf Sourcing Card
-                    h('div', { className: 'p-4 rounded-2xl bg-white border border-stone-200 text-center space-y-2' },
-                      h('p', { className: 'text-xs text-stone-700 font-bold' },
-                        'በዚህ ምድብ (' + activeCountryObj.name + ') ያልተጫነ ማንኛውንም እቃ በሊንክ ወይም በፎቶ ማዘዝ ይችላሉ!'
-                      ),
+                    h('div', { className: 'p-3 bg-amber-50/50 rounded-xl text-center space-y-1.5 border border-amber-100' },
+                      h('p', { className: 'text-[11px] font-bold text-stone-700' }, 'በ ' + activeRegionObj.name + ' ያልተጫነ ማንኛውንም እቃ በሊንክ ወይም በፎቶ ማዘዝ ይችላሉ!'),
                       h('button', {
-                        onClick: function() { setQuoteMode('link'); setQuoteSite(activeCountryObj.name); setIsQuoteOpen(true); },
-                        className: 'px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-black text-xs shadow-xs'
-                      }, 'እቃውን በሊንክ ወይም በፎቶ እዘዝ →')
+                        onClick: function() { setQuoteMode('link'); setQuoteSite(activeRegionObj.name); setIsQuoteOpen(true); },
+                        className: 'px-3 py-1.5 rounded-lg bg-amber-500 text-stone-950 font-bold text-[10px] shadow-xs'
+                      }, 'እቃውን እዘዝ')
                     )
                   )
                 )
               ] : null,
 
-              // 3. Tab 2: Tracker (Real Order Lookup)
+              // Tracker Tab
               activeTab === 'tracker' ? h('div', { className: 'bg-white rounded-2xl p-4 border border-stone-200 shadow-xs space-y-3' },
                 h('h3', { className: 'font-extrabold text-sm text-stone-900' }, '📦 የትዕዛዝ ሁኔታ መከታተያ (Track Order)'),
                 h('form', {
@@ -578,7 +642,7 @@
                 ) : null
               ) : null,
 
-              // 4. Tab 3: Interactive Live Chat with Workers (Comment 3)
+              // Support / Live Chat Tab
               activeTab === 'support' ? h('div', { className: 'bg-white rounded-2xl p-3 border border-stone-200 shadow-xs space-y-3 flex flex-col min-h-[70vh]' },
                 h('div', { className: 'flex items-center justify-between border-b pb-2' },
                   h('div', { className: 'flex items-center space-x-1.5' },
@@ -592,7 +656,6 @@
                   }, '@korcha_support ↗')
                 ),
 
-                // Chat Message Stream
                 h('div', { className: 'flex-1 space-y-2 overflow-y-auto max-h-[50vh] p-1' },
                   chatMessages.map(function(m) {
                     const isMe = m.sender === 'customer';
@@ -605,7 +668,6 @@
                   })
                 ),
 
-                // Chat Input Box
                 h('form', { onSubmit: handleSendChatMessage, className: 'space-y-1.5 pt-2 border-t border-stone-100' },
                   h('input', {
                     type: 'tel',
@@ -629,22 +691,22 @@
               ) : null
             ),
 
-            // Persistent Floating Cart
+            // Persistent Floating Cart (Changed to ካርት)
             !isWorkerModeActive && totalCartCount > 0 && !isCartOpen ? h('div', { className: 'fixed bottom-3 inset-x-3 max-w-md mx-auto z-40' },
               h('div', {
                 onClick: function() { setIsCartOpen(true); },
                 className: 'p-3 rounded-2xl bg-stone-900 text-white shadow-xl flex items-center justify-between cursor-pointer border border-amber-500/40'
               },
-                h('span', { className: 'text-xs font-bold' }, '🛒 የግዢ ጋሪ (' + totalCartCount + ' እቃዎች)'),
+                h('span', { className: 'text-xs font-bold' }, '🛒 የግዢ ካርት (' + totalCartCount + ' እቃዎች)'),
                 h('span', { className: 'text-xs font-black text-amber-400' }, totalCartPrice.toLocaleString() + ' ETB →')
               )
             ) : null,
 
-            // Cart Drawer Modal
+            // Cart Drawer Modal (Changed to ካርት)
             isCartOpen ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-end justify-center' },
               h('div', { className: 'bg-white rounded-t-3xl max-w-md w-full p-4 space-y-3 max-h-[85vh] overflow-y-auto' },
                 h('div', { className: 'flex items-center justify-between border-b pb-2' },
-                  h('h3', { className: 'font-extrabold text-sm' }, 'የግዢ ጋሪ (Shopping Cart)'),
+                  h('h3', { className: 'font-extrabold text-sm' }, 'የግዢ ካርት (Shopping Cart)'),
                   h('button', { onClick: function() { setIsCartOpen(false); }, className: 'font-bold text-stone-500' }, '✕')
                 ),
                 cart.map(function(item) {
@@ -662,7 +724,7 @@
                 }),
                 h('div', { className: 'pt-2' },
                   h('div', { className: 'flex justify-between font-extrabold text-sm' },
-                    h('span', null, 'ጠቅላላ ዋጋ:'),
+                    h('span', null, 'ጠቅላላ የካርት ዋጋ:'),
                     h('span', { className: 'text-amber-700' }, totalCartPrice.toLocaleString() + ' ETB')
                   ),
                   h('button', {
@@ -677,7 +739,7 @@
               )
             ) : null,
 
-            // Quote Modal (Link or Photo)
+            // Quote Modal
             isQuoteOpen ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-center justify-center p-3' },
               h('div', { className: 'bg-white rounded-2xl max-w-sm w-full p-4 space-y-3' },
                 h('div', { className: 'flex items-center justify-between' },
@@ -697,7 +759,7 @@
                   className: 'space-y-2.5 text-xs'
                 },
                   h('div', { className: 'text-[11px] font-bold text-amber-800 bg-amber-50 p-2 rounded-lg' },
-                    'መነሻ ገበያ፡ ' + (quoteSite || activeCountryObj.name)
+                    'መነሻ ገበያ፡ ' + (quoteSite || 'International')
                   ),
                   quoteMode === 'link' ?
                     h('input', {
@@ -729,7 +791,7 @@
               )
             ) : null,
 
-            // Worker: Add Product Modal (Comment 4)
+            // Worker: Add Product Modal
             isAddProductOpen ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-center justify-center p-3' },
               h('div', { className: 'bg-white rounded-2xl max-w-sm w-full p-4 space-y-3' },
                 h('div', { className: 'flex items-center justify-between' },
@@ -743,7 +805,10 @@
                       onChange: function(e) { setNewProdCountry(e.target.value); },
                       className: 'p-2 rounded-lg border border-stone-300 font-bold'
                     },
-                      COUNTRIES.map(function(c) { return h('option', { key: c.id, value: c.id }, c.name); })
+                      h('option', { value: 'CHINA' }, '🇨🇳 China Shelf (የቻይና)'),
+                      h('option', { value: 'USA' }, '🇺🇸 USA Mart'),
+                      h('option', { value: 'ARABIAN' }, '🇸🇦 🇦🇪 Arabian Mart'),
+                      h('option', { value: 'KOREAN' }, '🇰🇷 Korean Mart')
                     ),
                     h('input', {
                       type: 'text',
@@ -796,7 +861,7 @@
               )
             ) : null,
 
-            // Worker: Edit Product Modal (Comment 4)
+            // Worker: Edit Product Modal
             editingProduct ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-center justify-center p-3' },
               h('div', { className: 'bg-white rounded-2xl max-w-sm w-full p-4 space-y-3' },
                 h('div', { className: 'flex items-center justify-between' },
@@ -845,7 +910,7 @@
                   !isWorkerModeActive ? h('button', {
                     onClick: function() { addToCart(zoomedProduct); setZoomedProduct(null); },
                     className: 'px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs'
-                  }, '+ ወደ ጋሪ ጨምር') : null
+                  }, '+ ወደ ካርት ጨምር') : null
                 )
               )
             ) : null
