@@ -63,6 +63,7 @@ const WORKER_USERNAME = (process.env.WORKER_TELEGRAM_USERNAME || 'korcha_support
 const TELEBIRR_PHONE = process.env.TELEBIRR_PHONE || '+251-996237800';
 const CBE_ACCOUNT = process.env.CBE_ACCOUNT || '10001116390';
 const PORT = process.env.PORT || 3000;
+const MINI_APP_URL = process.env.MINI_APP_URL || 'https://telegram.korcha.com.et';
 const AUTO_TRACKING_RESPONSE = 'ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል። ትንሽ ይጠብቁ።';
 
 function escapeHtml(text) {
@@ -118,6 +119,7 @@ function clearSession(userId) {
 // Keyboards
 function getMainMenuKeyboard() {
   return Markup.keyboard([
+    [Markup.button.webApp('🛍️ ሱቅ ይክፈቱ (Open Mini App)', MINI_APP_URL)],
     ['🔗 ሊንክ ያስገቡ (Insert Link)', '📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)'],
     ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
     ['💳 የክፍያ አማራጮች (Telebirr & CBE)', 'ℹ️ ስለ ኮርቻ (About Us)']
@@ -138,7 +140,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 👋 <b>እንኳን ወደ ኮርቻ (KORCHA) በደህና መጡ!</b>
 <i>የውጭ ገበያ እቃ አቅራቢ — ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ</i>
 
-ከ <b>KSA/UAE, USA ወይም China</b> ላይ የፈለጉትን እቃ ይዘዙ። ሰራተኞቻችን ወጪውን አስልተው በርዎ ድረስ ያደርሳሉ!
+ከ <b>Arabian Mart, USA Mart ወይም China Direct</b> ላይ የፈለጉትን እቃ ይዘዙ። ሰራተኞቻችን ወጪውን አስልተው በርዎ ድረስ ያደርሳሉ!
 
 💳 <b>ልዩ የክፍያ ዋስትና፡</b>
 • 100% በብር በ <b>Telebirr</b> ወይም <b>CBE Birr</b> ይክፈሉ
@@ -155,18 +157,27 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       const promptText = `
 🌍 <b>የእቃውን መነሻ ሀገር/ገበያ ይምረጡ (Select Sourcing Hub):</b>
 ━━━━━━━━━━━━━━━━━━━━
-1️⃣ 🇸🇦/🇦🇪 <b>KSA / UAE (ሳውዲ / ኤምሬትስ)</b> — Noon, Amazon AE (5-8 ቀናት)
-2️⃣ 🇺🇸 <b>USA (አሜሪካ)</b> — Amazon US, eBay (10-14 ቀናት)
-3️⃣ 🇨🇳 <b>China (ቻይና)</b> — Pingodo, Shein, AliExpress (የፋብሪካ ዋጋ)
+1️⃣ 🇸🇦/🇦🇪 <b>Arabian Mart (ሳውዲ / ኤምሬትስ)</b> — Noon, Amazon AE (5-8 ቀናት)
+2️⃣ 🇺🇸 <b>USA Mart (አሜሪካ)</b> — Amazon US, eBay (10-14 ቀናት)
+3️⃣ 🇨🇳 <b>China Direct (ቻይና)</b> — Pinduoduo, Shein, AliExpress (የፋብሪካ ዋጋ)
 ━━━━━━━━━━━━━━━━━━━━
 👉 ከታች ካሉት አንዱን ይምረጡ 👇
 `;
       await ctx.replyWithHTML(promptText, Markup.inlineKeyboard([
-        [Markup.button.callback('🇸🇦 🇦🇪 KSA / UAE (5-8 ቀናት)', `orig:KSA_UAE:${actionType}`)],
-        [Markup.button.callback('🇺🇸 USA (አሜሪካ • 10-14 ቀናት)', `orig:USA:${actionType}`)],
-        [Markup.button.callback('🇨🇳 China (ቻይና • የፋብሪካ ዋጋ)', `orig:CHINA:${actionType}`)]
+        [Markup.button.callback('🇸🇦 🇦🇪 Arabian Mart (5-8 ቀናት)', `orig:KSA_UAE:${actionType}`)],
+        [Markup.button.callback('🇺🇸 USA Mart (አሜሪካ • 10-14 ቀናት)', `orig:USA:${actionType}`)],
+        [Markup.button.callback('🇨🇳 China Direct (ቻይና • የፋብሪካ ዋጋ)', `orig:CHINA:${actionType}`)]
       ]));
     };
+
+    bot.hears(['🛍️ ሱቅ ይክፈቱ (Open Mini App)', '🛍️ Open Mini App', 'Open the Mini App', '/app', '/shop'], async (ctx) => {
+      await ctx.replyWithHTML(
+        '🛍️ <b>የኮርቻ ሚኒ አፕ (Korcha Mini App) ለመክፈት ከታች ያለውን ይጫኑ፡</b>',
+        Markup.inlineKeyboard([
+          [Markup.button.webApp('🚀 ሱቁን ይክፈቱ (Open Mini App)', MINI_APP_URL)]
+        ])
+      );
+    });
 
     bot.hears(['🔗 ሊንክ ያስገቡ (Insert Link)', '🔗 ሊንክ አስገባ', '/link'], async (ctx) => {
       await promptOrigin(ctx, 'link');
@@ -184,9 +195,9 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       session.data = { origin };
 
       const labels = {
-        KSA_UAE: '🇸🇦/🇦🇪 KSA / UAE (ሳውዲ / ኤምሬትስ)',
-        USA: '🇺🇸 USA (አሜሪካ)',
-        CHINA: '🇨🇳 China (ቻይና)'
+        KSA_UAE: '🇸🇦/🇦🇪 Arabian Mart (ሳውዲ / ኤምሬትስ)',
+        USA: '🇺🇸 USA Mart (አሜሪካ)',
+        CHINA: '🇨🇳 China Direct (ቻይና)'
       };
 
       if (action === 'link') {

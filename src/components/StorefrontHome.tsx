@@ -591,9 +591,9 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         {/* 3 Main Region Tabs: Small & Attractive */}
         <div className="grid grid-cols-3 gap-1">
           {[
-            { id: 'USA' as const, label: 'USA', flag: '🇺🇸', sub: 'አሜሪካ' },
-            { id: 'ARABIAN' as const, label: 'Arabian market', flag: '🇸🇦 🇦🇪', sub: 'የአረብ ገበያ' },
-            { id: 'KOREAN' as const, label: 'Korean', flag: '🇰🇷', sub: 'ኮሪያ K-Beauty' },
+            { id: 'USA' as const, label: 'USA Mart', flag: '🇺🇸', sub: 'አሜሪካ' },
+            { id: 'ARABIAN' as const, label: 'Arabian Mart', flag: '🇸🇦 🇦🇪', sub: 'የአረብ ገበያ' },
+            { id: 'KOREAN' as const, label: 'Korean Mart', flag: '🇰🇷', sub: 'ኮሪያ K-Beauty' },
           ].map((r) => {
             const isSelected = selectedRegion === r.id;
             return (
@@ -644,7 +644,7 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
             <>
               <div className="flex items-center justify-between text-[9px] text-stone-500 font-bold px-0.5">
                 <span>
-                  የ {selectedRegion === 'USA' ? 'USA (አሜሪካ)' : 'Korean (የኮሪያ)'} የተመረጡ ምርቶች:
+                  የ {selectedRegion === 'USA' ? 'USA Mart (አሜሪካ)' : 'Korean Mart (የኮሪያ)'} የተመረጡ ምርቶች:
                 </span>
                 <span className="text-amber-700">ለመጠየቅ ይጫኑ</span>
               </div>

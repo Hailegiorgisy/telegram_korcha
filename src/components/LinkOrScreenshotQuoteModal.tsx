@@ -241,10 +241,10 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
               </label>
               <div className="grid grid-cols-4 gap-1">
                 {[
-                  { id: 'USA' as const, label: 'USA', flag: '🇺🇸' },
-                  { id: 'ARABIAN' as const, label: 'Arabian', flag: '🇸🇦 🇦🇪' },
-                  { id: 'KOREAN' as const, label: 'Korean', flag: '🇰🇷' },
-                  { id: 'CHINA' as const, label: 'China', flag: '🇨🇳' },
+                  { id: 'USA' as const, label: 'USA Mart', flag: '🇺🇸' },
+                  { id: 'ARABIAN' as const, label: 'Arabian Mart', flag: '🇸🇦 🇦🇪' },
+                  { id: 'KOREAN' as const, label: 'Korean Mart', flag: '🇰🇷' },
+                  { id: 'CHINA' as const, label: 'China Direct', flag: '🇨🇳' },
                 ].map((hub) => (
                   <button
                     key={hub.id}
@@ -269,7 +269,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
             {/* Dynamic Product Sub-Categories for Selected Region */}
             <div className="space-y-1">
               <label className="block text-[10px] font-bold text-stone-600">
-                2. የምርት ዓይነት ({origin === 'USA' ? 'USA' : origin === 'ARABIAN' ? 'Arabian market' : origin === 'KOREAN' ? 'Korean K-Beauty' : 'China'}):
+                2. የምርት ዓይነት ({origin === 'USA' ? 'USA Mart' : origin === 'ARABIAN' ? 'Arabian Mart' : origin === 'KOREAN' ? 'Korean Mart' : 'China Direct'}):
               </label>
               <div className="flex flex-wrap gap-1">
                 {originSubCategories[origin].map((cat) => (
