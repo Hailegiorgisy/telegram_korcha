@@ -72,7 +72,8 @@ const WORKER_USERNAME = (process.env.WORKER_TELEGRAM_USERNAME || 'korcha_support
 const TELEBIRR_PHONE = process.env.TELEBIRR_PHONE || '+251-996237800';
 const CBE_ACCOUNT = process.env.CBE_ACCOUNT || '10001116390';
 const PORT = process.env.PORT || 3000;
-const MINI_APP_URL = process.env.MINI_APP_URL || 'https://telegram.korcha.com.et';
+const rawMiniAppUrl = (process.env.MINI_APP_URL || 'https://telegram.korcha.com.et').replace(/\/+$/, '');
+const MINI_APP_URL = `${rawMiniAppUrl}?v=2`;
 const AUTO_TRACKING_RESPONSE = 'ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል። ትንሽ ይጠብቁ።';
 
 function escapeHtml(text) {
@@ -135,7 +136,7 @@ function clearSession(userId) {
 // Keyboards
 function getWorkerKeyboard() {
   return Markup.keyboard([
-    [Markup.button.webApp('🛠️ የሰራተኛ መቆጣጠሪያ ማዕከል (Worker App)', `${MINI_APP_URL}?worker=1`)],
+    [Markup.button.webApp('🛠️ የሰራተኛ መቆጣጠሪያ ማዕከል (Worker App)', `${rawMiniAppUrl}?v=2&worker=1`)],
     ['📋 ያልተመለሱ ጥያቄዎች (Pending Quotes)', '💰 የገቡ ክፍያዎች (Pending Orders)'],
     ['🛍️ የደንበኛ እይታ (Customer View)', 'ℹ️ የሰራተኛ መመሪያ (Help)']
   ]).resize();
@@ -768,6 +769,15 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 // Express Server
 const app = express();
 app.set('trust proxy', 1);
+
+// Allow Telegram WebApp embedding in all iframes and clients
+app.use((req, res, next) => {
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Content-Security-Policy', "frame-ancestors * https://web.telegram.org https://*.telegram.org https://telegram.org;");
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -883,6 +893,9 @@ app.use('/uploads', express.static(uploadsDir));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path === '/health') return next();
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   const idx = path.join(distPath, 'index.html');
   if (fs.existsSync(idx)) return res.sendFile(idx);
   res.sendFile(path.join(__dirname, 'index.html'));
