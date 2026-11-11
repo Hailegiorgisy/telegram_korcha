@@ -203,10 +203,23 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     bot.hears(['🔗 ሊንክ ያስገቡ (Insert Link)', '🔗 ሊንክ አስገባ', '/link'], async (ctx) => {
       const session = getSession(ctx.from.id);
       session.state = 'AWAITING_LINK';
-      await ctx.replyWithHTML(
-        '🔗 <b>የእቃውን ድረ-ገጽ ሊንክ (Shein, Amazon, AliExpress ወይም ሌላ) እዚህ ይላኩልን፡</b>',
-        Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
-      );
+      await ctx.replyWithHTML(`
+🔗 <b>የእቃውን ድረ-ገጽ ሊንክ እዚህ ይላኩልን፡</b>
+━━━━━━━━━━━━━━━━━━━━
+እቃውን ከመረጡበት መተግበሪያ ላይ <b>Share / Copy Link</b> አድርገው እዚህ <b>Paste</b> ያድርጉት።
+
+👇 ገና እቃ ካልመረጡ ከታች ያሉትን ገበያዎች ከፍተው መምረጥ ይችላሉ፡
+`, Markup.inlineKeyboard([
+        [
+          Markup.button.url('🛍️ Shein (ፋሽንና አልባሳት)', 'https://www.shein.com'),
+          Markup.button.url('🛒 Amazon (ሁሉም ዓይነት)', 'https://www.amazon.com')
+        ],
+        [
+          Markup.button.url('⚡ AliExpress (ኤሌክትሮኒክስ)', 'https://www.aliexpress.com'),
+          Markup.button.url('🇨🇳 Pinduoduo (የፋብሪካ ዋጋ)', 'https://mobile.yangkeduo.com')
+        ]
+      ]));
+      await ctx.reply('ሊንኩን ከታች ባለው ሳጥን ውስጥ ይጻፉ ወይም ይለጥፉ (Paste) 👇', Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize());
     });
 
     bot.hears(['📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)', '📸 ፎቶ ላክ', '/photo'], async (ctx) => {
@@ -294,6 +307,66 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     });
 
     // Worker Command: /confirm <code> [delivery_window]
+    
+    // Callback Query Handler: Customer Price Acceptance & Decline
+    bot.action(/^agree_price:(.+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch (_) {}
+      const code = ctx.match[1];
+      const session = getSession(ctx.from.id);
+      session.state = 'AWAITING_RECEIPT';
+      session.activeTicket = code;
+
+      const agreementMsg = `
+🎉 <b>በዋጋው ስለተስማሙ እናመሰግናለን!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${escapeHtml(code)}</code>
+
+💳 <b>የ 40% ቅድመ ክፍያ መፈጸሚያ ሂሳቦች፡</b>
+• <b>Telebirr:</b> <code>${TELEBIRR_PHONE}</code> (Korcha)
+• <b>ንግድ ባንክ (CBE):</b> <code>${CBE_ACCOUNT}</code> (Korcha)
+
+📸 <b>ክፍያውን ከፈጸሙ በኋላ የደረሰኙን ስክሪንሾት/ፎቶ እዚህ ይላኩልን!</b>
+━━━━━━━━━━━━━━━━━━━━
+`;
+      await ctx.replyWithHTML(agreementMsg, Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize());
+
+      if (WORKER_CHAT_ID) {
+        const customerTag = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+        await bot.telegram.sendMessage(
+          WORKER_CHAT_ID,
+          `🔔 <b>ደንበኛ ${customerTag} ለትዕዛዝ <code>${code}</code> በዋጋው ተስማምቷል!</b>\nክፍያ ደረሰኝ በመጠባበቅ ላይ ነው።`,
+          { parse_mode: 'HTML' }
+        ).catch(() => {});
+      }
+    });
+
+    bot.action(/^decline_price:(.+)$/, async (ctx) => {
+      try { await ctx.answerCbQuery(); } catch (_) {}
+      const code = ctx.match[1];
+      const workerHandle = WORKER_USERNAME.replace(/^@/, '');
+
+      await ctx.replyWithHTML(`
+🙏 <b>ዋጋው ስላልተስማማዎት እናዝናለን።</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ትኬት ኮድ:</b> <code>${escapeHtml(code)}</code>
+
+ስለ ቅናሽ ወይም ስለ ሌላ አማራጭ እቃ ከሰራተኛችን ጋር በቀጥታ መወያየት ይችላሉ፡
+👉 <a href="https://t.me/${workerHandle}">@${workerHandle}</a>
+`, Markup.inlineKeyboard([
+        [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${workerHandle})`, `https://t.me/${workerHandle}`)],
+        [Markup.button.webApp('🛍️ ሱቅ ክፈት', MINI_APP_URL)]
+      ]));
+
+      if (WORKER_CHAT_ID) {
+        const customerTag = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+        await bot.telegram.sendMessage(
+          WORKER_CHAT_ID,
+          `⚠️ <b>ደንበኛ ${customerTag} ለትዕዛዝ <code>${code}</code> ዋጋው እንዳልተስማማው ገልጿል።</b>`,
+          { parse_mode: 'HTML' }
+        ).catch(() => {});
+      }
+    });
+
     bot.hears(/^\/confirm\s+([A-Za-z0-9\-]+)(?:\s+([\s\S]+))?$/, async (ctx) => {
       if (!isWorkerContext(ctx)) return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው።');
       const code = ctx.match[1].trim();
@@ -393,29 +466,45 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     });
 
     // Photo Handler
+    // Photo Handler: Full Multi-Photo & Receipt Support
     bot.on('photo', async (ctx) => {
       const session = getSession(ctx.from.id);
       const photos = ctx.message.photo;
       const fileId = photos[photos.length - 1].file_id;
 
+      // Case A: Customer uploading payment receipt screenshot
       if (session.state === 'AWAITING_RECEIPT') {
         const code = session.activeTicket;
         session.state = 'IDLE';
-        await ctx.replyWithHTML(`✅ <b>የክፍያ ደረሰኝዎ ደርሶናል!</b>\\nኮድ: <code>${code}</code>\\nሰራተኛችን አረጋግጦ ያሳውቅዎታል!`);
+        await ctx.replyWithHTML(`
+✅ <b>የክፍያ ደረሰኝዎ ደርሶናል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${escapeHtml(code)}</code>
+ሰራተኛችን ክፍያውን አረጋግጦ ወዲያውኑ መልዕክት ይልክልዎታል!
+`, getMainMenuKeyboard());
+
         if (WORKER_CHAT_ID) {
           await bot.telegram.sendPhoto(WORKER_CHAT_ID, fileId, {
-            caption: `💰 <b>የክፍያ ደረሰኝ ደርሷል!</b>\\nኮድ: <code>${code}</code>\\n\\n👉 ለማረጋገጥ፡ <code>/confirm ${code} በ10-14 ቀን</code>`,
+            caption: `💰 <b>የክፍያ ደረሰኝ ደርሷል!</b>\n🏷️ <b>ኮድ:</b> <code>${code}</code>\n\n👉 ለማረጋገጥ፡ <code>/confirm ${code} በ10-14 ቀን</code>`,
             parse_mode: 'HTML'
           }).catch(() => {});
         }
         return;
       }
 
+      // Case B: Customer uploading product screenshots (Multiple supported)
+      session.data.photoFileIds = session.data.photoFileIds || [];
+      session.data.photoFileIds.push(fileId);
+      session.data.sourceType = 'screenshot';
       session.state = 'AWAITING_SPECS';
-      session.data = { ...session.data, sourceType: 'screenshot', photoFileId: fileId };
+
+      const count = session.data.photoFileIds.length;
       await ctx.replyWithHTML(
-        `✅ <b>ፎቶው ደርሶናል!</b>\\n\\nአሁን <b>ብዛት፣ መጠን እና ቀለም</b> ጽፈው ይላኩልን 👇`,
-        Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+        `📸 <b>ፎቶ #${count} ተቀብለናል!</b>\n\nተጨማሪ ፎቶ ካለዎት መላክ መቀጠል ይችላሉ።\nከጨረሱ በኋላ <b>ብዛት፣ መጠን እና ቀለም</b> ጽፈው ይላኩልን (ወይም ከታች <b>"✅ ፎቶዎችን ጨርሻለሁ"</b> የሚለውን ይጫኑ) 👇`,
+        Markup.keyboard([
+          ['✅ ፎቶዎችን ጨርሻለሁ (Done)'],
+          ['❌ ሰርዝ (Cancel)']
+        ]).resize()
       );
     });
 
