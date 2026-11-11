@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="am">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>ኮርቻ ማስታወቂያ - Inflight & Kids Collections</title>
+
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- React 18 & ReactDOM (Native Production Build - 100% CSP Safe, Zero Babel, Zero Eval) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        min-height: 100vh;
+        min-height: -webkit-fill-available;
+        background-color: #f5f5f4;
+        color: #1c1917;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-overflow-scrolling: touch;
+        user-select: none;
+      }
+      #root {
+        width: 100%;
+        min-height: 100vh;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script>
+      (function() {
+        const { useState, useEffect, createElement: h } = React;
+
+        const CATALOG_DATA = [
+          {
+            id: 'inflight',
+            key: 'inflight',
+            title: 'Inflight Shoes (የበረራ ጫማዎች)',
+            subtitle: 'Foldable Travel Slippers & Cabin Slip-ons',
+            icon: '👟',
+            badge: 'ምርጥ ተፈላጊ',
+            gradient: 'from-blue-600 to-indigo-700',
+            border: 'border-blue-500',
+            lightBg: 'bg-blue-50',
+            accentText: 'text-blue-700',
+            description: 'ለረጅም በረራ እና ለሆቴል እጅግ ምቹ፣ እግር እንዳያብጥ የሚረዱ ቀላል፣ የሚታጠፉና የማያንሸራትቱ ጥራት ያላቸው ጫማዎች።',
+            products: [
+              {
+                id: 'inf-1',
+                name: 'Aerolite Foldable Inflight Memory Foam Slippers',
+                price_etb: 2950,
+                specs: 'መጠን: 38-44 (Unisex) | ክብደት: 120g | ቁሳቁስ: Breathable Mesh & Memory Foam',
+                photos: [
+                  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=700&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=700&auto=format&fit=crop&q=80'
+                ],
+                description: 'ከኪስ ቦርሳ (Travel Pouch) ጋር የሚታጠፍ፣ አየር የሚያዘዋውር እና የድካም ስሜትን የሚቀንስ። 100% ኦሪጅናል አስመጪ።'
+              },
+              {
+                id: 'inf-2',
+                name: 'CloudWalk Slip-on Cabin Comfort Loafers',
+                price_etb: 3800,
+                specs: 'መጠን: 39-43 | ቁሳቁስ: Ultra-Soft Knitted Fabric | ከለር: ጥቁር እና ግራጫ',
+                photos: [
+                  'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=700&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=700&auto=format&fit=crop&q=80'
+                ],
+                description: 'በበረራ ወቅት በቀላሉ ማውለቅና ማጥለቅ የሚቻል፣ ለስላሳ ሶል ያለው ዘመናዊ ጫማ።'
+              }
+            ]
+          },
+          {
+            id: 'children',
+            key: 'children',
+            title: 'Children Clothes (የህፃናት ልብሶች)',
+            subtitle: '100% Organic Cotton & Seasonal Sets',
+            icon: '👗',
+            badge: 'አዲስ የገባ',
+            gradient: 'from-amber-600 to-orange-700',
+            border: 'border-amber-500',
+            lightBg: 'bg-amber-50',
+            accentText: 'text-amber-700',
+            description: 'ለህፃናት ቆዳ ተስማሚ የሆኑ ከውጭ ሀገር የመጡ ጥጥ ልብሶች፣ ጃኬቶች እና ዘመናዊ የቤት ውስጥና የውጭ አልባሳት።',
+            products: [
+              {
+                id: 'ch-1',
+                name: 'Organic Cotton Two-Piece Cozy Loungewear Set',
+                price_etb: 2450,
+                specs: 'እድሜ: ከ6 ወር - 5 አመት | ቁሳቁስ: 100% Organic Combed Cotton | ከለሮች: 4 አማራጮች',
+                photos: [
+                  'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=700&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=700&auto=format&fit=crop&q=80'
+                ],
+                description: 'ቆዳ የማያሳክክ፣ በማሽን ሲታጠብ የማይኮማተር እና ለህፃናት ምቾት ተብሎ የተሰራ የኮሪያ ዲዛይን ጥጥ።'
+              },
+              {
+                id: 'ch-2',
+                name: 'Warm Hooded Windbreaker & Fleece Lined Jacket',
+                price_etb: 3200,
+                specs: 'እድሜ: ከ2 - 7 አመት | ቁሳቁስ: Waterproof Shell + Fleece Lining',
+                photos: [
+                  'https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=700&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=700&auto=format&fit=crop&q=80'
+                ],
+                description: 'ብርድ እና ዝናብ መከላከያ፣ ኮፍያ ያለው እና ውስጡ ለስላሳ ሱፍ የተሰራ ቆንጆ ጃኬት።'
+              }
+            ]
+          },
+          {
+            id: 'others',
+            key: 'others',
+            title: 'Others (ሌሎች እቃዎች)',
+            subtitle: 'Smart Travel Gear & Accessories',
+            icon: '📦',
+            badge: 'ተፈላጊ እቃዎች',
+            gradient: 'from-emerald-600 to-teal-700',
+            border: 'border-emerald-500',
+            lightBg: 'bg-emerald-50',
+            accentText: 'text-emerald-700',
+            description: 'ለጉዞና ለዕለታዊ ኑሮ ጠቃሚ የሆኑ የሻንጣ ማደራጃዎች፣ የኤሌክትሮኒክስ መገልገያዎች እና ተፈላጊ እቃዎች።',
+            products: [
+              {
+                id: 'oth-1',
+                name: 'Compression Travel Packing Cubes (6-Piece Set)',
+                price_etb: 1950,
+                specs: 'ስብስብ: 6 የተለያዩ መጠኖች | ቁሳቁስ: Ripstop Waterproof Nylon',
+                photos: [
+                  'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=700&auto=format&fit=crop&q=80',
+                  'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=700&auto=format&fit=crop&q=80'
+                ],
+                description: 'በሻንጣ ውስጥ እስከ 60% የሚደርስ ቦታ የሚቆጥብ እና ልብስ እንዳይጨማደድ የሚረዳ ዘመናዊ ማደራጃ።'
+              },
+              {
+                id: 'oth-2',
+                name: 'Smart Insulated Temperature Display Bottle (500ml)',
+                price_etb: 1650,
+                specs: 'መጠን: 500ml | ቆይታ: 24 ሰዓት ቀዝቃዛ / 12 ሰዓት ትኩስ | ቁሳቁስ: 304 Stainless Steel',
+                photos: [
+                  'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=700&auto=format&fit=crop&q=80'
+                ],
+                description: 'የፈሳሹን የሙቀት መጠን በጣሪያው ላይ በዲጂታል ንክኪ የሚያሳይ ጠንካራ የጉዞ ቴርሞስ።'
+              }
+            ]
+          }
+        ];
+
+        function CatalogApp() {
+          const [selectedCategory, setSelectedCategory] = useState(null);
+          const [zoomedPhoto, setZoomedPhoto] = useState(null);
+          const [activeSlideIdx, setActiveSlideIdx] = useState({});
+          const [sellerUsername, setSellerUsername] = useState('Hailegiorgisy');
+
+          useEffect(function() {
+            if (window.Telegram && window.Telegram.WebApp) {
+              try {
+                window.Telegram.WebApp.ready();
+                window.Telegram.WebApp.expand();
+              } catch (e) {}
+            }
+
+            // Check URL param ?cat=inflight
+            try {
+              const urlParams = new URLSearchParams(window.location.search);
+              const catParam = urlParams.get('cat');
+              if (catParam) {
+                const found = CATALOG_DATA.find(function(c) { return c.key === catParam; });
+                if (found) setSelectedCategory(found.id);
+              }
+            } catch (e) {}
+          }, []);
+
+          const handleOrder = function(product, categoryName) {
+            const text = 'ሰላም፣ ይህንን እቃ ማዘዝ እፈልጋለሁ:\n\n' +
+              '📦 እቃ: ' + product.name + '\n' +
+              '📂 ምድብ: ' + categoryName + '\n' +
+              '💰 ዋጋ: ' + product.price_etb.toLocaleString() + ' ETB\n' +
+              '🔢 ኮድ: KC-8820';
+
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.sendData) {
+              try {
+                window.Telegram.WebApp.sendData(text);
+                return;
+              } catch (e) {}
+            }
+
+            const telegramUrl = 'https://t.me/' + sellerUsername + '?text=' + encodeURIComponent(text);
+            window.open(telegramUrl, '_blank');
+          };
+
+          const handlePhotoPrev = function(prodId, totalPhotos, e) {
+            e.stopPropagation();
+            setActiveSlideIdx(function(prev) {
+              const cur = prev[prodId] || 0;
+              return Object.assign({}, prev, { [prodId]: (cur - 1 + totalPhotos) % totalPhotos });
+            });
+          };
+
+          const handlePhotoNext = function(prodId, totalPhotos, e) {
+            e.stopPropagation();
+            setActiveSlideIdx(function(prev) {
+              const cur = prev[prodId] || 0;
+              return Object.assign({}, prev, { [prodId]: (cur + 1) % totalPhotos });
+            });
+          };
+
+          return h('div', { className: 'min-h-screen bg-stone-100 flex flex-col justify-between max-w-md mx-auto pb-8' },
+            // Top App Bar
+            h('header', { className: 'sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 px-4 py-3 flex items-center justify-between shadow-sm' },
+              h('div', { className: 'flex items-center space-x-2' },
+                h('div', { className: 'w-7 h-7 rounded-lg bg-amber-500 flex items-center justify-center text-white font-black text-sm' }, 'K'),
+                h('div', null,
+                  h('h1', { className: 'text-sm font-black text-stone-900 leading-tight' }, 'ኮርቻ ካታሎግ'),
+                  h('p', { className: 'text-[10px] text-stone-500' }, 'ልዩ ምርቶችና ማስታወቂያዎች')
+                )
+              ),
+              selectedCategory ? h('button', {
+                onClick: function() { setSelectedCategory(null); },
+                className: 'px-2.5 py-1 text-xs font-bold bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-md transition-colors'
+              }, '‹ ሁሉንም አሳይ') : h('span', { className: 'text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200' }, 'በእጃችን ያሉ')
+            ),
+
+            // Main Content Area
+            h('main', { className: 'p-3 space-y-3 flex-1' },
+
+              // 1. ADVERTISEMENT CARD (Matching the user's reference image)
+              h('section', { className: 'bg-white rounded-2xl overflow-hidden border border-stone-200 shadow-sm' },
+                h('div', { className: 'relative h-44 bg-stone-800' },
+                  h('img', {
+                    src: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800&auto=format&fit=crop&q=80',
+                    alt: 'Showcase Ad',
+                    className: 'w-full h-full object-cover'
+                  }),
+                  h('div', { className: 'absolute inset-0 bg-gradient-to-t from-stone-900/90 via-stone-900/40 to-transparent' }),
+                  h('div', { className: 'absolute top-3 left-3 bg-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider' }, '✓ የተመረጡ እቃዎች ማስታወቂያ'),
+                  h('div', { className: 'absolute bottom-3 left-3 right-3 text-white' },
+                    h('p', { className: 'text-xs text-amber-300 font-bold' }, '❄️ ኮድ: KC-8820'),
+                    h('h2', { className: 'text-base font-black leading-tight mt-0.5' }, 'ፕሪሚየም የበረራ እና የህፃናት እቃዎች'),
+                    h('p', { className: 'text-[11px] text-stone-200 mt-1 line-clamp-1' }, 'ከUSA እና ኮሪያ በቀጥታ የመጡ ኦሪጅናል እቃዎች በእጃችን ይገኛሉ።')
+                  )
+                ),
+
+                // Ad Specs Block
+                h('div', { className: 'p-3 text-xs text-stone-700 space-y-1 bg-stone-50/50' },
+                  h('div', { className: 'flex justify-between py-0.5 border-b border-stone-100' },
+                    h('span', { className: 'text-stone-500' }, '✨ አይነት:'),
+                    h('span', { className: 'font-bold text-stone-800' }, 'Inflight Shoes, Children & Travel')
+                  ),
+                  h('div', { className: 'flex justify-between py-0.5 border-b border-stone-100' },
+                    h('span', { className: 'text-stone-500' }, '✨ መገኛ:'),
+                    h('span', { className: 'font-bold text-stone-800' }, 'አዲስ አበባ (In Stock)')
+                  ),
+                  h('div', { className: 'flex justify-between py-0.5' },
+                    h('span', { className: 'text-stone-500' }, '✨ ማድረሻ:'),
+                    h('span', { className: 'font-bold text-emerald-600' }, 'ፈጣን የቤት ለቤት አቅርቦት')
+                  )
+                )
+              ),
+
+              // 2. THE THREE HORIZONTAL BARS (Directly matching user prompt & reference screenshot)
+              h('div', { className: 'space-y-2 pt-1' },
+                h('div', { className: 'flex items-center justify-between px-1' },
+                  h('h3', { className: 'text-xs font-black text-stone-800 tracking-wide uppercase' }, '📂 ምድብ ይምረጡ (Select Category)'),
+                  h('span', { className: 'text-[11px] text-stone-500' }, '3 ዋና ምርጫዎች')
+                ),
+
+                CATALOG_DATA.map(function(category) {
+                  const isSelected = selectedCategory === category.id;
+
+                  return h('div', { key: category.id, className: 'space-y-2' },
+                    // Full-Width Horizontal Bar (Styled like the 3 colored bars in user image)
+                    h('button', {
+                      onClick: function() {
+                        setSelectedCategory(isSelected ? null : category.id);
+                      },
+                      className: 'w-full py-3.5 px-4 rounded-xl flex items-center justify-between text-white font-black text-sm shadow-sm transition-transform active:scale-[0.98] bg-gradient-to-r ' + category.gradient
+                    },
+                      h('div', { className: 'flex items-center space-x-2.5 text-left' },
+                        h('span', { className: 'text-xl' }, category.icon),
+                        h('div', null,
+                          h('span', { className: 'block text-sm font-black leading-tight' }, category.title),
+                          h('span', { className: 'block text-[10px] font-medium text-white/80' }, category.subtitle)
+                        )
+                      ),
+                      h('div', { className: 'flex items-center space-x-1.5' },
+                        h('span', { className: 'text-[10px] bg-white/20 px-2 py-0.5 rounded-full' }, category.products.length + ' እቃዎች'),
+                        h('span', { className: 'text-base font-bold' }, isSelected ? '▲' : '▼')
+                      )
+                    ),
+
+                    // Expanded Products Section when clicked
+                    isSelected ? h('div', { className: 'p-2 space-y-3 bg-white rounded-xl border border-stone-200 mt-1 shadow-inner' },
+                      h('p', { className: 'text-xs text-stone-600 italic px-1' }, category.description),
+
+                      category.products.map(function(product) {
+                        const curIdx = activeSlideIdx[product.id] || 0;
+                        const curPhoto = product.photos[curIdx] || product.photos[0];
+
+                        return h('div', { key: product.id, className: 'p-3 bg-stone-50 rounded-xl border border-stone-200 space-y-2.5' },
+                          // Photo Slider Box
+                          h('div', { className: 'relative h-48 bg-stone-200 rounded-lg overflow-hidden group cursor-pointer', onClick: function() { setZoomedPhoto(curPhoto); } },
+                            h('img', {
+                              src: curPhoto,
+                              alt: product.name,
+                              className: 'w-full h-full object-cover transition-transform duration-300 group-hover:scale-105'
+                            }),
+                            h('span', { className: 'absolute top-2 right-2 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md font-bold' }, '🔍 ንካ ለማጉላት'),
+
+                            // Navigation arrows if multiple photos
+                            product.photos.length > 1 ? h('div', { className: 'absolute inset-0 flex items-center justify-between px-2' },
+                              h('button', {
+                                onClick: function(e) { handlePhotoPrev(product.id, product.photos.length, e); },
+                                className: 'w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center font-bold hover:bg-black/75'
+                              }, '‹'),
+                              h('button', {
+                                onClick: function(e) { handlePhotoNext(product.id, product.photos.length, e); },
+                                className: 'w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center font-bold hover:bg-black/75'
+                              }, '›')
+                            ) : null,
+
+                            // Dots Indicator
+                            product.photos.length > 1 ? h('div', { className: 'absolute bottom-2 left-0 right-0 flex justify-center space-x-1' },
+                              product.photos.map(function(_, pIdx) {
+                                return h('div', {
+                                  key: pIdx,
+                                  className: 'w-1.5 h-1.5 rounded-full ' + (pIdx === curIdx ? 'bg-amber-400 w-3' : 'bg-white/60')
+                                });
+                              })
+                            ) : null
+                          ),
+
+                          // Product Info
+                          h('div', { className: 'space-y-1' },
+                            h('h4', { className: 'text-sm font-black text-stone-900 leading-snug' }, product.name),
+                            h('p', { className: 'text-[11px] font-medium text-stone-500' }, product.specs),
+                            h('p', { className: 'text-xs text-stone-700 leading-relaxed pt-0.5' }, product.description),
+                            h('div', { className: 'flex items-center justify-between pt-2 border-t border-stone-200/80 mt-2' },
+                              h('div', null,
+                                h('span', { className: 'text-[10px] text-stone-400 block' }, 'ዋጋ (ETB)'),
+                                h('span', { className: 'text-base font-black text-amber-600' }, product.price_etb.toLocaleString() + ' ብር')
+                              ),
+                              h('button', {
+                                onClick: function() { handleOrder(product, category.title); },
+                                className: 'px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs rounded-lg shadow-sm flex items-center space-x-1'
+                              },
+                                h('span', null, '💬'),
+                                h('span', null, 'በቴሌግራም እዘዝ')
+                              )
+                            )
+                          )
+                        );
+                      })
+                    ) : null
+                  );
+                })
+              )
+            ),
+
+            // Zoomed Photo Modal
+            zoomedPhoto ? h('div', {
+              className: 'fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-3 backdrop-blur-sm',
+              onClick: function() { setZoomedPhoto(null); }
+            },
+              h('div', { className: 'relative max-w-sm w-full bg-stone-900 rounded-2xl overflow-hidden shadow-2xl p-2', onClick: function(e) { e.stopPropagation(); } },
+                h('div', { className: 'flex justify-between items-center pb-2 px-1 text-white' },
+                  h('span', { className: 'text-xs font-bold text-stone-300' }, 'የተመረጠ ፎቶ'),
+                  h('button', {
+                    onClick: function() { setZoomedPhoto(null); },
+                    className: 'w-7 h-7 rounded-full bg-stone-800 text-stone-300 flex items-center justify-center font-black hover:bg-stone-700'
+                  }, '✕')
+                ),
+                h('img', {
+                  src: zoomedPhoto,
+                  alt: 'Zoomed Preview',
+                  className: 'w-full h-80 object-contain rounded-lg bg-stone-950'
+                })
+              )
+            ) : null,
+
+            // Footer
+            h('footer', { className: 'text-center text-[11px] text-stone-400 py-2 border-t border-stone-200 mt-4' },
+              '© 2026 Korcha Catalog • Inflight & Kids Collections'
+            )
+          );
+        }
+
+        ReactDOM.render(h(CatalogApp), document.getElementById('root'));
+      })();
+    </script>
+  </body>
+</html>
