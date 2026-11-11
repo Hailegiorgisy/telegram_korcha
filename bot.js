@@ -769,6 +769,15 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 // Express Server
 const app = express();
 app.set('trust proxy', 1);
+
+// Allow Telegram WebApp embedding in all iframes and clients
+app.use((req, res, next) => {
+  res.removeHeader('X-Frame-Options');
+  res.setHeader('Content-Security-Policy', "frame-ancestors * https://web.telegram.org https://*.telegram.org https://telegram.org;");
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
