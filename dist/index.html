@@ -13,7 +13,7 @@
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- React 18 & ReactDOM (Pure Native Production Build - ZERO Babel, ZERO eval, ZERO build step) -->
+    <!-- React 18 & ReactDOM (Pure Native Production Build - Zero Babel, Zero Eval) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 
@@ -59,54 +59,91 @@
     </div>
     <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
 
-    <!-- Pure Native JavaScript Application (100% CSP Safe - Runs in all Telegram WebApps) -->
     <script>
       (function() {
         const { useState, useEffect, createElement: h } = React;
 
+        // Structured Shelves by Country / Market Hub
         const INITIAL_PRODUCTS = [
           {
             id: 1,
+            country: 'USA',
+            category: 'Food',
             name: "Original Stanley Quencher H2.0 FlowState 40oz Tumbler",
             size: "40oz (1.18L)",
             price_etb: 4850,
             photo_url: "https://images.unsplash.com/photo-1577705998148-6da4f3963bc8?w=500&auto=format&fit=crop&q=80",
-            photos: [
-              "https://images.unsplash.com/photo-1577705998148-6da4f3963bc8?w=500&auto=format&fit=crop&q=80",
-              "https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80"
-            ],
             description: "ቀኑን ሙሉ ቀዝቃዛ ወይም ትኩስ የሚያቆይ፣ ለስፖርትና ለቢሮ ተወዳጅ እቃ። 100% ኦሪጅናል ከ USA።",
             is_bestseller: true
           },
           {
             id: 2,
-            name: "Apple AirPods Pro (2nd Generation) with MagSafe Case",
-            size: "USB-C",
-            price_etb: 14900,
-            photo_url: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=500&auto=format&fit=crop&q=80",
-            photos: [
-              "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=500&auto=format&fit=crop&q=80"
-            ],
-            description: "ምርጥ ድምፅ እና የጩኸት መከላከያ (Active Noise Cancellation) ያለው።",
+            country: 'USA',
+            category: 'Supplements',
+            name: "Optimum Nutrition Gold Standard 100% Whey Protein (5 lbs)",
+            size: "5 lbs (2.27kg)",
+            price_etb: 8900,
+            photo_url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&auto=format&fit=crop&q=80",
+            description: "የአሜሪካ ቁጥር 1 የጡንቻ ማጎልበቻ ፕሮቲን።",
             is_bestseller: true
           },
           {
             id: 3,
-            name: "Hydrating Face Serum & Vitamin C Glow Complex",
-            size: "50ml",
-            price_etb: 1950,
+            country: 'KOREAN',
+            category: 'Skin care products',
+            name: "COSRX Advanced Snail 96 Mucin Power Essence",
+            size: "100ml",
+            price_etb: 2450,
             photo_url: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80",
-            photos: [
-              "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80"
-            ],
-            description: "የፊት ቆዳን የሚያለሰልስ እና ብሩህ የሚያደርግ የኮሪያ K-Beauty ሰረም።",
+            description: "የፊት ቆዳን የሚያለሰልስ እና የሚያፈካ ታዋቂው የኮሪያ K-Beauty ሰረም።",
+            is_bestseller: true
+          },
+          {
+            id: 4,
+            country: 'ARABIAN',
+            category: 'Perfume & Oud',
+            name: "Lattafa Khamrah Luxury Arabian Eau de Parfum",
+            size: "100ml",
+            price_etb: 3800,
+            photo_url: "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=500&auto=format&fit=crop&q=80",
+            description: "የዱባይ እና ሳውዲ ልዩ መአዛ ያለው የቅንጦት ሽቶ።",
+            is_bestseller: true
+          },
+          {
+            id: 5,
+            country: 'CHINA',
+            category: 'Electronics',
+            name: "Wireless ANC Bluetooth Earbuds with Smart LED Display",
+            size: "One Size",
+            price_etb: 1950,
+            photo_url: "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&auto=format&fit=crop&q=80",
+            description: "ከቻይና ቀጥታ ፋብሪካ የሚመጣ ድምፅ መከላከያ ያለው ኤርፎን።",
             is_bestseller: true
           }
+        ];
+
+        const COUNTRIES = [
+          { id: 'USA', name: 'USA Mart', flag: '🇺🇸', categories: ['All', 'Food', 'Supplements', 'Skin care products', 'Others'] },
+          { id: 'ARABIAN', name: 'Arabian Mart', flag: '🇸🇦 🇦🇪', categories: ['All', 'Perfume & Oud', 'Abaya & Fashion', 'Supplements', 'Others'] },
+          { id: 'KOREAN', name: 'Korean Mart', flag: '🇰🇷', categories: ['All', 'Skin care products'] },
+          { id: 'CHINA', name: 'China (ቻይና)', flag: '🇨🇳', categories: ['All', 'Electronics', 'Kitchen & Home', 'Clothing', 'Others'] }
         ];
 
         function KorchaApp() {
           const [activeTab, setActiveTab] = useState('home');
           const [products, setProducts] = useState(INITIAL_PRODUCTS);
+          const [selectedCountry, setSelectedCountry] = useState('USA');
+          const [selectedCategory, setSelectedCategory] = useState('All');
+
+          // Worker state & role separation
+          const urlParams = new URLSearchParams(window.location.search);
+          const tgUser = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user : null;
+          const tgUsername = tgUser && tgUser.username ? tgUser.username.replace('@', '').toLowerCase() : '';
+          const isAuthorizedWorker = urlParams.get('worker') === '1' || urlParams.get('role') === 'worker' || ['korcha_support', 'hailegiorgisy'].includes(tgUsername);
+          const [workerPreviewCustomer, setWorkerPreviewCustomer] = useState(false);
+          const isWorkerModeActive = isAuthorizedWorker && !workerPreviewCustomer;
+
+          // Cart state
           const [cart, setCart] = useState(function() {
             try {
               const raw = localStorage.getItem('korcha_cart');
@@ -114,26 +151,43 @@
             } catch (e) { return []; }
           });
           const [isCartOpen, setIsCartOpen] = useState(false);
+
+          // Quote modal
           const [isQuoteOpen, setIsQuoteOpen] = useState(false);
           const [quoteMode, setQuoteMode] = useState('link');
-          const [selectedRegion, setSelectedRegion] = useState('USA');
-          const [zoomedProduct, setZoomedProduct] = useState(null);
-          const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+          const [quoteUrl, setQuoteUrl] = useState('');
+          const [quoteSpecs, setQuoteSpecs] = useState('');
+          const [quotePhone, setQuotePhone] = useState('');
+          const [quoteSite, setQuoteSite] = useState('');
 
+          // Worker modals: Add Product & Edit Product
+          const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+          const [editingProduct, setEditingProduct] = useState(null);
+          const [newProdName, setNewProdName] = useState('');
+          const [newProdCountry, setNewProdCountry] = useState('USA');
+          const [newProdCategory, setNewProdCategory] = useState('Food');
+          const [newProdPrice, setNewProdPrice] = useState('');
+          const [newProdSize, setNewProdSize] = useState('Standard');
+          const [newProdPhoto, setNewProdPhoto] = useState('');
+          const [newProdDesc, setNewProdDesc] = useState('');
+
+          // Chat / Support state
+          const [chatMessages, setChatMessages] = useState([
+            { id: 1, sender: 'worker', text: 'ሰላም! እንኳን ወደ ኮርቻ የደንበኞች አገልግሎት በደህና መጡ። ምን ልርዳዎት?' }
+          ]);
+          const [newMsgText, setNewMsgText] = useState('');
+          const [chatPhone, setChatPhone] = useState('');
+
+          // Order Tracking state
           const [searchCode, setSearchCode] = useState('');
           const [trackedResult, setTrackedResult] = useState(null);
           const [isTracking, setIsTracking] = useState(false);
 
-          const [orderPhone, setOrderPhone] = useState('');
-          const [orderSpecs, setOrderSpecs] = useState('');
+          // Zoom state
+          const [zoomedProduct, setZoomedProduct] = useState(null);
 
+          // Load live products from backend
           useEffect(function() {
-            if (window.Telegram && window.Telegram.WebApp) {
-              try {
-                window.Telegram.WebApp.ready();
-                window.Telegram.WebApp.expand();
-              } catch (e) {}
-            }
             fetch('/api/shelf')
               .then(function(res) { return res.json(); })
               .then(function(data) {
@@ -144,6 +198,7 @@
               .catch(function() {});
           }, []);
 
+          // Sync cart
           useEffect(function() {
             try { localStorage.setItem('korcha_cart', JSON.stringify(cart)); } catch (e) {}
           }, [cart]);
@@ -178,29 +233,95 @@
           const totalCartPrice = cart.reduce(function(s, i) { return s + (i.product.price_etb * i.quantity); }, 0);
           const totalCartCount = cart.reduce(function(s, i) { return s + i.quantity; }, 0);
 
-          const handleTrack = function(e) {
+          // Filter shelf products by selected country and category
+          const displayedProducts = products.filter(function(p) {
+            const matchesCountry = (p.country || 'USA').toUpperCase() === selectedCountry.toUpperCase();
+            const matchesCategory = selectedCategory === 'All' || !p.category || p.category.toLowerCase() === selectedCategory.toLowerCase();
+            return matchesCountry && matchesCategory;
+          });
+
+          // Worker CRUD functions
+          const handleSaveNewProduct = function(e) {
             e.preventDefault();
-            if (!searchCode.trim()) return;
-            setIsTracking(true);
-            fetch('/api/messages/customer?codes=' + encodeURIComponent(searchCode.trim()))
-              .then(function(res) { return res.json(); })
-              .then(function(data) {
-                if (data.conversations && data.conversations.length > 0) {
-                  setTrackedResult(data.conversations[0]);
-                } else {
-                  setTrackedResult({ notFound: true, code: searchCode.trim() });
-                }
-              })
-              .catch(function() {
-                setTrackedResult({ notFound: true, code: searchCode.trim() });
-              })
-              .finally(function() {
-                setIsTracking(false);
-              });
+            if (!newProdName.trim() || !newProdPrice) {
+              alert('እባክዎ የእቃውን ስም እና ዋጋ ያስገቡ');
+              return;
+            }
+            const p = {
+              id: Date.now(),
+              name: newProdName.trim(),
+              country: newProdCountry,
+              category: newProdCategory,
+              price_etb: parseFloat(newProdPrice),
+              size: newProdSize.trim() || 'Standard',
+              photo_url: newProdPhoto.trim() || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500&auto=format&fit=crop&q=80',
+              description: newProdDesc.trim() || 'ኦሪጅናል እቃ።',
+              is_bestseller: false
+            };
+            setProducts(function(prev) { return [p].concat(prev); });
+            fetch('/api/shelf/products', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(p)
+            }).catch(function() {});
+            alert('✅ አዲስ እቃ መደርደሪያው ላይ ተጨምሯል!');
+            setIsAddProductOpen(false);
+            setNewProdName('');
+            setNewProdPrice('');
+            setNewProdPhoto('');
+            setNewProdDesc('');
           };
 
+          const handleDeleteProduct = function(id) {
+            if (!confirm('ይህንን እቃ ከመደርደሪያው ላይ ማጥፋት ይፈልጋሉ?')) return;
+            setProducts(function(prev) { return prev.filter(function(p) { return p.id !== id; }); });
+            fetch('/api/shelf/products/' + id, { method: 'DELETE' }).catch(function() {});
+          };
+
+          const handleUpdateProduct = function(e) {
+            e.preventDefault();
+            if (!editingProduct) return;
+            setProducts(function(prev) {
+              return prev.map(function(p) {
+                return p.id === editingProduct.id ? editingProduct : p;
+              });
+            });
+            fetch('/api/shelf/products/' + editingProduct.id, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(editingProduct)
+            }).catch(function() {});
+            alert('✅ የእቃው መረጃ ተስተካክሏል!');
+            setEditingProduct(null);
+          };
+
+          // Chat send function
+          const handleSendChatMessage = function(e) {
+            e.preventDefault();
+            if (!newMsgText.trim()) return;
+            const msg = {
+              id: Date.now(),
+              sender: 'customer',
+              text: newMsgText.trim(),
+              time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setChatMessages(function(prev) { return prev.concat([msg]); });
+            setNewMsgText('');
+            // Forward to server
+            fetch('/api/quotes', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phone: chatPhone || '0911000000',
+                details: '[Live Chat] ' + msg.text
+              })
+            }).catch(function() {});
+          };
+
+          const activeCountryObj = COUNTRIES.find(function(c) { return c.id === selectedCountry; }) || COUNTRIES[0];
+
           return h('div', { className: 'max-w-md mx-auto min-h-screen pb-20 bg-stone-100 flex flex-col' },
-            // Header
+            // Top App Bar
             h('header', { className: 'sticky top-0 z-30 bg-white border-b border-stone-200 px-4 py-2.5 shadow-xs' },
               h('div', { className: 'flex items-center justify-between' },
                 h('div', { className: 'flex items-center space-x-2' },
@@ -209,176 +330,235 @@
                   ),
                   h('div', null,
                     h('h1', { className: 'text-sm font-extrabold text-stone-900 leading-none' }, 'KORCHA'),
-                    h('p', { className: 'text-[10px] text-stone-500 font-medium' }, 'የውጭ ገበያ እቃ አቅራቢ')
+                    h('p', { className: 'text-[10px] text-stone-500 font-medium' }, isWorkerModeActive ? 'የሰራተኛ መቆጣጠሪያ ማዕከል' : 'የውጭ ገበያ እቃ አቅራቢ')
                   )
                 ),
-                totalCartCount > 0 ? h('button', {
-                  onClick: function() { setIsCartOpen(true); },
-                  className: 'px-2.5 py-1.5 rounded-full bg-amber-500 text-stone-950 font-bold text-xs flex items-center space-x-1 shadow-xs cursor-pointer active:scale-95'
-                }, '🛒 ' + totalCartCount) : null
+
+                h('div', { className: 'flex items-center space-x-1.5' },
+                  isAuthorizedWorker ? h('button', {
+                    onClick: function() { setWorkerPreviewCustomer(!workerPreviewCustomer); },
+                    className: 'px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ' + (isWorkerModeActive ? 'bg-stone-900 text-amber-300 border-amber-500' : 'bg-amber-100 text-amber-900 border-amber-300')
+                  }, isWorkerModeActive ? '🛠️ ሰራተኛ ሞድ' : '👁️ ደንበኛ እይታ') : null,
+
+                  !isWorkerModeActive && totalCartCount > 0 ? h('button', {
+                    onClick: function() { setIsCartOpen(true); },
+                    className: 'px-2.5 py-1 rounded-full bg-amber-500 text-stone-950 font-bold text-xs flex items-center space-x-1 shadow-xs cursor-pointer active:scale-95'
+                  }, '🛒 ' + totalCartCount) : null
+                )
               ),
-              // Navigation
+
+              // Navigation Tabs (3 Clean Action Tabs)
               h('div', { className: 'flex items-center justify-between border-t border-stone-100 mt-2 pt-1.5 gap-1.5' },
                 h('button', {
-                  onClick: function() { setQuoteMode('link'); setIsQuoteOpen(true); },
-                  className: 'flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 bg-amber-100 text-amber-950 border border-amber-300 active:scale-95 cursor-pointer shadow-xs'
-                }, '🛍️ እዘዝ (Order)'),
+                  onClick: function() { setActiveTab('home'); },
+                  className: 'flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer ' + (activeTab === 'home' ? 'bg-amber-500 text-stone-950 font-black shadow-xs' : 'bg-stone-100 text-stone-700 hover:bg-stone-200')
+                }, isWorkerModeActive ? '📦 መደርደሪያ አስተዳድር' : '🛍️ መደርደሪያ (Shop)'),
+
                 h('button', {
                   onClick: function() { setActiveTab('tracker'); },
-                  className: 'flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 active:scale-95 cursor-pointer ' + (activeTab === 'tracker' ? 'bg-amber-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200')
+                  className: 'flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer ' + (activeTab === 'tracker' ? 'bg-amber-600 text-white shadow-xs' : 'bg-stone-100 text-stone-700 hover:bg-stone-200')
                 }, '📦 ትዕዛዞች'),
+
                 h('button', {
                   onClick: function() { setActiveTab('support'); },
-                  className: 'flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 active:scale-95 cursor-pointer ' + (activeTab === 'support' ? 'bg-amber-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200')
-                }, '💬 መልዕክት')
+                  className: 'flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 cursor-pointer ' + (activeTab === 'support' ? 'bg-amber-600 text-white shadow-xs' : 'bg-stone-100 text-stone-700 hover:bg-stone-200')
+                }, '💬 መልዕክት (Chat)')
               )
             ),
 
-            // Main Content
+            // Main Content Area
             h('main', { className: 'p-3 space-y-3 flex-1' },
               activeTab === 'home' ? [
-                // Hero Banner
-                h('div', { key: 'hero', className: 'relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-3.5 shadow-md border border-amber-900/30' },
+                // Worker Operations Header Banner (Shown ONLY for Workers)
+                isWorkerModeActive ? h('div', { key: 'worker-bar', className: 'p-3 rounded-2xl bg-gradient-to-r from-stone-900 to-amber-950 text-white border border-amber-500/40 space-y-2' },
+                  h('div', { className: 'flex items-center justify-between' },
+                    h('span', { className: 'px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/40' }, '🛠️ የሰራተኛ መደርደሪያ መቆጣጠሪያ'),
+                    h('span', { className: 'text-[10px] text-amber-400 font-bold' }, '@korcha_support')
+                  ),
+                  h('p', { className: 'text-xs text-stone-300' }, 'እቃዎችን መደመር፣ ዋጋ መቀየር እና ከመደርደሪያ ማጥፋት ይችላሉ።'),
+                  h('button', {
+                    onClick: function() {
+                      setNewProdCountry(selectedCountry);
+                      setNewProdCategory(selectedCategory === 'All' ? activeCountryObj.categories[1] || 'General' : selectedCategory);
+                      setIsAddProductOpen(true);
+                    },
+                    className: 'w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 shadow-md cursor-pointer'
+                  }, '+ አዲስ እቃ ወደ ' + activeCountryObj.name + ' ጨምር')
+                ) : null,
+
+                // Customer Order CTA Banner (Shown ONLY for Customers)
+                !isWorkerModeActive ? h('div', { key: 'hero', className: 'relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-3.5 shadow-md border border-amber-900/30' },
                   h('div', { className: 'relative z-10 space-y-2' },
                     h('div', { className: 'flex items-center justify-between' },
                       h('span', { className: 'px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30' }, '✨ የውጭ ገበያ እቃ አቅራቢ'),
                       h('span', { className: 'text-[9px] font-bold text-amber-300 bg-amber-900/60 px-2 py-0.5 rounded-md border border-amber-600/40' }, '40% ቅድመ ክፍያ • በብር')
                     ),
-                    h('h2', { className: 'text-sm font-extrabold leading-snug' }, 'የፈለጉትን እቃ ይምረጡ፣ በርዎ ድረስ እናደርሳለን!'),
+                    h('h2', { className: 'text-sm font-extrabold leading-snug' }, 'ከፈለጉት ሀገር እቃ ይዘዙ፣ በርዎ ድረስ እናደርሳለን!'),
                     h('div', { className: 'grid grid-cols-2 gap-2 pt-1' },
                       h('button', {
-                        onClick: function() { setQuoteMode('link'); setIsQuoteOpen(true); },
+                        onClick: function() { setQuoteMode('link'); setQuoteSite(activeCountryObj.name); setIsQuoteOpen(true); },
                         className: 'py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 active:scale-95 cursor-pointer shadow-xs'
                       }, '🔗 በሊንክ እዘዝ'),
                       h('button', {
-                        onClick: function() { setQuoteMode('screenshot'); setIsQuoteOpen(true); },
+                        onClick: function() { setQuoteMode('screenshot'); setQuoteSite(activeCountryObj.name); setIsQuoteOpen(true); },
                         className: 'py-2 px-2.5 rounded-xl bg-white/15 text-white font-bold text-xs flex items-center justify-center space-x-1 border border-white/20 active:scale-95 cursor-pointer'
                       }, '📸 በፎቶ እዘዝ')
                     )
                   )
-                ),
+                ) : null,
 
-                // Marketplaces
-                h('div', { key: 'markets', className: 'bg-white rounded-xl p-2 border border-stone-200 space-y-1.5 shadow-2xs' },
+                // 1. The Regional Marketplaces ARE the Shelf (Comment 1 & 2)
+                h('div', { key: 'country-tabs', className: 'bg-white rounded-2xl p-2.5 border border-stone-200 space-y-2 shadow-2xs' },
                   h('div', { className: 'flex items-center justify-between text-[10px] font-bold text-stone-500 px-0.5' },
-                    h('span', null, 'ዓለም አቀፍ ገበያዎች'),
-                    h('span', { className: 'text-amber-700' }, 'ሊንክ ኮፒ አድርገው ይዘዙ')
+                    h('span', null, 'የገበያ መነሻ ሀገሮች (Sourcing Hubs):'),
+                    h('span', { className: 'text-amber-700' }, 'እቃዎችን ለማየት ይጫኑ')
                   ),
-                  h('div', { className: 'grid grid-cols-3 gap-1' },
-                    h('a', { href: 'https://www.aliexpress.com', target: '_blank', className: 'p-1.5 rounded-lg bg-stone-50 border border-stone-200 text-center hover:bg-amber-50' },
-                      h('span', { className: 'block text-xs font-black text-amber-700' }, 'AliExpress'),
-                      h('span', { className: 'block text-[8.5px] text-stone-500' }, 'ኤሌክትሮኒክስ')
-                    ),
-                    h('a', { href: 'https://www.shein.com', target: '_blank', className: 'p-1.5 rounded-lg bg-stone-50 border border-stone-200 text-center hover:bg-pink-50' },
-                      h('span', { className: 'block text-xs font-black text-rose-600' }, 'Shein'),
-                      h('span', { className: 'block text-[8.5px] text-stone-500' }, 'ፋሽን')
-                    ),
-                    h('a', { href: 'https://www.amazon.com', target: '_blank', className: 'p-1.5 rounded-lg bg-stone-50 border border-stone-200 text-center hover:bg-yellow-50' },
-                      h('span', { className: 'block text-xs font-black text-amber-800' }, 'Amazon'),
-                      h('span', { className: 'block text-[8.5px] text-stone-500' }, 'ሁሉም ዓይነት')
-                    )
-                  ),
-                  h('a', {
-                    href: 'https://mobile.yangkeduo.com',
-                    target: '_blank',
-                    className: 'block p-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white font-extrabold text-xs text-center shadow-xs active:scale-95'
-                  }, '🇨🇳 ከቻይና ገበያ የፈለጉትን ዕቃ ያምጡ (Pingodo Direct) →')
-                ),
 
-                // Regional Hubs
-                h('div', { key: 'regions', className: 'bg-white rounded-xl p-2.5 border border-stone-200 space-y-2 shadow-2xs' },
-                  h('div', { className: 'grid grid-cols-3 gap-1' },
-                    [
-                      { id: 'USA', name: 'USA Mart', flag: '🇺🇸' },
-                      { id: 'ARABIAN', name: 'Arabian Mart', flag: '🇸🇦 🇦🇪' },
-                      { id: 'KOREAN', name: 'Korean Mart', flag: '🇰🇷' }
-                    ].map(function(r) {
+                  // 4 Country Hubs: USA Mart, Arabian Mart, Korean Mart, China
+                  h('div', { className: 'grid grid-cols-4 gap-1' },
+                    COUNTRIES.map(function(c) {
+                      const isSelected = selectedCountry === c.id;
                       return h('button', {
-                        key: r.id,
-                        onClick: function() { setSelectedRegion(r.id); },
-                        className: 'py-1.5 px-1 rounded-xl text-center border transition-all cursor-pointer ' + (selectedRegion === r.id ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs' : 'border-stone-200 bg-stone-50 text-stone-700 font-bold')
+                        key: c.id,
+                        onClick: function() {
+                          setSelectedCountry(c.id);
+                          setSelectedCategory('All');
+                        },
+                        className: 'py-2 px-1 rounded-xl text-center border transition-all cursor-pointer ' + (isSelected ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs' : 'border-stone-200 bg-stone-50 text-stone-700 font-bold hover:bg-amber-50')
                       },
-                        h('span', { className: 'text-xs block leading-none' }, r.flag),
-                        h('span', { className: 'text-[10px] block font-extrabold truncate mt-0.5' }, r.name)
+                        h('span', { className: 'text-sm block leading-none' }, c.flag),
+                        h('span', { className: 'text-[9.5px] block font-extrabold truncate mt-1' }, c.name)
                       );
                     })
                   ),
-                  h('div', { className: 'pt-1 text-[11px]' },
-                    selectedRegion === 'USA' ? h('div', { className: 'flex flex-wrap gap-1' },
-                      ['Food', 'Supplements', 'Skin care products', 'Others'].map(function(cat) {
-                        return h('button', {
-                          key: cat,
-                          onClick: function() { setQuoteMode('link'); setIsQuoteOpen(true); },
-                          className: 'px-2 py-1 rounded-lg bg-stone-100 hover:bg-amber-100 text-stone-800 text-[10px] font-bold border border-stone-200'
-                        }, cat);
-                      })
-                    ) : null,
-                    selectedRegion === 'ARABIAN' ? h('div', { className: 'p-2 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between' },
-                      h('p', { className: 'text-[10px] text-amber-950 font-bold' }, '🇸🇦 🇦🇪 ማንኛውንም እቃ ለማስመጣት ሊንኩን ወይም ስክሪንሾቱን ይላኩልን'),
-                      h('button', {
-                        onClick: function() { setQuoteMode('screenshot'); setIsQuoteOpen(true); },
-                        className: 'px-2 py-1 rounded-lg bg-amber-600 text-white font-bold text-[10px] shrink-0'
-                      }, 'እዘዝ')
-                    ) : null,
-                    selectedRegion === 'KOREAN' ? h('div', { className: 'flex flex-wrap gap-1' },
-                      ['Skin care products'].map(function(cat) {
-                        return h('button', {
-                          key: cat,
-                          onClick: function() { setQuoteMode('link'); setIsQuoteOpen(true); },
-                          className: 'px-2 py-1 rounded-lg bg-stone-100 hover:bg-pink-100 text-stone-800 text-[10px] font-bold border border-stone-200'
-                        }, '🌸 ' + cat + ' (K-Beauty)');
-                      })
-                    ) : null
+
+                  // Category Pills for the selected country
+                  h('div', { className: 'pt-1.5 border-t border-stone-100 flex items-center space-x-1 overflow-x-auto no-scrollbar' },
+                    activeCountryObj.categories.map(function(cat) {
+                      const isCatActive = selectedCategory === cat;
+                      return h('button', {
+                        key: cat,
+                        onClick: function() { setSelectedCategory(cat); },
+                        className: 'shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ' + (isCatActive ? 'bg-amber-600 text-white border-amber-600 shadow-xs' : 'bg-stone-100 text-stone-700 border-stone-200 hover:bg-stone-200')
+                      }, cat);
+                    })
                   )
                 ),
 
-                // Shelf
-                h('div', { key: 'shelf', className: 'space-y-1.5' },
+                // 2. The Dynamic Product Shelf for selected Country & Category
+                h('div', { key: 'shelf-view', className: 'space-y-2' },
                   h('div', { className: 'flex items-center justify-between px-0.5' },
-                    h('h3', { className: 'text-xs font-black text-stone-900' }, 'የመደርደሪያ እቃዎች (Shelf Inventory)'),
-                    h('span', { className: 'text-[10px] text-stone-500 font-medium' }, '100% ኦሪጅናል')
+                    h('h3', { className: 'text-xs font-black text-stone-900 flex items-center space-x-1' },
+                      h('span', null, activeCountryObj.flag),
+                      h('span', null, activeCountryObj.name + ' የመደርደሪያ እቃዎች (' + displayedProducts.length + ')')
+                    ),
+                    isWorkerModeActive ? h('button', {
+                      onClick: function() {
+                        setNewProdCountry(selectedCountry);
+                        setNewProdCategory(selectedCategory === 'All' ? activeCountryObj.categories[1] || 'General' : selectedCategory);
+                        setIsAddProductOpen(true);
+                      },
+                      className: 'text-[10px] font-black text-amber-700 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-md border border-amber-300'
+                    }, '+ አዲስ እቃ') : null
                   ),
-                  h('div', { className: 'grid grid-cols-2 gap-2' },
-                    products.map(function(p) {
+
+                  displayedProducts.length > 0 ? h('div', { className: 'grid grid-cols-2 gap-2' },
+                    displayedProducts.map(function(p) {
                       return h('div', { key: p.id, className: 'bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs flex flex-col justify-between' },
+                        // Image & Zoom
                         h('div', {
-                          onClick: function() { setZoomedProduct(p); setActivePhotoIdx(0); },
+                          onClick: function() { setZoomedProduct(p); },
                           className: 'relative aspect-square bg-stone-100 cursor-pointer overflow-hidden'
                         },
                           h('img', { src: p.photo_url, alt: p.name, className: 'w-full h-full object-cover' }),
-                          p.is_bestseller ? h('span', { className: 'absolute top-1 left-1 bg-amber-500 text-stone-950 font-black text-[8px] px-1.5 py-0.2 rounded' }, 'ተወዳጅ') : null
+                          p.is_bestseller ? h('span', { className: 'absolute top-1 left-1 bg-amber-500 text-stone-950 font-black text-[8px] px-1.5 py-0.2 rounded' }, 'ተወዳጅ') : null,
+                          h('span', { className: 'absolute bottom-1 right-1 bg-stone-900/70 text-white text-[8px] px-1.5 py-0.2 rounded font-bold' }, '🔍 አጉላ')
                         ),
+
+                        // Info
                         h('div', { className: 'p-2 space-y-1 flex flex-col justify-between flex-1' },
                           h('div', null,
                             h('h4', { className: 'font-extrabold text-[11px] text-stone-900 line-clamp-2 leading-tight' }, p.name),
                             p.size ? h('p', { className: 'text-[9px] text-stone-500' }, 'መጠን: ' + p.size) : null
                           ),
+
                           h('div', { className: 'pt-1 border-t border-stone-100 space-y-1' },
                             h('div', { className: 'flex items-baseline justify-between' },
-                              h('span', { className: 'text-xs font-black text-amber-700' }, Number(p.price_etb).toLocaleString() + ' ETB')
+                              h('span', { className: 'text-xs font-black text-amber-700' }, Number(p.price_etb).toLocaleString() + ' ETB'),
+                              !isWorkerModeActive ? h('span', { className: 'text-[8px] text-stone-400' }, '40%: ' + Math.round(p.price_etb * 0.4).toLocaleString()) : null
                             ),
-                            h('div', { className: 'grid grid-cols-2 gap-1' },
-                              h('button', {
-                                onClick: function() { addToCart(p); },
-                                className: 'py-1 px-1 rounded-lg bg-amber-100 text-amber-950 font-bold text-[10px] flex items-center justify-center border border-amber-300'
-                              }, '+ ጋሪ'),
-                              h('button', {
-                                onClick: function() { setQuoteMode('screenshot'); setIsQuoteOpen(true); },
-                                className: 'py-1 px-1 rounded-lg bg-amber-500 text-stone-950 font-black text-[10px] flex items-center justify-center'
-                              }, 'እዘዝ')
+
+                            // ROLE-SEPARATED BUTTONS (Comment 4)
+                            isWorkerModeActive ? (
+                              // WORKER CONTROLS: EDIT & DELETE (NO ORDER BUTTONS)
+                              h('div', { className: 'grid grid-cols-2 gap-1 pt-0.5' },
+                                h('button', {
+                                  onClick: function() { setEditingProduct(Object.assign({}, p)); },
+                                  className: 'py-1 px-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300'
+                                }, '✏️ አርም'),
+                                h('button', {
+                                  onClick: function() { handleDeleteProduct(p.id); },
+                                  className: 'py-1 px-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-[10px] border border-red-200'
+                                }, '🗑️ አጥፋ')
+                              )
+                            ) : (
+                              // CUSTOMER CONTROLS: ADD TO CART & ORDER NOW
+                              h('div', { className: 'grid grid-cols-2 gap-1 pt-0.5' },
+                                h('button', {
+                                  onClick: function() { addToCart(p); },
+                                  className: 'py-1 px-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[10px] border border-amber-300'
+                                }, '+ ጋሪ'),
+                                h('button', {
+                                  onClick: function() { setQuoteMode('screenshot'); setQuoteSpecs(p.name); setIsQuoteOpen(true); },
+                                  className: 'py-1 px-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-[10px] shadow-xs'
+                                }, 'እዘዝ')
+                              )
                             )
                           )
                         )
                       );
                     })
+                  ) : (
+                    // Empty Shelf Sourcing Card
+                    h('div', { className: 'p-4 rounded-2xl bg-white border border-stone-200 text-center space-y-2' },
+                      h('p', { className: 'text-xs text-stone-700 font-bold' },
+                        'በዚህ ምድብ (' + activeCountryObj.name + ') ያልተጫነ ማንኛውንም እቃ በሊንክ ወይም በፎቶ ማዘዝ ይችላሉ!'
+                      ),
+                      h('button', {
+                        onClick: function() { setQuoteMode('link'); setQuoteSite(activeCountryObj.name); setIsQuoteOpen(true); },
+                        className: 'px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-black text-xs shadow-xs'
+                      }, 'እቃውን በሊንክ ወይም በፎቶ እዘዝ →')
+                    )
                   )
                 )
               ] : null,
 
-              // Tracker Tab
+              // 3. Tab 2: Tracker (Real Order Lookup)
               activeTab === 'tracker' ? h('div', { className: 'bg-white rounded-2xl p-4 border border-stone-200 shadow-xs space-y-3' },
                 h('h3', { className: 'font-extrabold text-sm text-stone-900' }, '📦 የትዕዛዝ ሁኔታ መከታተያ (Track Order)'),
-                h('form', { onSubmit: handleTrack, className: 'flex gap-1.5' },
+                h('form', {
+                  onSubmit: function(e) {
+                    e.preventDefault();
+                    if (!searchCode.trim()) return;
+                    setIsTracking(true);
+                    fetch('/api/messages/customer?codes=' + encodeURIComponent(searchCode.trim()))
+                      .then(function(res) { return res.json(); })
+                      .then(function(data) {
+                        if (data.conversations && data.conversations.length > 0) {
+                          setTrackedResult(data.conversations[0]);
+                        } else {
+                          setTrackedResult({ notFound: true, code: searchCode.trim() });
+                        }
+                      })
+                      .catch(function() {
+                        setTrackedResult({ notFound: true, code: searchCode.trim() });
+                      })
+                      .finally(function() {
+                        setIsTracking(false);
+                      });
+                  },
+                  className: 'flex gap-1.5'
+                },
                   h('input', {
                     type: 'text',
                     value: searchCode,
@@ -392,25 +572,65 @@
                   trackedResult.notFound ? h('p', { className: 'text-amber-800 font-bold' }, '⚠️ ምንም የተገኘ ትዕዛዝ የለም።') :
                   h('div', null,
                     h('p', null, '🏷️ ኮድ: ' + (trackedResult.ticket_code || trackedResult.code)),
-                    h('p', null, '📊 ሁኔታ: ' + (trackedResult.status || 'በግምገማ ላይ'))
+                    h('p', null, '📊 ሁኔታ: ' + (trackedResult.status || 'በግምገማ ላይ')),
+                    h('p', { className: 'text-[10px] text-stone-500 pt-1' }, 'ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል።')
                   )
                 ) : null
               ) : null,
 
-              // Support Tab
-              activeTab === 'support' ? h('div', { className: 'bg-white rounded-2xl p-4 border border-stone-200 shadow-xs text-center space-y-3' },
-                h('h3', { className: 'font-extrabold text-sm text-stone-900' }, '💬 ከኮርቻ ሰራተኛ ጋር የቀጥታ ውይይት'),
-                h('p', { className: 'text-xs text-stone-500' }, 'ጥያቄ ወይም አስተያየት ካለዎት ሰራተኞቻችን በቴሌግራም ዝግጁ ናቸው።'),
-                h('a', {
-                  href: 'https://t.me/korcha_support',
-                  target: '_blank',
-                  className: 'inline-block px-5 py-2.5 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs shadow-md'
-                }, '@korcha_support ን በቴሌግራም አውራ')
+              // 4. Tab 3: Interactive Live Chat with Workers (Comment 3)
+              activeTab === 'support' ? h('div', { className: 'bg-white rounded-2xl p-3 border border-stone-200 shadow-xs space-y-3 flex flex-col min-h-[70vh]' },
+                h('div', { className: 'flex items-center justify-between border-b pb-2' },
+                  h('div', { className: 'flex items-center space-x-1.5' },
+                    h('span', { className: 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse' }),
+                    h('h3', { className: 'font-extrabold text-xs text-stone-900' }, 'የኮርቻ ሰራተኛ የደንበኞች አገልግሎት')
+                  ),
+                  h('a', {
+                    href: 'https://t.me/korcha_support',
+                    target: '_blank',
+                    className: 'px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300'
+                  }, '@korcha_support ↗')
+                ),
+
+                // Chat Message Stream
+                h('div', { className: 'flex-1 space-y-2 overflow-y-auto max-h-[50vh] p-1' },
+                  chatMessages.map(function(m) {
+                    const isMe = m.sender === 'customer';
+                    return h('div', { key: m.id, className: 'flex ' + (isMe ? 'justify-end' : 'justify-start') },
+                      h('div', { className: 'max-w-[80%] rounded-2xl p-2.5 text-xs ' + (isMe ? 'bg-amber-500 text-stone-950 font-medium' : 'bg-stone-100 text-stone-800 border border-stone-200') },
+                        h('p', null, m.text),
+                        m.time ? h('span', { className: 'block text-[8px] opacity-70 mt-0.5 text-right' }, m.time) : null
+                      )
+                    );
+                  })
+                ),
+
+                // Chat Input Box
+                h('form', { onSubmit: handleSendChatMessage, className: 'space-y-1.5 pt-2 border-t border-stone-100' },
+                  h('input', {
+                    type: 'tel',
+                    value: chatPhone,
+                    onChange: function(e) { setChatPhone(e.target.value); },
+                    placeholder: 'የመገናኛ ስልክ ቁጥርዎ (Phone)...',
+                    className: 'w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-xs outline-none'
+                  }),
+                  h('div', { className: 'flex gap-1.5' },
+                    h('input', {
+                      type: 'text',
+                      required: true,
+                      value: newMsgText,
+                      onChange: function(e) { setNewMsgText(e.target.value); },
+                      placeholder: 'ጥያቄዎን ወይም መልዕክትዎን እዚህ ይጻፉ...',
+                      className: 'flex-1 px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:ring-2 focus:ring-amber-500'
+                    }),
+                    h('button', { type: 'submit', className: 'px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs' }, 'ላክ')
+                  )
+                )
               ) : null
             ),
 
             // Persistent Floating Cart
-            totalCartCount > 0 && !isCartOpen ? h('div', { className: 'fixed bottom-3 inset-x-3 max-w-md mx-auto z-40' },
+            !isWorkerModeActive && totalCartCount > 0 && !isCartOpen ? h('div', { className: 'fixed bottom-3 inset-x-3 max-w-md mx-auto z-40' },
               h('div', {
                 onClick: function() { setIsCartOpen(true); },
                 className: 'p-3 rounded-2xl bg-stone-900 text-white shadow-xl flex items-center justify-between cursor-pointer border border-amber-500/40'
@@ -457,7 +677,7 @@
               )
             ) : null,
 
-            // Quote Modal
+            // Quote Modal (Link or Photo)
             isQuoteOpen ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-center justify-center p-3' },
               h('div', { className: 'bg-white rounded-2xl max-w-sm w-full p-4 space-y-3' },
                 h('div', { className: 'flex items-center justify-between' },
@@ -467,33 +687,144 @@
                 h('form', {
                   onSubmit: function(e) {
                     e.preventDefault();
-                    if (!orderPhone.trim()) { alert('እባክዎ ስልክ ቁጥር ያስገቡ'); return; }
+                    if (!quotePhone.trim()) { alert('እባክዎ ስልክ ቁጥር ያስገቡ'); return; }
                     alert('✅ የእቃ ማዘዣ ጥያቄዎ ደርሶናል! ሰራተኛችን ዋጋ አስልቶ ያሳውቅዎታል።');
                     setIsQuoteOpen(false);
-                    setOrderPhone('');
-                    setOrderSpecs('');
+                    setQuotePhone('');
+                    setQuoteSpecs('');
+                    setQuoteUrl('');
                   },
                   className: 'space-y-2.5 text-xs'
                 },
+                  h('div', { className: 'text-[11px] font-bold text-amber-800 bg-amber-50 p-2 rounded-lg' },
+                    'መነሻ ገበያ፡ ' + (quoteSite || activeCountryObj.name)
+                  ),
                   quoteMode === 'link' ?
-                    h('input', { type: 'url', required: true, placeholder: 'የእቃው ሊንክ (Shein, Amazon...)...', className: 'w-full px-3 py-2 rounded-xl border border-stone-300' }) :
+                    h('input', {
+                      type: 'url',
+                      required: true,
+                      value: quoteUrl,
+                      onChange: function(e) { setQuoteUrl(e.target.value); },
+                      placeholder: 'የእቃው ሊንክ (Link)...',
+                      className: 'w-full px-3 py-2 rounded-xl border border-stone-300'
+                    }) :
                     h('input', { type: 'file', multiple: true, accept: 'image/*', required: true, className: 'w-full text-[11px]' }),
                   h('input', {
                     type: 'text',
-                    value: orderSpecs,
-                    onChange: function(e) { setOrderSpecs(e.target.value); },
+                    value: quoteSpecs,
+                    onChange: function(e) { setQuoteSpecs(e.target.value); },
                     placeholder: 'ብዛት፣ መጠንና ቀለም (Size, Color, Qty)...',
                     className: 'w-full px-3 py-2 rounded-xl border border-stone-300'
                   }),
                   h('input', {
                     type: 'tel',
                     required: true,
-                    value: orderPhone,
-                    onChange: function(e) { setOrderPhone(e.target.value); },
+                    value: quotePhone,
+                    onChange: function(e) { setQuotePhone(e.target.value); },
                     placeholder: 'የመገናኛ ስልክ ቁጥር (Phone)...',
                     className: 'w-full px-3 py-2 rounded-xl border border-stone-300'
                   }),
                   h('button', { type: 'submit', className: 'w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-bold' }, 'ጥያቄውን ላክ (Submit)')
+                )
+              )
+            ) : null,
+
+            // Worker: Add Product Modal (Comment 4)
+            isAddProductOpen ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-center justify-center p-3' },
+              h('div', { className: 'bg-white rounded-2xl max-w-sm w-full p-4 space-y-3' },
+                h('div', { className: 'flex items-center justify-between' },
+                  h('h3', { className: 'font-extrabold text-xs text-stone-900' }, '+ አዲስ እቃ ወደ መደርደሪያ ጨምር'),
+                  h('button', { onClick: function() { setIsAddProductOpen(false); }, className: 'font-bold text-stone-500' }, '✕')
+                ),
+                h('form', { onSubmit: handleSaveNewProduct, className: 'space-y-2 text-xs' },
+                  h('div', { className: 'grid grid-cols-2 gap-1.5' },
+                    h('select', {
+                      value: newProdCountry,
+                      onChange: function(e) { setNewProdCountry(e.target.value); },
+                      className: 'p-2 rounded-lg border border-stone-300 font-bold'
+                    },
+                      COUNTRIES.map(function(c) { return h('option', { key: c.id, value: c.id }, c.name); })
+                    ),
+                    h('input', {
+                      type: 'text',
+                      placeholder: 'ምድብ (Category)...',
+                      value: newProdCategory,
+                      onChange: function(e) { setNewProdCategory(e.target.value); },
+                      className: 'p-2 rounded-lg border border-stone-300'
+                    })
+                  ),
+                  h('input', {
+                    type: 'text',
+                    required: true,
+                    placeholder: 'የእቃው ስም (Product Name)...',
+                    value: newProdName,
+                    onChange: function(e) { setNewProdName(e.target.value); },
+                    className: 'w-full p-2 rounded-lg border border-stone-300'
+                  }),
+                  h('div', { className: 'grid grid-cols-2 gap-1.5' },
+                    h('input', {
+                      type: 'number',
+                      required: true,
+                      placeholder: 'ዋጋ በብር (ETB)...',
+                      value: newProdPrice,
+                      onChange: function(e) { setNewProdPrice(e.target.value); },
+                      className: 'p-2 rounded-lg border border-stone-300 font-bold text-amber-700'
+                    }),
+                    h('input', {
+                      type: 'text',
+                      placeholder: 'መጠን (Size)...',
+                      value: newProdSize,
+                      onChange: function(e) { setNewProdSize(e.target.value); },
+                      className: 'p-2 rounded-lg border border-stone-300'
+                    })
+                  ),
+                  h('input', {
+                    type: 'url',
+                    placeholder: 'የፎቶ ሊንክ (Photo URL)...',
+                    value: newProdPhoto,
+                    onChange: function(e) { setNewProdPhoto(e.target.value); },
+                    className: 'w-full p-2 rounded-lg border border-stone-300'
+                  }),
+                  h('textarea', {
+                    placeholder: 'አጭር መግለጫ (Description)...',
+                    value: newProdDesc,
+                    onChange: function(e) { setNewProdDesc(e.target.value); },
+                    className: 'w-full p-2 rounded-lg border border-stone-300 h-16'
+                  }),
+                  h('button', { type: 'submit', className: 'w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-black' }, 'መደርደሪያ ላይ ጫን (Publish)')
+                )
+              )
+            ) : null,
+
+            // Worker: Edit Product Modal (Comment 4)
+            editingProduct ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-center justify-center p-3' },
+              h('div', { className: 'bg-white rounded-2xl max-w-sm w-full p-4 space-y-3' },
+                h('div', { className: 'flex items-center justify-between' },
+                  h('h3', { className: 'font-extrabold text-xs' }, 'እቃውን አርም (Edit Product)'),
+                  h('button', { onClick: function() { setEditingProduct(null); }, className: 'font-bold text-stone-500' }, '✕')
+                ),
+                h('form', { onSubmit: handleUpdateProduct, className: 'space-y-2 text-xs' },
+                  h('input', {
+                    type: 'text',
+                    value: editingProduct.name,
+                    onChange: function(e) { setEditingProduct(Object.assign({}, editingProduct, { name: e.target.value })); },
+                    className: 'w-full p-2 rounded-lg border border-stone-300'
+                  }),
+                  h('div', { className: 'grid grid-cols-2 gap-1.5' },
+                    h('input', {
+                      type: 'number',
+                      value: editingProduct.price_etb,
+                      onChange: function(e) { setEditingProduct(Object.assign({}, editingProduct, { price_etb: parseFloat(e.target.value) })); },
+                      className: 'p-2 rounded-lg border border-stone-300 font-bold text-amber-700'
+                    }),
+                    h('input', {
+                      type: 'text',
+                      value: editingProduct.size || '',
+                      onChange: function(e) { setEditingProduct(Object.assign({}, editingProduct, { size: e.target.value })); },
+                      className: 'p-2 rounded-lg border border-stone-300'
+                    })
+                  ),
+                  h('button', { type: 'submit', className: 'w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-black' }, 'ለውጦችን መዝግብ (Save)')
                 )
               )
             ) : null,
@@ -510,11 +841,11 @@
                 ),
                 zoomedProduct.description ? h('p', { className: 'text-xs text-stone-600' }, zoomedProduct.description) : null,
                 h('div', { className: 'flex items-center justify-between pt-2 border-t' },
-                  h('span', { className: 'font-black text-sm text-amber-700' }, zoomedProduct.price_etb.toLocaleString() + ' ETB'),
-                  h('button', {
+                  h('span', { className: 'font-black text-sm text-amber-700' }, Number(zoomedProduct.price_etb).toLocaleString() + ' ETB'),
+                  !isWorkerModeActive ? h('button', {
                     onClick: function() { addToCart(zoomedProduct); setZoomedProduct(null); },
                     className: 'px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs'
-                  }, '+ ወደ ጋሪ ጨምር')
+                  }, '+ ወደ ጋሪ ጨምር') : null
                 )
               )
             ) : null
@@ -524,29 +855,10 @@
         const rootEl = document.getElementById('root');
         if (rootEl) {
           ReactDOM.createRoot(rootEl).render(h(KorchaApp));
-          
-          // Telegram WebApp Official Standard: Signal ready ONLY after DOM is fully painted
           if (window.Telegram && window.Telegram.WebApp) {
             try {
               window.Telegram.WebApp.ready();
               window.Telegram.WebApp.expand();
-              
-              // Prevent accidental dismissals and vertical collapses
-              if (window.Telegram.WebApp.enableClosingConfirmation) {
-                window.Telegram.WebApp.enableClosingConfirmation();
-              }
-              if (window.Telegram.WebApp.disableVerticalSwipes) {
-                window.Telegram.WebApp.disableVerticalSwipes();
-              }
-              
-              // Handle viewport height changes cleanly
-              window.Telegram.WebApp.onEvent('viewportChanged', function() {
-                var vh = window.Telegram.WebApp.viewportHeight || window.innerHeight;
-                if (vh > 200) {
-                  document.body.style.minHeight = vh + 'px';
-                  rootEl.style.minHeight = vh + 'px';
-                }
-              });
             } catch (err) {}
           }
         }

@@ -798,6 +798,34 @@ app.get('/api/shelf', async (req, res) => {
   res.json({ success: true, products, categories });
 });
 
+// Shelf Product Management APIs (for Workers)
+app.post('/api/shelf/products', async (req, res) => {
+  try {
+    const product = await addShelfProduct(req.body);
+    res.json({ success: true, product });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/shelf/products/:id', async (req, res) => {
+  try {
+    const product = await updateShelfProduct(req.params.id, req.body);
+    res.json({ success: true, product });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/shelf/products/:id', async (req, res) => {
+  try {
+    const result = await deleteShelfProduct(req.params.id);
+    res.json({ success: true, result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.post('/api/shelf/order', async (req, res) => {
   const orderCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
   const order = await createOrder({
