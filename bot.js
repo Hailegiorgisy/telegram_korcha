@@ -140,7 +140,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 👋 <b>እንኳን ወደ ኮርቻ (KORCHA) በደህና መጡ!</b>
 <i>የውጭ ገበያ እቃ አቅራቢ — ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ</i>
 
-ከ <b>Arabian Mart, USA Mart ወይም China Direct</b> ላይ የፈለጉትን እቃ ይዘዙ። ሰራተኞቻችን ወጪውን አስልተው በርዎ ድረስ ያደርሳሉ!
+የፈለጉትን እቃ በሊንክ ወይም በፎቶ ይዘዙ፣ ወጪውን አስልተን በርዎ ድረስ እናደርሳለን!
 
 💳 <b>ልዩ የክፍያ ዋስትና፡</b>
 • 100% በብር በ <b>Telebirr</b> ወይም <b>CBE Birr</b> ይክፈሉ
@@ -152,24 +152,6 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       await ctx.replyWithHTML(welcome, getMainMenuKeyboard());
     });
 
-    // 3 Sourcing Origin prompt
-    const promptOrigin = async (ctx, actionType) => {
-      const promptText = `
-🌍 <b>የእቃውን መነሻ ሀገር/ገበያ ይምረጡ (Select Sourcing Hub):</b>
-━━━━━━━━━━━━━━━━━━━━
-1️⃣ 🇸🇦/🇦🇪 <b>Arabian Mart (ሳውዲ / ኤምሬትስ)</b> — Noon, Amazon AE (5-8 ቀናት)
-2️⃣ 🇺🇸 <b>USA Mart (አሜሪካ)</b> — Amazon US, eBay (10-14 ቀናት)
-3️⃣ 🇨🇳 <b>China Direct (ቻይና)</b> — Pinduoduo, Shein, AliExpress (የፋብሪካ ዋጋ)
-━━━━━━━━━━━━━━━━━━━━
-👉 ከታች ካሉት አንዱን ይምረጡ 👇
-`;
-      await ctx.replyWithHTML(promptText, Markup.inlineKeyboard([
-        [Markup.button.callback('🇸🇦 🇦🇪 Arabian Mart (5-8 ቀናት)', `orig:KSA_UAE:${actionType}`)],
-        [Markup.button.callback('🇺🇸 USA Mart (አሜሪካ • 10-14 ቀናት)', `orig:USA:${actionType}`)],
-        [Markup.button.callback('🇨🇳 China Direct (ቻይና • የፋብሪካ ዋጋ)', `orig:CHINA:${actionType}`)]
-      ]));
-    };
-
     bot.hears(['🛍️ ሱቅ ይክፈቱ (Open Mini App)', '🛍️ Open Mini App', 'Open the Mini App', '/app', '/shop'], async (ctx) => {
       await ctx.replyWithHTML(
         '🛍️ <b>የኮርቻ ሚኒ አፕ (Korcha Mini App) ለመክፈት ከታች ያለውን ይጫኑ፡</b>',
@@ -180,42 +162,22 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     });
 
     bot.hears(['🔗 ሊንክ ያስገቡ (Insert Link)', '🔗 ሊንክ አስገባ', '/link'], async (ctx) => {
-      await promptOrigin(ctx, 'link');
+      const session = getSession(ctx.from.id);
+      session.state = 'AWAITING_LINK';
+      await ctx.replyWithHTML(
+        '🔗 <b>የእቃውን ድረ-ገጽ ሊንክ (Shein, Amazon, AliExpress ወይም ሌላ) እዚህ ይላኩልን፡</b>',
+        Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+      );
     });
 
     bot.hears(['📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)', '📸 ፎቶ ላክ', '/photo'], async (ctx) => {
-      await promptOrigin(ctx, 'photo');
-    });
-
-    bot.action(/^orig:([A-Za-z_]+):([A-Za-z]+)$/, async (ctx) => {
-      try { await ctx.answerCbQuery(); } catch (_) {}
-      const origin = ctx.match[1];
-      const action = ctx.match[2];
       const session = getSession(ctx.from.id);
-      session.data = { origin };
-
-      const labels = {
-        KSA_UAE: '🇸🇦/🇦🇪 Arabian Mart (ሳውዲ / ኤምሬትስ)',
-        USA: '🇺🇸 USA Mart (አሜሪካ)',
-        CHINA: '🇨🇳 China Direct (ቻይና)'
-      };
-
-      if (action === 'link') {
-        session.state = 'AWAITING_LINK';
-        await ctx.replyWithHTML(
-          `✅ <b>መነሻ ገበያ፡ ${labels[origin] || origin}</b>\\n\\n🔗 አሁን የእቃውን ድረ-ገጽ ሊንክ እዚህ ይላኩልን 👇`,
-          Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
-        );
-      } else {
-        session.state = 'AWAITING_PHOTO';
-        await ctx.replyWithHTML(
-          `✅ <b>መነሻ ገበያ፡ ${labels[origin] || origin}</b>\\n\\n📸 አሁን የእቃውን ፎቶ ወይም ስክሪንሾት እዚህ ይላኩልን 👇`,
-          Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
-        );
-      }
-    });
-
-    // Worker Command: /reply <code> <message...>
+      session.state = 'AWAITING_PHOTO';
+      await ctx.replyWithHTML(
+        '📸 <b>የእቃውን ፎቶ ወይም ስክሪንሾት እዚህ ይላኩልን፡</b>',
+        Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+      );
+    });// Worker Command: /reply <code> <message...>
     bot.hears(/^\/reply\s+([A-Za-z0-9\-]+)\s+([\s\S]+)$/, async (ctx) => {
       if (!isWorkerContext(ctx)) return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው።');
       const code = ctx.match[1].trim();

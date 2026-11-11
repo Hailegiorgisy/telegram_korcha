@@ -44,8 +44,8 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <button 
-              onClick={onToggleWorker}
-              title={isWorker ? "የሰራተኛ ሞድ (Worker Mode Active - Click to switch)" : "KORCHA Ethiopia (Click to switch mode)"}
+              onClick={() => setActiveTab('home')}
+              title="KORCHA Ethiopia - ወደ ዋና ገጽ"
               className="w-9 h-9 rounded-xl bg-amber-400 p-0.5 border border-amber-500/40 shadow-xs shadow-amber-500/20 flex items-center justify-center cursor-pointer active:scale-95 transition-transform overflow-hidden relative"
             >
               <img 

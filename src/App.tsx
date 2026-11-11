@@ -62,26 +62,41 @@ export function App() {
     || 'korcha_support').replace(/^@/, '');
   const tgUser = typeof window !== 'undefined' ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
 
-  // Multi-Signal Robust Worker Detection: Telegram context + URL param + LocalStorage toggle
+  // STRICT Role Separation:
+  // Customers are ALWAYS the default role.
+  // Worker mode is ONLY granted if:
+  // 1. Explicitly requested via ?worker=1 or ?role=worker in URL
+  // 2. OR Telegram username matches authorized worker list (@korcha_support, @Hailegiorgisy)
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-  const isUrlWorker = Boolean(
+  const isExplicitUrlWorker = Boolean(
     searchParams?.get('worker') === '1' ||
     searchParams?.get('role') === 'worker' ||
-    searchParams?.get('admin') === '1' ||
-    searchParams?.get('user')?.replace(/^@/, '').toLowerCase() === workerUsername.toLowerCase()
-  );
-  const isStorageWorker = typeof localStorage !== 'undefined' && localStorage.getItem('korcha_worker_active') === 'true';
-
-  const isAuthorizedWorker = Boolean(
-    isUrlWorker ||
-    isStorageWorker ||
-    (tgUser?.username && tgUser.username.replace(/^@/, '').toLowerCase() === workerUsername.toLowerCase())
+    searchParams?.get('admin') === '1'
   );
 
+  const currentTgUsername = (tgUser?.username || '').replace(/^@/, '').toLowerCase();
+  const isAuthorizedUsername = Boolean(
+    currentTgUsername && (
+      currentTgUsername === workerUsername.toLowerCase() ||
+      currentTgUsername === 'hailegiorgisy' ||
+      currentTgUsername === 'korcha_support'
+    )
+  );
+
+  // If worker query parameter is set or authorized telegram username
+  const isAuthorizedWorker = isExplicitUrlWorker || isAuthorizedUsername;
+
+  // Dedicated toggle only for authorized users
   const handleToggleWorker = () => {
-    const next = !isAuthorizedWorker;
-    localStorage.setItem('korcha_worker_active', String(next));
-    window.location.reload();
+    if (isAuthorizedWorker) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('worker') === '1') {
+        url.searchParams.delete('worker');
+      } else {
+        url.searchParams.set('worker', '1');
+      }
+      window.location.href = url.toString();
+    }
   };
 
   // Dedicated Worker State
