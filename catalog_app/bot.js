@@ -43,6 +43,15 @@ export const CATEGORY_ITEMS = {
           'https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?w=600&auto=format&fit=crop&q=80'
         ],
         details: 'ለረጅም በረራ እግር እንዳያብጥ የሚረዳ ለስላሳ የውስጥ ሶል ያለው።'
+      },
+      {
+        id: 'inf-3',
+        name: 'FlightEase Anti-Fatigue Air Cushion Travel Moccasins',
+        price_etb: 3450,
+        photos: [
+          'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?w=600&auto=format&fit=crop&q=80'
+        ],
+        details: 'በበረራ ውስጥ የደም ዝውውርን የሚያቀላጥፍ፣ ተጣጣፊና እጅግ ለስላሳ የአየር ከረጢት ሶል ያለው የጉዞ ጫማ።'
       }
     ]
   },
@@ -68,6 +77,15 @@ export const CATEGORY_ITEMS = {
           'https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=600&auto=format&fit=crop&q=80'
         ],
         details: 'ብርድ መከላከያ ውሃ የማያሳልፍ ቆንጆ ጃኬት (ከ2-6 አመት)።'
+      },
+      {
+        id: 'ch-3',
+        name: 'Pastel Knitted Cotton Cardigan & Trouser 2-Piece Set',
+        price_etb: 2850,
+        photos: [
+          'https://images.unsplash.com/photo-1514090458221-65bb69cf63e6?w=600&auto=format&fit=crop&q=80'
+        ],
+        details: 'ለስላሳ የተሸመነ ጥጥ፣ ለልጆች ነፃ እንቅስቃሴ ምቹ የሆነ፣ ለፎቶ እና ለበዓል ተወዳጅ የህፃናት ልብስ።'
       }
     ]
   },
@@ -92,6 +110,15 @@ export const CATEGORY_ITEMS = {
           'https://images.unsplash.com/photo-1602143407151-7111542de6e8?w=600&auto=format&fit=crop&q=80'
         ],
         details: 'የሙቀት መጠን በዲጂታል ንክኪ የሚያሳይ ጠንካራ ቴርሞስ።'
+      },
+      {
+        id: 'oth-3',
+        name: '360° Ergonomic Memory Foam Travel Neck Pillow & Eye Mask Set',
+        price_etb: 2150,
+        photos: [
+          'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?w=600&auto=format&fit=crop&q=80'
+        ],
+        details: 'በበረራ እና በመኪና ጉዞ አንገት እንዳይዝል ሙሉ ድጋፍ የሚሰጥ፣ የሚታጠብ ለስላሳ ሽፋን ያለው ተወዳጅ የጉዞ ትራስ።'
       }
     ]
   }
