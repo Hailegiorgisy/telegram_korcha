@@ -1,3 +1,669 @@
+<<<<<<< HEAD
+<!doctype html>
+<html lang="am">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Korcha (ኮርቻ) - የውጭ ገበያ እቃ አቅራቢ</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              amber: {
+                50: '#fffbeb',
+                100: '#fef3c7',
+                200: '#fde68a',
+                300: '#fcd34d',
+                400: '#fbbf24',
+                500: '#f59e0b',
+                600: '#d97706',
+                700: '#b45309',
+                800: '#92400e',
+                900: '#78350f',
+                950: '#451a03',
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <script>
+      window.onerror = function(msg, url, line, col, err) {
+        var el = document.getElementById('root');
+        if (el) {
+          el.innerHTML = '<div style="margin:20px;padding:15px;background:#fee2e2;border:1px solid #ef4444;border-radius:12px;color:#991b1b;font-family:sans-serif;font-size:13px;">' +
+            '<h3 style="font-weight:bold;margin:0 0 8px 0;">⚠️ Korcha Frontend Notice:</h3>' +
+            '<p style="margin:0 0 6px 0;"><b>Error:</b> ' + msg + '</p>' +
+            '<p style="margin:0;font-size:11px;color:#b91c1c;">Line: ' + line + ' | Source: ' + (url || 'inline') + '</p>' +
+          '</div>';
+        }
+      };
+    </script>
+
+    <!-- React 18, ReactDOM, and Babel Standalone (Cloudflare CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.10/babel.min.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f5f5f4;
+        color: #1c1917;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="min-h-screen flex items-center justify-center bg-stone-100">
+        <div class="text-center space-y-2">
+          <div class="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p class="text-xs font-bold text-stone-600">ኮርቻ ሱቅ እየተከፈተ ነው...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Application Script (Transpiled via Babel Standalone) -->
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      // Icons helper components
+      const SvgIcon = ({ d, className = "w-4 h-4", viewBox = "0 0 24 24" }) => (
+        <svg className={className} fill="none" stroke="currentColor" viewBox={viewBox} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {Array.isArray(d) ? d.map((path, i) => <path key={i} d={path} />) : <path d={d} />}
+        </svg>
+      );
+
+      const IconShoppingBag = (props) => <SvgIcon d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z M3 6h18 M16 10a4 4 0 0 1-8 0" {...props} />;
+      const IconShoppingCart = (props) => <SvgIcon d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" {...props} />;
+      const IconShield = (props) => <SvgIcon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" {...props} />;
+      const IconLink = (props) => <SvgIcon d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71 M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" {...props} />;
+      const IconCamera = (props) => <SvgIcon d={["M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z", "M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"]} {...props} />;
+      const IconMessageCircle = (props) => <SvgIcon d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" {...props} />;
+      const IconPackage = (props) => <SvgIcon d={["m16.5 9.4-9-5.19", "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z", "M3.27 6.96 12 12.01l8.73-5.05", "M12 22.08V12"]} {...props} />;
+      const IconCheckCircle = (props) => <SvgIcon d={["M22 11.08V12a10 10 0 1 1-5.93-9.14", "m9 11 3 3L22 4"]} {...props} />;
+      const IconX = (props) => <SvgIcon d="M18 6 6 18 M6 6l12 12" {...props} />;
+      const IconZoomIn = (props) => <SvgIcon d={["M21 21l-4.35-4.35", "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z", "M11 8v6", "M8 11h6"]} {...props} />;
+      const IconTrash = (props) => <SvgIcon d={["M3 6h18", "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6", "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"]} {...props} />;
+      const IconEdit = (props) => <SvgIcon d={["M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7", "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"]} {...props} />;
+      const IconPlus = (props) => <SvgIcon d="M12 5v14 M5 12h14" {...props} />;
+      const IconSparkles = (props) => <SvgIcon d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" {...props} />;
+
+      // Fallback Shelf Data
+      const INITIAL_PRODUCTS = [
+        {
+          id: 1,
+          name: "Original Stanley Quencher H2.0 FlowState 40oz Tumbler",
+          size: "40oz (1.18L)",
+          price_etb: 4850,
+          photo_url: "https://images.unsplash.com/photo-1577705998148-6da4f3963bc8?w=500&auto=format&fit=crop&q=80",
+          photos: [
+            "https://images.unsplash.com/photo-1577705998148-6da4f3963bc8?w=500&auto=format&fit=crop&q=80",
+            "https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80"
+          ],
+          description: "ቀኑን ሙሉ ቀዝቃዛ ወይም ትኩስ የሚያቆይ፣ ለስፖርትና ለቢሮ ተወዳጅ እቃ። 100% ኦሪጅናል ከ USA።",
+          is_bestseller: true
+        },
+        {
+          id: 2,
+          name: "Apple AirPods Pro (2nd Generation) with MagSafe Case",
+          size: "USB-C",
+          price_etb: 14900,
+          photo_url: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=500&auto=format&fit=crop&q=80",
+          photos: [
+            "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=500&auto=format&fit=crop&q=80"
+          ],
+          description: "ምርጥ ድምፅ እና የጩኸት መከላከያ (Active Noise Cancellation) ያለው።",
+          is_bestseller: true
+        },
+        {
+          id: 3,
+          name: "Hydrating Face Serum & Vitamin C Glow Complex",
+          size: "50ml",
+          price_etb: 1950,
+          photo_url: "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80",
+          photos: [
+            "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80"
+          ],
+          description: "የፊት ቆዳን የሚያለሰልስ እና ብሩህ የሚያደርግ የኮሪያ K-Beauty ሰረም።",
+          is_bestseller: true
+        }
+      ];
+
+      function App() {
+        const [activeTab, setActiveTab] = useState('home');
+        const [products, setProducts] = useState(INITIAL_PRODUCTS);
+        const [cart, setCart] = useState(() => {
+          try {
+            const raw = localStorage.getItem('korcha_cart');
+            return raw ? JSON.parse(raw) : [];
+          } catch { return []; }
+        });
+        const [isCartOpen, setIsCartOpen] = useState(false);
+        const [isQuoteOpen, setIsQuoteOpen] = useState(false);
+        const [quoteMode, setQuoteMode] = useState('link');
+        const [selectedRegion, setSelectedRegion] = useState('USA');
+        const [zoomedProduct, setZoomedProduct] = useState(null);
+        const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+
+        // Tracker state
+        const [searchCode, setSearchCode] = useState('');
+        const [trackedResult, setTrackedResult] = useState(null);
+        const [isTracking, setIsTracking] = useState(false);
+
+        // Worker detection
+        const urlParams = new URLSearchParams(window.location.search);
+        const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        const isWorker = Boolean(
+          urlParams.get('worker') === '1' ||
+          urlParams.get('role') === 'worker' ||
+          (tgUser?.username && ['korcha_support', 'hailegiorgisy'].includes(tgUser.username.replace('@', '').toLowerCase()))
+        );
+
+        useEffect(() => {
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+          }
+          fetch('/api/shelf')
+            .then(res => res.json())
+            .then(data => {
+              if (data.products && data.products.length > 0) setProducts(data.products);
+            })
+            .catch(() => {});
+        }, []);
+
+        useEffect(() => {
+          try { localStorage.setItem('korcha_cart', JSON.stringify(cart)); } catch (_) {}
+        }, [cart]);
+
+        const addToCart = (product) => {
+          setCart(prev => {
+            const exist = prev.find(i => i.product.id === product.id);
+            if (exist) {
+              return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
+            }
+            return [...prev, { product, quantity: 1 }];
+          });
+          if (window.Telegram?.WebApp?.HapticFeedback) {
+            window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+          }
+        };
+
+        const updateCartQty = (id, delta) => {
+          setCart(prev => prev.map(i => {
+            if (i.product.id === id) {
+              const q = i.quantity + delta;
+              return q > 0 ? { ...i, quantity: q } : null;
+            }
+            return i;
+          }).filter(Boolean));
+        };
+
+        const totalCartPrice = cart.reduce((s, i) => s + (i.product.price_etb * i.quantity), 0);
+        const totalCartCount = cart.reduce((s, i) => s + i.quantity, 0);
+
+        const handleTrack = async (e) => {
+          e.preventDefault();
+          if (!searchCode.trim()) return;
+          setIsTracking(true);
+          try {
+            const res = await fetch(`/api/messages/customer?codes=${searchCode.trim()}`);
+            const data = await res.json();
+            if (data.conversations && data.conversations.length > 0) {
+              setTrackedResult(data.conversations[0]);
+            } else {
+              setTrackedResult({ notFound: true, code: searchCode.trim() });
+            }
+          } catch {
+            setTrackedResult({ notFound: true, code: searchCode.trim() });
+          } finally {
+            setIsTracking(false);
+          }
+        };
+
+        return (
+          <div className="max-w-md mx-auto min-h-screen pb-20 bg-stone-100 flex flex-col">
+            {/* Header */}
+            <header className="sticky top-0 z-30 bg-white border-b border-stone-200 px-4 py-2.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-400 p-0.5 border border-amber-500/40 flex items-center justify-center overflow-hidden">
+                    <img src="/logo.png" alt="Korcha" className="w-full h-full object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                  </div>
+                  <div>
+                    <h1 className="text-sm font-extrabold text-stone-900 leading-none">KORCHA</h1>
+                    <p className="text-[10px] text-stone-500 font-medium">የውጭ ገበያ እቃ አቅራቢ</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-1.5">
+                  {totalCartCount > 0 && (
+                    <button
+                      onClick={() => setIsCartOpen(true)}
+                      className="px-2.5 py-1.5 rounded-full bg-amber-500 text-stone-950 font-bold text-xs flex items-center space-x-1 shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <IconShoppingCart className="w-3.5 h-3.5" />
+                      <span>{totalCartCount}</span>
+                    </button>
+                  )}
+                  {isWorker && (
+                    <span className="px-2 py-0.5 rounded-md bg-stone-900 text-amber-300 font-bold text-[10px]">
+                      Worker Mode
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Navigation Tabs (3 Clean Action Tabs) */}
+              <div className="flex items-center justify-between border-t border-stone-100 mt-2 pt-1.5 gap-1.5">
+                <button
+                  onClick={() => { setActiveTab('home'); setIsQuoteOpen(true); setQuoteMode('link'); }}
+                  className="flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 bg-amber-100 text-amber-950 border border-amber-300 active:scale-95 cursor-pointer shadow-xs"
+                >
+                  <IconShoppingBag className="w-3.5 h-3.5 text-amber-700" />
+                  <span>እዘዝ (Order)</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('tracker')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 active:scale-95 cursor-pointer ${
+                    activeTab === 'tracker' ? 'bg-amber-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  }`}
+                >
+                  <IconPackage className="w-3.5 h-3.5" />
+                  <span>ትዕዛዞች</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('support')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold text-xs flex items-center justify-center space-x-1 active:scale-95 cursor-pointer ${
+                    activeTab === 'support' ? 'bg-amber-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  }`}
+                >
+                  <IconMessageCircle className="w-3.5 h-3.5" />
+                  <span>መልዕክት</span>
+                </button>
+              </div>
+            </header>
+
+            {/* Main Content Area */}
+            <main className="p-3 space-y-3 flex-1">
+              {activeTab === 'home' && (
+                <>
+                  {/* Hero Banner */}
+                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white p-3.5 shadow-md border border-amber-900/30">
+                    <div className="relative z-10 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30">
+                          <IconSparkles className="w-3 h-3 text-amber-400" />
+                          <span>የውጭ ገበያ እቃ አቅራቢ</span>
+                        </span>
+                        <span className="text-[9px] font-bold text-amber-300 bg-amber-900/60 px-2 py-0.5 rounded-md border border-amber-600/40">
+                          40% ቅድመ ክፍያ • በብር
+                        </span>
+                      </div>
+
+                      <h2 className="text-sm font-extrabold leading-snug">
+                        የፈለጉትን እቃ ይምረጡ፣ በርዎ ድረስ እናደርሳለን!
+                      </h2>
+
+                      {/* Prominent Order CTAs */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => { setQuoteMode('link'); setIsQuoteOpen(true); }}
+                          className="py-2 px-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 active:scale-95 cursor-pointer shadow-xs"
+                        >
+                          <IconLink className="w-3.5 h-3.5" />
+                          <span>🔗 በሊንክ እዘዝ</span>
+                        </button>
+
+                        <button
+                          onClick={() => { setQuoteMode('screenshot'); setIsQuoteOpen(true); }}
+                          className="py-2 px-2.5 rounded-xl bg-white/15 text-white font-bold text-xs flex items-center justify-center space-x-1 border border-white/20 active:scale-95 cursor-pointer"
+                        >
+                          <IconCamera className="w-3.5 h-3.5 text-amber-400" />
+                          <span>📸 በፎቶ እዘዝ</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Compact Marketplaces & Pinduoduo Banner */}
+                  <div className="bg-white rounded-xl p-2 border border-stone-200 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between text-[10px] font-bold text-stone-500 px-0.5">
+                      <span>ዓለም አቀፍ ገበያዎች</span>
+                      <span className="text-amber-700">ሊንክ ኮፒ አድርገው ይዘዙ</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1">
+                      <a href="https://www.aliexpress.com" target="_blank" className="p-1.5 rounded-lg bg-stone-50 border border-stone-200 text-center hover:bg-amber-50">
+                        <span className="block text-xs font-black text-amber-700">AliExpress</span>
+                        <span className="block text-[8.5px] text-stone-500">ኤሌክትሮኒክስ</span>
+                      </a>
+                      <a href="https://www.shein.com" target="_blank" className="p-1.5 rounded-lg bg-stone-50 border border-stone-200 text-center hover:bg-pink-50">
+                        <span className="block text-xs font-black text-rose-600">Shein</span>
+                        <span className="block text-[8.5px] text-stone-500">ፋሽን</span>
+                      </a>
+                      <a href="https://www.amazon.com" target="_blank" className="p-1.5 rounded-lg bg-stone-50 border border-stone-200 text-center hover:bg-yellow-50">
+                        <span className="block text-xs font-black text-amber-800">Amazon</span>
+                        <span className="block text-[8.5px] text-stone-500">ሁሉም ዓይነት</span>
+                      </a>
+                    </div>
+
+                    {/* Pinduoduo Banner */}
+                    <a
+                      href="https://mobile.yangkeduo.com"
+                      target="_blank"
+                      className="block p-2 rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white font-extrabold text-xs text-center shadow-xs active:scale-95"
+                    >
+                      🇨🇳 ከቻይና ገበያ የፈለጉትን ዕቃ ያምጡ (Pingodo Direct) →
+                    </a>
+                  </div>
+
+                  {/* 3 Regional Hubs: USA Mart, Arabian Mart, Korean Mart */}
+                  <div className="bg-white rounded-xl p-2.5 border border-stone-200 space-y-2 shadow-2xs">
+                    <div className="grid grid-cols-3 gap-1">
+                      {[
+                        { id: 'USA', name: 'USA Mart', flag: '🇺🇸', sub: 'አሜሪካ' },
+                        { id: 'ARABIAN', name: 'Arabian Mart', flag: '🇸🇦 🇦🇪', sub: 'የአረብ ገበያ' },
+                        { id: 'KOREAN', name: 'Korean Mart', flag: '🇰🇷', sub: 'ኮሪያ' },
+                      ].map(r => (
+                        <button
+                          key={r.id}
+                          onClick={() => setSelectedRegion(r.id)}
+                          className={`py-1.5 px-1 rounded-xl text-center border transition-all cursor-pointer ${
+                            selectedRegion === r.id
+                              ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs'
+                              : 'border-stone-200 bg-stone-50 text-stone-700 font-bold'
+                          }`}
+                        >
+                          <span className="text-xs block leading-none">{r.flag}</span>
+                          <span className="text-[10px] block font-extrabold truncate mt-0.5">{r.name}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Regional Sub-Options */}
+                    <div className="pt-1 text-[11px]">
+                      {selectedRegion === 'USA' && (
+                        <div className="flex flex-wrap gap-1">
+                          {['Food', 'Supplements', 'Skin care products', 'Others'].map(cat => (
+                            <button
+                              key={cat}
+                              onClick={() => { setQuoteMode('link'); setIsQuoteOpen(true); }}
+                              className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-amber-100 text-stone-800 text-[10px] font-bold border border-stone-200 cursor-pointer"
+                            >
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {selectedRegion === 'ARABIAN' && (
+                        <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between">
+                          <p className="text-[10px] text-amber-950 font-bold">
+                            🇸🇦 🇦🇪 ማንኛውንም እቃ ለማስመጣት ሊንኩን ወይም ስክሪንሾቱን ይላኩልን
+                          </p>
+                          <button
+                            onClick={() => { setQuoteMode('screenshot'); setIsQuoteOpen(true); }}
+                            className="px-2 py-1 rounded-lg bg-amber-600 text-white font-bold text-[10px] shrink-0"
+                          >
+                            እዘዝ
+                          </button>
+                        </div>
+                      )}
+
+                      {selectedRegion === 'KOREAN' && (
+                        <div className="flex flex-wrap gap-1">
+                          {['Skin care products'].map(cat => (
+                            <button
+                              key={cat}
+                              onClick={() => { setQuoteMode('link'); setIsQuoteOpen(true); }}
+                              className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-pink-100 text-stone-800 text-[10px] font-bold border border-stone-200 cursor-pointer"
+                            >
+                              🌸 {cat} (K-Beauty)
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Product Shelf (Scrollable & Zoomable) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-0.5">
+                      <h3 className="text-xs font-black text-stone-900">የመደርደሪያ እቃዎች (Shelf Inventory)</h3>
+                      <span className="text-[10px] text-stone-500 font-medium">100% ኦሪጅናል</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      {products.map(p => (
+                        <div key={p.id} className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-2xs flex flex-col justify-between">
+                          <div
+                            onClick={() => { setZoomedProduct(p); setActivePhotoIdx(0); }}
+                            className="relative aspect-square bg-stone-100 cursor-pointer group overflow-hidden"
+                          >
+                            <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                            <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-stone-900/70 text-white flex items-center justify-center">
+                              <IconZoomIn className="w-3 h-3" />
+                            </div>
+                            {p.is_bestseller && (
+                              <span className="absolute top-1 left-1 bg-amber-500 text-stone-950 font-black text-[8px] px-1.5 py-0.2 rounded">
+                                ተወዳጅ
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="p-2 space-y-1 flex flex-col justify-between flex-1">
+                            <div>
+                              <h4 className="font-extrabold text-[11px] text-stone-900 line-clamp-2 leading-tight">{p.name}</h4>
+                              {p.size && <p className="text-[9px] text-stone-500">መጠን: <b>{p.size}</b></p>}
+                            </div>
+
+                            <div className="pt-1 border-t border-stone-100 space-y-1">
+                              <div className="flex items-baseline justify-between">
+                                <span className="text-xs font-black text-amber-700">{Number(p.price_etb).toLocaleString()} ETB</span>
+                                <span className="text-[8px] text-stone-400">40%: {Math.round(p.price_etb * 0.4).toLocaleString()}</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-1">
+                                <button
+                                  onClick={() => addToCart(p)}
+                                  className="py-1 px-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[10px] flex items-center justify-center space-x-0.5 border border-amber-300 cursor-pointer"
+                                >
+                                  <IconShoppingCart className="w-3 h-3" />
+                                  <span>+ ጋሪ</span>
+                                </button>
+
+                                <button
+                                  onClick={() => { setQuoteMode('screenshot'); setIsQuoteOpen(true); }}
+                                  className="py-1 px-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-[10px] flex items-center justify-center cursor-pointer shadow-xs"
+                                >
+                                  እዘዝ
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Tab 2: Tracker */}
+              {activeTab === 'tracker' && (
+                <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-xs space-y-3">
+                  <h3 className="font-extrabold text-sm text-stone-900 flex items-center space-x-1.5">
+                    <IconPackage className="w-4 h-4 text-amber-600" />
+                    <span>የትዕዛዝ ሁኔታ መከታተያ (Track Order)</span>
+                  </h3>
+
+                  <form onSubmit={handleTrack} className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={searchCode}
+                      onChange={(e) => setSearchCode(e.target.value)}
+                      placeholder="የኮድ ቁጥር (ምሳሌ፡ KC-123456)..."
+                      className="flex-1 px-3 py-2 rounded-xl border border-stone-300 text-xs outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <button type="submit" className="px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs cursor-pointer">
+                      {isTracking ? '...' : 'ፈልግ'}
+                    </button>
+                  </form>
+
+                  {trackedResult && (
+                    <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs space-y-1">
+                      {trackedResult.notFound ? (
+                        <p className="text-amber-800 font-bold">⚠️ ምንም የተገኘ ትዕዛዝ የለም። እባክዎ ኮዱን ያረጋግጡ።</p>
+                      ) : (
+                        <div>
+                          <p>🏷️ ኮድ: <b>{trackedResult.ticket_code || trackedResult.code}</b></p>
+                          <p>📊 ሁኔታ: <b>{trackedResult.status || 'በግምገማ ላይ'}</b></p>
+                          <p className="text-[10px] text-stone-500 pt-1">ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል።</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Tab 3: Support */}
+              {activeTab === 'support' && (
+                <div className="bg-white rounded-2xl p-4 border border-stone-200 shadow-xs text-center space-y-3">
+                  <IconMessageCircle className="w-8 h-8 text-amber-600 mx-auto" />
+                  <h3 className="font-extrabold text-sm text-stone-900">ከኮርቻ ሰራተኛ ጋር የቀጥታ ውይይት</h3>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    ጥያቄ፣ አስተያየት ወይም የእቃ ማስተካከያ ካለዎት ሰራተኞቻችን በቴሌግራም ዝግጁ ናቸው።
+                  </p>
+                  <a
+                    href="https://t.me/korcha_support"
+                    target="_blank"
+                    className="inline-flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs shadow-md active:scale-95"
+                  >
+                    <span>💬 @korcha_support ን በቴሌግራም አውራ</span>
+                  </a>
+                </div>
+              )}
+            </main>
+
+            {/* Persistent Cart Summary Bar */}
+            {totalCartCount > 0 && !isCartOpen && (
+              <div className="fixed bottom-3 inset-x-3 max-w-md mx-auto z-40 animate-bounce">
+                <div
+                  onClick={() => setIsCartOpen(true)}
+                  className="p-3 rounded-2xl bg-stone-900 text-white shadow-xl flex items-center justify-between cursor-pointer border border-amber-500/40"
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="w-6 h-6 rounded-full bg-amber-500 text-stone-950 font-black text-xs flex items-center justify-center">
+                      {totalCartCount}
+                    </span>
+                    <span className="text-xs font-bold">የግዢ ጋሪ (Cart)</span>
+                  </div>
+                  <span className="text-xs font-black text-amber-400">
+                    {totalCartPrice.toLocaleString()} ETB →
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Product Zoom Modal */}
+            {zoomedProduct && (
+              <div className="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3 animate-fade-in">
+                <div className="bg-white rounded-2xl max-w-sm w-full p-4 space-y-3 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-xs text-stone-900 line-clamp-1">{zoomedProduct.name}</h3>
+                    <button onClick={() => setZoomedProduct(null)} className="p-1 rounded-lg bg-stone-100 text-stone-600">
+                      <IconX className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="aspect-square bg-stone-100 rounded-xl overflow-hidden">
+                    <img src={zoomedProduct.photos ? zoomedProduct.photos[activePhotoIdx] : zoomedProduct.photo_url} alt="" className="w-full h-full object-contain" />
+                  </div>
+
+                  {zoomedProduct.description && (
+                    <p className="text-xs text-stone-600 leading-relaxed">{zoomedProduct.description}</p>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+                    <span className="font-black text-sm text-amber-700">{Number(zoomedProduct.price_etb).toLocaleString()} ETB</span>
+                    <button
+                      onClick={() => { addToCart(zoomedProduct); setZoomedProduct(null); }}
+                      className="px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+                    >
+                      + ወደ ጋሪ ጨምር
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Quote Modal */}
+            {isQuoteOpen && (
+              <div className="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-xs flex items-center justify-center p-3">
+                <div className="bg-white rounded-2xl max-w-sm w-full p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-extrabold text-xs text-stone-900">
+                      {quoteMode === 'link' ? '🔗 በሊንክ እዘዝ (Order by Link)' : '📸 በፎቶ እዘዝ (Order by Photo)'}
+                    </h3>
+                    <button onClick={() => setIsQuoteOpen(false)} className="p-1 rounded-lg bg-stone-100 text-stone-600">
+                      <IconX className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    alert('✅ የእቃ ማዘዣ ጥያቄዎ ደርሶናል! ሰራተኛችን ዋጋ አስልቶ ያሳውቅዎታል።');
+                    setIsQuoteOpen(false);
+                  }} className="space-y-2.5 text-xs">
+                    {quoteMode === 'link' ? (
+                      <input type="url" required placeholder="የእቃው ሊንክ (Shein, Amazon, ወዘተ)..." className="w-full px-3 py-2 rounded-xl border border-stone-300" />
+                    ) : (
+                      <input type="file" multiple accept="image/*" required className="w-full text-[11px]" />
+                    )}
+
+                    <input type="text" placeholder="መጠንና ቀለም (Size & Color)..." className="w-full px-3 py-2 rounded-xl border border-stone-300" />
+                    <input type="tel" required placeholder="ስልክ ቁጥር (Phone)..." className="w-full px-3 py-2 rounded-xl border border-stone-300" />
+
+                    <button type="submit" className="w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-bold">
+                      ጥያቄውን ላክ (Submit)
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>
+=======
 <!doctype html>
 <html lang="am">
   <head>
@@ -38,3 +704,4 @@
     <div id="root"></div>
   </body>
 </html>
+>>>>>>> 06389cf5f43ef8a7e2de2659c4f1da47180b23ce
