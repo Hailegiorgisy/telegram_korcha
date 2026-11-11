@@ -57,8 +57,25 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   isWorker = false,
 }) => {
   const [products, setProducts] = useState<Product[]>([]);
-  // Sourcing Origin Hub Layer: KSA/UAE, USA, China
-  const [selectedOrigin, setSelectedOrigin] = useState<'ALL' | 'KSA_UAE' | 'USA' | 'CHINA'>('ALL');
+  // Curated Region Selection: USA, Arabian market, Korean
+  const [selectedRegion, setSelectedRegion] = useState<'USA' | 'ARABIAN' | 'KOREAN'>('USA');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+
+  const regionCategories = {
+    USA: [
+      { id: 'Food', nameEn: 'Food', nameAm: 'ምግብ እና ስናክስ', icon: '🍎' },
+      { id: 'Supplements', nameEn: 'Supplements', nameAm: 'ቫይታሚን እና ማሟያ', icon: '💊' },
+      { id: 'Skin care products', nameEn: 'Skin care products', nameAm: 'የቆዳ መንከባከቢያ', icon: '✨' },
+      { id: 'Others', nameEn: 'Others', nameAm: 'ሌሎች እቃዎች', icon: '📦' },
+    ],
+    ARABIAN: [
+      { id: 'Food', nameEn: 'Food', nameAm: 'የአረብ ሀገር ምግቦች/ቅመሞች', icon: '🍯' },
+      { id: 'Supplements', nameEn: 'Supplements', nameAm: 'የተፈጥሮ ጤና ማሟያ', icon: '🌿' },
+    ],
+    KOREAN: [
+      { id: 'Skin care products', nameEn: 'Skin care products', nameAm: 'K-Beauty የኮሪያ ውበት', icon: '🌸' },
+    ],
+  };
 
   const originHubs = [
     {
@@ -424,85 +441,154 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       )}
 
-      {/* 2. SOURCING ORIGIN LAYER (BEFORE CATEGORIES): 3 REGIONS — KSA/UAE, USA, CHINA */}
-      <div className="bg-white rounded-2xl p-3 border border-stone-200/80 shadow-2xs space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-1.5">
-            <span className="text-sm">🌍</span>
-            <h3 className="text-xs font-black uppercase tracking-wider text-stone-900">
-              የእቃ መነሻ ገበያ ይምረጡ (Select Sourcing Hub)
-            </h3>
-          </div>
-          <button
-            onClick={() => setSelectedOrigin('ALL')}
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition-all ${
-              selectedOrigin === 'ALL'
-                ? 'bg-amber-500 text-stone-950'
-                : 'text-stone-500 hover:text-stone-800'
-            }`}
-          >
-            ሁሉንም አሳይ
-          </button>
+      {/* 2. COMPACT MARKETPLACE APPS (REDUCED SIZE: ALIEXPRESS, SHEIN, AMAZON) */}
+      <div className="bg-white rounded-xl p-2 border border-stone-200/80 shadow-2xs space-y-1.5">
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+            ዓለም አቀፍ ገበያዎች (Global Apps)
+          </span>
+          <span className="text-[9px] text-amber-700 font-semibold">ሊንክ ኮፒ አድርገው ይዘዙ</span>
         </div>
 
-        {/* 3 Prominent Origin Choice Cards: KSA/UAE, USA, China */}
+        {/* Ultra-compact, reduced-size marketplace tiles */}
         <div className="grid grid-cols-3 gap-1.5">
-          {originHubs.map((hub) => {
-            const isSelected = selectedOrigin === hub.id;
+          {[
+            { name: 'AliExpress', url: 'https://www.aliexpress.com', gradient: 'from-amber-500 to-orange-600', label: 'ኤሌክትሮኒክስ', tag: 'Ali' },
+            { name: 'Shein', url: 'https://www.shein.com', gradient: 'from-rose-500 to-pink-600', label: 'ፋሽን', tag: 'S' },
+            { name: 'Amazon', url: 'https://www.amazon.com', gradient: 'from-amber-600 to-yellow-600', label: 'ሁሉም ዓይነት', tag: 'a' },
+          ].map((m) => (
+            <a
+              key={m.name}
+              href={m.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 rounded-lg bg-stone-50 hover:bg-amber-50/60 border border-stone-200 flex items-center space-x-1.5 transition-all group active:scale-95 cursor-pointer shadow-2xs"
+              title={`${m.name} ክፈት`}
+            >
+              <div className={`w-5 h-5 rounded-md bg-gradient-to-tr ${m.gradient} text-white font-black text-[10px] flex items-center justify-center shrink-0 shadow-2xs`}>
+                {m.tag}
+              </div>
+              <div className="text-left overflow-hidden min-w-0">
+                <p className="font-extrabold text-[10px] text-stone-900 leading-none truncate">{m.name}</p>
+                <p className="text-[8px] text-stone-500 truncate">{m.label}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* 2B. PINDUODUO FEATURE SPOT: ከቻይና ገበያ የፈለጉትን ዕቃ ያምጡ */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white p-2.5 shadow-sm border border-red-500/50 flex items-center justify-between gap-2">
+        <div className="space-y-0.5 min-w-0 flex-1">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs">🇨🇳</span>
+            <span className="text-[9px] font-black uppercase tracking-wider bg-black/25 px-1.5 py-0.2 rounded-md">
+              Pinduoduo • ፒንጎዶ ቀጥታ
+            </span>
+          </div>
+          <h3 className="text-xs font-black tracking-tight leading-snug truncate">
+            ከቻይና ገበያ የፈለጉትን ዕቃ ያምጡ
+          </h3>
+          <p className="text-[9.5px] text-red-100 leading-none">
+            ቀጥታ የፋብሪካ ዋጋ • በ10-14 ቀን አዲስ አበባ በርዎ ድረስ
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-1.5 shrink-0">
+          <a
+            href="https://mobile.yangkeduo.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="py-1 px-2.5 rounded-lg bg-white hover:bg-amber-50 text-red-700 font-extrabold text-[10px] flex items-center space-x-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+          >
+            <span>ፒንጎዶን ክፈት</span>
+            <ExternalLink className="w-2.5 h-2.5" />
+          </a>
+          <button
+            onClick={() => onOpenQuoteModal('link')}
+            className="py-1 px-2 rounded-lg bg-stone-950/80 hover:bg-stone-950 text-amber-300 font-bold text-[10px] transition-all cursor-pointer"
+            title="የፒንጎዶ ሊንክ አስገብተው እዘዙ"
+          >
+            በሊንክ እዘዝ
+          </button>
+        </div>
+      </div>
+
+      {/* 2C. THREE REGIONAL OPTIONS (USA, ARABIAN MARKET, KOREAN) + DYNAMIC SUB-CATEGORIES */}
+      <div className="bg-white rounded-xl p-2.5 border border-stone-200/90 shadow-2xs space-y-2">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs">✈️</span>
+            <h3 className="text-[11px] font-black uppercase tracking-wider text-stone-900">
+              የተመረጡ የውጭ ገበያዎች (Specialty Hubs)
+            </h3>
+          </div>
+          <span className="text-[9px] text-stone-400 font-medium">የፈለጉትን ይምረጡ</span>
+        </div>
+
+        {/* 3 Main Region Tabs: Small & Attractive */}
+        <div className="grid grid-cols-3 gap-1">
+          {[
+            { id: 'USA' as const, label: 'USA', flag: '🇺🇸', sub: 'አሜሪካ' },
+            { id: 'ARABIAN' as const, label: 'Arabian market', flag: '🇸🇦 🇦🇪', sub: 'የአረብ ገበያ' },
+            { id: 'KOREAN' as const, label: 'Korean', flag: '🇰🇷', sub: 'ኮሪያ K-Beauty' },
+          ].map((r) => {
+            const isSelected = selectedRegion === r.id;
             return (
               <button
-                key={hub.id}
-                onClick={() => setSelectedOrigin(isSelected ? 'ALL' : hub.id)}
-                className={`p-2.5 rounded-xl border text-center flex flex-col items-center justify-between space-y-1 transition-all active:scale-95 cursor-pointer shadow-2xs relative ${
+                key={r.id}
+                onClick={() => {
+                  setSelectedRegion(r.id);
+                  setSelectedSubCategory(null);
+                }}
+                className={`py-1.5 px-1 rounded-lg border text-center transition-all active:scale-95 cursor-pointer ${
                   isSelected
-                    ? hub.activeClass + ' shadow-sm'
-                    : 'bg-stone-50/90 border-stone-200/90 hover:border-amber-400 text-stone-800'
+                    ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs ring-1 ring-amber-400'
+                    : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 font-bold'
                 }`}
               >
-                <div className="text-lg leading-none">{hub.flag}</div>
-                <div>
-                  <p className="font-black text-[11px] leading-tight text-stone-950">{hub.titleEn}</p>
-                  <p className="text-[9px] font-bold text-stone-600 leading-none">{hub.titleAm}</p>
-                </div>
-                <div className="w-full pt-1 border-t border-stone-200/60 flex flex-col items-center space-y-0.5">
-                  <span className="text-[8px] font-extrabold text-amber-800 bg-amber-100/90 px-1 py-0.2 rounded-sm">
-                    {hub.etaAm}
-                  </span>
-                  <span className="text-[7.5px] font-medium text-stone-500">{hub.badge}</span>
-                </div>
+                <span className="text-xs leading-none block">{r.flag}</span>
+                <span className="text-[10px] leading-tight block truncate mt-0.5">{r.label}</span>
+                <span className={`text-[7.5px] leading-none block font-medium ${isSelected ? 'text-stone-900' : 'text-stone-400'}`}>
+                  {r.sub}
+                </span>
               </button>
             );
           })}
         </div>
 
-        {/* Dynamic Regional Marketplaces matching selected origin */}
-        <div className="pt-1.5 border-t border-stone-100 space-y-1.5">
-          <div className="flex items-center justify-between text-[10px] text-stone-500 font-bold px-0.5">
+        {/* Dynamic Sub-Category Options for Selected Region */}
+        <div className="pt-1.5 border-t border-stone-100 space-y-1">
+          <div className="flex items-center justify-between text-[9px] text-stone-500 font-bold px-0.5">
             <span>
-              {selectedOrigin === 'ALL'
-                ? 'የተመረጡ ዓለም አቀፍ ገበያዎች:'
-                : `የ ${originHubs.find(h => h.id === selectedOrigin)?.titleEn} መሸጫ ገበያዎች:`}
+              የ {selectedRegion === 'USA' ? 'USA (አሜሪካ)' : selectedRegion === 'ARABIAN' ? 'Arabian market (የአረብ ገበያ)' : 'Korean (የኮሪያ)'} የተመረጡ ምርቶች:
             </span>
-            <span className="text-amber-700">ሊንክ ኮፒ አድርገው ይዘዙ</span>
+            <span className="text-amber-700">ለመጠየቅ ይጫኑ</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-1.5">
-            {currentMarketplaces.map((m) => (
-              <a
-                key={m.name}
-                href={m.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-xl bg-stone-50 hover:bg-amber-50/70 border border-stone-200/90 flex flex-col items-center justify-center space-y-1 text-center transition-all group active:scale-95 cursor-pointer shadow-2xs"
-                title={`${m.name} ድረ-ገጽ ክፈት`}
-              >
-                <div className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${m.gradient} text-white font-black text-xs flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform`}>
-                  {m.name[0]}
-                </div>
-                <p className="font-extrabold text-[10px] text-stone-900 leading-none truncate max-w-full">{m.name}</p>
-                <p className="text-[8px] text-stone-500 leading-tight">{m.label}</p>
-              </a>
-            ))}
+          <div className="flex flex-wrap gap-1">
+            {regionCategories[selectedRegion].map((sub) => {
+              const isSubActive = selectedSubCategory === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => {
+                    setSelectedSubCategory(sub.id);
+                    // Open quote modal pre-configured for this category
+                    onOpenQuoteModal('link');
+                  }}
+                  className={`py-1 px-2.5 rounded-lg text-[10px] font-bold flex items-center space-x-1 border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                    isSubActive
+                      ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                      : 'bg-stone-50 hover:bg-amber-50 border-stone-200/90 text-stone-800'
+                  }`}
+                >
+                  <span className="text-xs">{sub.icon}</span>
+                  <span className="font-extrabold">{sub.nameEn}</span>
+                  <span className="text-[8px] text-stone-500 font-normal">({sub.nameAm})</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
