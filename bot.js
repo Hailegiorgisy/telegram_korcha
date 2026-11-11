@@ -91,9 +91,16 @@ function isValidEthiopianPhone(phone) {
   return Boolean(normalizeEthiopianPhone(phone));
 }
 
+const AUTHORIZED_WORKERS = [
+  'korcha_support',
+  'hailegiorgisy',
+  WORKER_USERNAME.toLowerCase()
+];
+
 function isAuthorizedWorkerUsername(username) {
   if (!username) return false;
-  return String(username).replace(/^@/, '').trim().toLowerCase() === WORKER_USERNAME.toLowerCase();
+  const clean = String(username).replace(/^@/, '').trim().toLowerCase();
+  return AUTHORIZED_WORKERS.includes(clean);
 }
 
 function isWorkerContext(ctx) {
@@ -117,6 +124,14 @@ function clearSession(userId) {
 }
 
 // Keyboards
+function getWorkerKeyboard() {
+  return Markup.keyboard([
+    [Markup.button.webApp('🛠️ የሰራተኛ መቆጣጠሪያ ማዕከል (Worker App)', `${MINI_APP_URL}?worker=1`)],
+    ['📋 ያልተመለሱ ጥያቄዎች (Pending Quotes)', '💰 የገቡ ክፍያዎች (Pending Orders)'],
+    ['🛍️ የደንበኛ እይታ (Customer View)', 'ℹ️ የሰራተኛ መመሪያ (Help)']
+  ]).resize();
+}
+
 function getMainMenuKeyboard() {
   return Markup.keyboard([
     [Markup.button.webApp('🛍️ ሱቅ ይክፈቱ (Open Mini App)', MINI_APP_URL)],
@@ -135,6 +150,22 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
     // Start
     bot.start(async (ctx) => {
       clearSession(ctx.from.id);
+      if (isWorkerContext(ctx)) {
+        const workerWelcome = `
+👨‍💼 <b>እንኳን ወደ ኮርቻ የሰራተኛ መቆጣጠሪያ ማዕከል በደህና መጡ! (Worker Hub)</b>
+━━━━━━━━━━━━━━━━━━━━
+እዚህ የደንበኞችን ጥያቄዎች መመለስ፣ የገቡ ክፍያዎችን ማረጋገጥ እና የመደርደሪያ እቃዎችን ማስተዳደር ይችላሉ።
+
+🛠️ <b>ፈጣን አማራጮች፡</b>
+• <b>የሰራተኛ መቆጣጠሪያ አፕ፡</b> መደርደሪያ ላይ እቃ ለመጨመር እና ዋጋ ለመቀየር ከታች ያለውን ይጫኑ
+• <b>ዋጋ ለመመለስ፡</b> <code>/reply &lt;ኮድ&gt; ዋጋው ... ብር ነው</code>
+• <b>ክፍያ ለማረጋገጥ፡</b> <code>/confirm &lt;ኮድ&gt; በ10-14 ቀን</code>
+
+ከታች ካሉት የሰራተኛ አማራጮች ይምረጡ 👇
+`;
+        return ctx.replyWithHTML(workerWelcome, getWorkerKeyboard());
+      }
+
       const welcome = `
 👋 <b>እንኳን ወደ ኮርቻ (KORCHA) በደህና መጡ!</b>
 <i>የውጭ ገበያ እቃ አቅራቢ — ቀጥታ ከዓለም አቀፍ ገበያዎች ወደ ኢትዮጵያ</i>
@@ -235,6 +266,82 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         await bot.telegram.sendMessage(resolved.customerTelegramId, msg, { parse_mode: 'HTML' }).catch(() => {});
       }
       await ctx.replyWithHTML(`✅ ክፍያ ተረጋግጧል! (ኮድ: <code>${code}</code>)`);
+    });
+
+
+    // Worker Commands and Menu Actions
+    bot.hears(['🛠️ የሰራተኛ መቆጣጠሪያ ማዕከል (Worker App)', '/worker', '/admin', '🛠️ ሰራተኛ ሞድ'], async (ctx) => {
+      if (!isWorkerContext(ctx)) {
+        return ctx.reply('⚠️ ይህ ትዕዛዝ ለኮርቻ ሰራተኞች ብቻ የተፈቀደ ነው።');
+      }
+      const pendingQ = await getPendingQuotes();
+      const pendingO = await getPendingOrders();
+      const statusMsg = `
+👨‍💼 <b>የሰራተኛ መቆጣጠሪያ ማዕከል (Worker Dashboard)</b>
+━━━━━━━━━━━━━━━━━━━━
+📋 <b>ያልተመለሱ ጥያቄዎች (Pending Quotes):</b> <b>${pendingQ.length}</b>
+💰 <b>የገቡ ክፍያዎች (Pending Orders):</b> <b>${pendingO.length}</b>
+━━━━━━━━━━━━━━━━━━━━
+👉 የመደርደሪያ እቃዎችን ለማስተዳደር ከታች ያለውን የሰራተኛ አፕ ይክፈቱ፡
+`;
+      await ctx.replyWithHTML(statusMsg, getWorkerKeyboard());
+    });
+
+    bot.hears(['📋 ያልተመለሱ ጥያቄዎች (Pending Quotes)', '/quotes'], async (ctx) => {
+      if (!isWorkerContext(ctx)) return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው።');
+      const quotes = await getPendingQuotes(10);
+      if (!quotes || quotes.length === 0) {
+        return ctx.replyWithHTML('✅ <b>ምንም ያልተመለሰ የደንበኛ ጥያቄ የለም! ሁሉም ተመልሰዋል።</b>', getWorkerKeyboard());
+      }
+
+      let msg = `📋 <b>ያልተመለሱ የደንበኞች ጥያቄዎች (${quotes.length}):</b>\n━━━━━━━━━━━━━━━━━━━━\n`;
+      quotes.forEach((q, idx) => {
+        msg += `<b>${idx + 1}. ኮድ:</b> <code>${q.quote_code}</code>\n`;
+        msg += `📱 ስልክ: <code>${q.customer_phone || 'N/A'}</code>\n`;
+        if (q.product_url) msg += `🔗 ሊንክ: ${q.product_url}\n`;
+        msg += `📝 ዝርዝር: ${q.details || 'Standard'}\n`;
+        msg += `👉 ምላሽ ለመስጠት፡ <code>/reply ${q.quote_code} ዋጋው ... ብር ነው</code>\n\n`;
+      });
+      await ctx.replyWithHTML(msg, getWorkerKeyboard());
+    });
+
+    bot.hears(['💰 የገቡ ክፍያዎች (Pending Orders)', '/orders'], async (ctx) => {
+      if (!isWorkerContext(ctx)) return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው።');
+      const orders = await getPendingOrders(10);
+      if (!orders || orders.length === 0) {
+        return ctx.replyWithHTML('✅ <b>ክፍያ ማረጋገጫ የሚጠብቅ ትዕዛዝ የለም።</b>', getWorkerKeyboard());
+      }
+
+      let msg = `💰 <b>ክፍያ ማረጋገጫ የሚጠብቁ ትዕዛዞች (${orders.length}):</b>\n━━━━━━━━━━━━━━━━━━━━\n`;
+      orders.forEach((o, idx) => {
+        msg += `<b>${idx + 1}. ኮድ:</b> <code>${o.order_code}</code>\n`;
+        msg += `📱 ስልክ: <code>${o.customer_phone}</code>\n`;
+        msg += `💵 ጠቅላላ: <b>${o.total_price_etb} ETB</b> (ቅድመ ክፍያ: <b>${o.deposit_amount_etb} ETB</b>)\n`;
+        msg += `👉 ለማረጋገጥ፡ <code>/confirm ${o.order_code} በ10-14 ቀን</code>\n\n`;
+      });
+      await ctx.replyWithHTML(msg, getWorkerKeyboard());
+    });
+
+    bot.hears(['🛍️ የደንበኛ እይታ (Customer View)', '/customer'], async (ctx) => {
+      await ctx.replyWithHTML('🛍️ <b>ወደ ደንበኛ እይታ ተቀይሯል። የደንበኛውን ገጽ ከታች ማየት ይችላሉ፡</b>', getMainMenuKeyboard());
+    });
+
+    bot.hears(['ℹ️ የሰራተኛ መመሪያ (Help)', '/worker_help'], async (ctx) => {
+      if (!isWorkerContext(ctx)) return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው።');
+      const helpMsg = `
+ℹ️ <b>የሰራተኛ የትዕዛዝ መመሪያ (Worker Commands):</b>
+━━━━━━━━━━━━━━━━━━━━
+1️⃣ <b>ዋጋ ለመመለስ (Price Quote):</b>
+<code>/reply &lt;ኮድ&gt; ዋጋው 3500 ብር ነው። 40% ቅድመ ክፍያ 1400 ብር ይክፈሉ።</code>
+
+2️⃣ <b>ክፍያ ለማረጋገጥ (Confirm Deposit):</b>
+<code>/confirm &lt;ኮድ&gt; በ10-14 ቀን</code>
+
+3️⃣ <b>የሰራተኛ ሚኒ አፕ፡</b>
+ከታች ያለውን <b>🛠️ የሰራተኛ መቆጣጠሪያ ማዕከል</b> በመጫን እቃዎችን ከመደርደሪያ ላይ መደመር/መቀነስ ይችላሉ።
+━━━━━━━━━━━━━━━━━━━━
+`;
+      await ctx.replyWithHTML(helpMsg, getWorkerKeyboard());
     });
 
     // Photo Handler
