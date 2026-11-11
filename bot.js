@@ -207,7 +207,46 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         '📸 <b>የእቃውን ፎቶ ወይም ስክሪንሾት እዚህ ይላኩልን፡</b>',
         Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
       );
-    });// Worker Command: /reply <code> <message...>
+    });
+
+    // 1. Customer Order & Quote Tracker Handler
+    bot.hears(['📦 የትዕዛዝ ሁኔታ መከታተያ', 'የትዕዛዝ ሁኔታ መከታተያ', '/track', '/status'], async (ctx) => {
+      const session = getSession(ctx.from.id);
+      session.state = 'AWAITING_TRACKING_CODE';
+      await ctx.replyWithHTML(`
+📦 <b>የትዕዛዝ ወይም የዋጋ መጠየቂያ ሁኔታ መከታተያ (Track Order / Quote)</b>
+━━━━━━━━━━━━━━━━━━━━
+እባክዎ የትዕዛዝ ኮድዎን (ምሳሌ፡ <code>KC-123456</code>) ወይም ያዘዙበትን <b>ስልክ ቁጥር</b> (ምሳሌ፡ <code>0911223344</code>) እዚህ ይላኩልን 👇
+`, Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize());
+    });
+
+    // 2. Customer Chat with Worker Handler
+    bot.hears([
+      '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')',
+      '💬 ከሰራተኛ ጋር አውራ',
+      'ከሰራተኛ ጋር አውራ',
+      '/chat',
+      '/support'
+    ], async (ctx) => {
+      const session = getSession(ctx.from.id);
+      session.state = 'AWAITING_SUPPORT_MESSAGE';
+      const workerHandle = WORKER_USERNAME.replace(/^@/, '');
+      await ctx.replyWithHTML(`
+💬 <b>ከኮርቻ ሰራተኛ ጋር የቀጥታ ውይይት (Chat with Support)</b>
+━━━━━━━━━━━━━━━━━━━━
+1️⃣ <b>በቀጥታ በቴሌግራም ለማውራት፡</b>
+👉 <a href="https://t.me/${workerHandle}">@${workerHandle} ን እዚህ ይጫኑ</a>
+
+2️⃣ <b>እዚሁ ቦት ላይ መልዕክት ለመተው፡</b>
+የሚፈልጉትን ጥያቄ፣ ማብራሪያ ወይም የትዕዛዝ ቁጥርዎን ጽፈው ይላኩልን። ሰራተኛችን ተመልክቶ ወዲያውኑ ይመልስልዎታል። 👇
+━━━━━━━━━━━━━━━━━━━━
+`, Markup.inlineKeyboard([
+        [Markup.button.url(`💬 ቀጥታ አውራ (@${workerHandle})`, `https://t.me/${workerHandle}`)],
+        [Markup.button.webApp('📱 በመልዕክት ማዕከል ክፈት', MINI_APP_URL)]
+      ]));
+      await ctx.reply('መልዕክትዎን እዚህ መጻፍ ይችላሉ (ወይም ለመሰረዝ ሰርዝ የሚለውን ይጫኑ)፡', Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize());
+    });
+// Worker Command: /reply <code> <message...>
     bot.hears(/^\/reply\s+([A-Za-z0-9\-]+)\s+([\s\S]+)$/, async (ctx) => {
       if (!isWorkerContext(ctx)) return ctx.reply('⚠️ ይህ ትዕዛዝ ለሰራተኞች ብቻ የተፈቀደ ነው።');
       const code = ctx.match[1].trim();
@@ -381,6 +420,137 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         clearSession(userId);
         return ctx.reply('✅ ተሰርዟል። ወደ ዋና ገጽ ተመልሰዋል፡', getMainMenuKeyboard());
       }
+
+      if (session.state === 'AWAITING_TRACKING_CODE') {
+        const query = text.trim();
+        const cleanPhone = normalizeEthiopianPhone(query);
+        let foundItems = [];
+
+        // 1. Try code lookup
+        const resolved = await resolveTrackingTarget(query);
+        if (resolved && resolved.target) {
+          foundItems.push({ item: resolved.target, type: resolved.type, code: query });
+        }
+
+        // 2. Try phone lookup if it looks like a phone
+        if (cleanPhone) {
+          const quotes = await getQuotesByPhone(cleanPhone);
+          const orders = await getOrdersByPhone(cleanPhone);
+          if (quotes) quotes.forEach(q => foundItems.push({ item: q, type: 'quote', code: q.quote_code || q.quoteCode }));
+          if (orders) orders.forEach(o => foundItems.push({ item: o, type: 'order', code: o.order_code || o.orderCode }));
+        }
+
+        if (foundItems.length === 0) {
+          return ctx.replyWithHTML(`
+⚠️ <b>ምንም የተገኘ ትዕዛዝ ወይም ጥያቄ የለም!</b>
+የገቡት ኮድ ወይም ስልክ ቁጥር (<code>${escapeHtml(query)}</code>) በመረጃ ቋታችን ውስጥ አልተገኘም።
+
+እባክዎ ኮዱን አረጋግጠው እንደገና ይሞክሩ፣ ወይም ከታች ካለው ሰራተኛ ጋር ይገናኙ 👇
+`, Markup.inlineKeyboard([
+            [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)],
+            [Markup.button.webApp('🛍️ ሱቅ ክፈት', MINI_APP_URL)]
+          ]));
+        }
+
+        clearSession(userId);
+
+        for (const entry of foundItems.slice(0, 3)) {
+          const item = entry.item;
+          const isOrder = entry.type === 'order';
+          const code = entry.code;
+          const status = item.status || 'pending_review';
+          const statusMap = {
+            'pending_review': '🔍 በሰራተኛ ግምገማ ላይ',
+            'priced': '💵 ዋጋ ተሰጥቷል (ቅድመ ክፍያ ይጠበቃል)',
+            'pending_deposit': '💳 ክፍያ ማረጋገጫ በመጠባበቅ ላይ',
+            'deposit_verified': '✅ ቅድመ ክፍያ ተረጋግጧል (በግዢ ሂደት ላይ)',
+            'in_transit': '✈️ በጉዞ ላይ ወደ ኢትዮጵያ',
+            'delivered': '🎉 ደርሷል (ተጠናቋል)'
+          };
+
+          const statusAmharic = statusMap[status] || status;
+          const priceText = item.total_price_etb || item.totalPriceEtb ? `${Number(item.total_price_etb || item.totalPriceEtb).toLocaleString()} ETB` : 'በስሌት ላይ';
+          const depositText = item.deposit_amount_etb || item.depositAmountEtb ? `${Number(item.deposit_amount_etb || item.depositAmountEtb).toLocaleString()} ETB` : null;
+          const workerNote = item.latest_worker_note || item.worker_notes || item.worker_response || '';
+
+          let replyMsg = `
+📦 <b>የትዕዛዝ ሁኔታ መረጃ (Order Status):</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ኮድ:</b> <code>${escapeHtml(code)}</code>
+📊 <b>ሁኔታ:</b> <b>${statusAmharic}</b>
+💰 <b>ዋጋ:</b> <b>${priceText}</b>
+`;
+          if (depositText) {
+            replyMsg += `💳 <b>ቅድመ ክፍያ (40%):</b> <b>${depositText}</b>\n`;
+          }
+          if (workerNote) {
+            replyMsg += `📝 <b>የሰራተኛ ማስታወሻ:</b> <i>"${escapeHtml(workerNote)}"</i>\n`;
+          }
+          replyMsg += `━━━━━━━━━━━━━━━━━━━━\n💬 <i>${AUTO_TRACKING_RESPONSE}</i>`;
+
+          await ctx.replyWithHTML(replyMsg, Markup.inlineKeyboard([
+            [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)],
+            [Markup.button.webApp('📱 በስልክ አፕ ክፈት', MINI_APP_URL)]
+          ]));
+        }
+
+        // Notify worker that customer looked up tracking
+        if (WORKER_CHAT_ID) {
+          const customerTag = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+          await bot.telegram.sendMessage(WORKER_CHAT_ID, `🔔 <b>ደንበኛ ${customerTag} ስለ ኮድ/ስልክ <code>${escapeHtml(query)}</code> ሁኔታ ጠይቋል!</b>`, { parse_mode: 'HTML' }).catch(() => {});
+        }
+
+        return ctx.reply('ወደ ዋና ገጽ ተመልሰዋል፡', getMainMenuKeyboard());
+      }
+
+      if (session.state === 'AWAITING_SUPPORT_MESSAGE') {
+        const customerMsg = text.trim();
+        const customerTag = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Customer');
+        const ticketCode = session.activeTicket || `TC-${Math.floor(100000 + Math.random() * 900000)}`;
+
+        clearSession(userId);
+
+        await addTicketMessage({
+          ticketCode,
+          senderRole: 'customer',
+          senderName: customerTag,
+          messageText: customerMsg,
+        });
+
+        if (WORKER_CHAT_ID) {
+          const alert = `
+💬 <b>አዲስ የቀጥታ መልዕክት ከደንበኛ ደርሷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+👤 <b>ደንበኛ:</b> ${customerTag} (Telegram ID: <code>${userId}</code>)
+🏷️ <b>ትኬት ኮድ:</b> <code>${ticketCode}</code>
+📝 <b>መልዕክት:</b> "${escapeHtml(customerMsg)}"
+━━━━━━━━━━━━━━━━━━━━
+👉 <b>ምላሽ ለመስጠት፡</b>
+<code>/reply ${ticketCode} ...</code>
+`;
+          await bot.telegram.sendMessage(WORKER_CHAT_ID, alert, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard([
+              [Markup.button.url(`💬 ለደንበኛው በቴሌግራም መልስ`, ctx.from.username ? `https://t.me/${ctx.from.username}` : `tg://user?id=${userId}`)]
+            ])
+          }).catch(() => {});
+        }
+
+        await ctx.replyWithHTML(`
+✅ <b>መልዕክትዎ ለኮርቻ ሰራተኛ ደርሷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+ሰራተኛችን ጥያቄዎን ተመልክቶ እዚሁ ቦት ላይ ወይም በቴሌግራም ወዲያውኑ ምላሽ ይሰጥዎታል።
+
+💬 በቀጥታም ለሰራተኛው መጻፍ ከፈለጉ፡
+👉 <a href="https://t.me/${WORKER_USERNAME}">@${WORKER_USERNAME}</a>
+`, Markup.inlineKeyboard([
+          [Markup.button.url(`💬 ከሰራተኛ ጋር አውራ (@${WORKER_USERNAME})`, `https://t.me/${WORKER_USERNAME}`)],
+          [Markup.button.webApp('🛍️ ሱቅ ክፈት', MINI_APP_URL)]
+        ]));
+
+        return ctx.reply('ወደ ዋና ገጽ ተመልሰዋል፡', getMainMenuKeyboard());
+      }
+
 
       if (session.state === 'AWAITING_LINK') {
         session.data.productUrl = text;
