@@ -56,6 +56,15 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
+  }
+});
+const upload = multer({ storage, limits: { fileSize: 15 * 1024 * 1024 } });
+
 // Configs
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WORKER_CHAT_ID = process.env.TELEGRAM_WORKER_CHAT_ID;
@@ -421,6 +430,15 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
         return ctx.reply('✅ ተሰርዟል። ወደ ዋና ገጽ ተመልሰዋል፡', getMainMenuKeyboard());
       }
 
+      if (text === '✅ ፎቶዎችን ጨርሻለሁ (Done)' || text === 'ፎቶ ጨርሻለሁ' || text === '/done') {
+        session.state = 'AWAITING_SPECS';
+        const count = session.data.photoFileIds?.length || 0;
+        return ctx.replyWithHTML(
+          `✅ <b>${count} ፎቶዎች ተመዝግበዋል!</b>\n\nአሁን <b>ብዛት፣ መጠን እና ቀለም</b> (ወይም ተጨማሪ ዝርዝር) ጽፈው ይላኩልን 👇`,
+          Markup.keyboard([['❌ ሰርዝ (Cancel)']]).resize()
+        );
+      }
+
       if (session.state === 'AWAITING_TRACKING_CODE') {
         const query = text.trim();
         const cleanPhone = normalizeEthiopianPhone(query);
@@ -598,16 +616,32 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 `, getMainMenuKeyboard());
 
         if (WORKER_CHAT_ID) {
+          const photoCount = session.data.photoFileIds?.length || 0;
           const alert = `
 🔔 <b>አዲስ ጥያቄ ከቦት ደርሷል!</b>
 🏷️ <b>ኮድ:</b> <code>${quoteCode}</code>
 📱 <b>ስልክ:</b> <code>${cleanPhone}</code>
 🌍 <b>መነሻ:</b> <b>${session.data.origin || 'N/A'}</b>
 📝 <b>ዝርዝር:</b> ${session.data.specs || 'N/A'}
-🔗 <b>ሊንክ:</b> ${session.data.productUrl || 'ፎቶ/ስክሪንሾት'}
+🔗 <b>ሊንክ:</b> ${session.data.productUrl || (photoCount > 0 ? `${photoCount} ፎቶዎች ተያይዘዋል` : 'N/A')}
 👉 <b>ዋጋ ለመመለስ፡</b> <code>/reply ${quoteCode} ዋጋው ... ብር ነው።</code>
 `;
           await bot.telegram.sendMessage(WORKER_CHAT_ID, alert, { parse_mode: 'HTML' }).catch(() => {});
+
+          if (session.data.photoFileIds && session.data.photoFileIds.length > 0) {
+            if (session.data.photoFileIds.length === 1) {
+              await bot.telegram.sendPhoto(WORKER_CHAT_ID, session.data.photoFileIds[0], {
+                caption: `📸 ጥያቄ ${quoteCode}`
+              }).catch(() => {});
+            } else {
+              const media = session.data.photoFileIds.slice(0, 10).map((fId, i) => ({
+                type: 'photo',
+                media: fId,
+                caption: i === 0 ? `📸 ጥያቄ ${quoteCode} (${session.data.photoFileIds.length} ፎቶዎች)` : undefined
+              }));
+              await bot.telegram.sendMediaGroup(WORKER_CHAT_ID, media).catch(() => {});
+            }
+          }
         }
         return;
       }
@@ -656,10 +690,53 @@ app.post('/api/shelf/order', async (req, res) => {
   res.json({ success: true, orderCode, order });
 });
 
-app.post('/api/quotes', (req, res) => {
+app.post('/api/quotes', upload.any(), async (req, res) => {
   const quoteCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
-  createQuote({ quoteCode, customerPhone: req.body.phone, details: req.body.details });
-  res.json({ success: true, quoteCode });
+  const files = req.files || [];
+  const photoUrls = files.map(f => `/uploads/${f.filename}`);
+  const origin = req.body.origin || 'International';
+  const categoryType = req.body.categoryType || 'General';
+  const details = `[መነሻ: ${origin}] [ምድብ: ${categoryType}] ${req.body.details || req.body.specs || 'Standard'}`;
+
+  const quote = await createQuote({
+    quoteCode,
+    customerPhone: req.body.phone,
+    productUrl: req.body.productUrl || null,
+    details,
+    photoUrl: photoUrls[0] || null,
+    photoUrls: photoUrls
+  });
+
+  if (WORKER_CHAT_ID && bot) {
+    let alertMsg = `
+🔔 <b>አዲስ ጥያቄ ከሚኒ አፕ ደርሷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ኮድ:</b> <code>${quoteCode}</code>
+📱 <b>ስልክ:</b> <code>${req.body.phone}</code>
+🌍 <b>መነሻ:</b> <b>${origin} (${categoryType})</b>
+📝 <b>ዝርዝር:</b> ${details}
+`;
+    if (req.body.productUrl) alertMsg += `🔗 <b>ሊንክ:</b> ${req.body.productUrl}\n`;
+    if (photoUrls.length > 0) alertMsg += `📷 <b>ፎቶዎች:</b> ${photoUrls.length} ስክሪንሾቶች ተያይዘዋል\n`;
+    alertMsg += `━━━━━━━━━━━━━━━━━━━━\n👉 <b>ዋጋ ለመመለስ፡</b> <code>/reply ${quoteCode} ዋጋው ... ብር ነው</code>`;
+
+    await bot.telegram.sendMessage(WORKER_CHAT_ID, alertMsg, { parse_mode: 'HTML' }).catch(() => {});
+
+    if (files.length > 0) {
+      if (files.length === 1) {
+        await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: files[0].path }, { caption: `📸 ጥያቄ ${quoteCode}` }).catch(() => {});
+      } else {
+        const media = files.slice(0, 10).map((f, i) => ({
+          type: 'photo',
+          media: { source: f.path },
+          caption: i === 0 ? `📸 ጥያቄ ${quoteCode} (${files.length} ፎቶዎች)` : undefined
+        }));
+        await bot.telegram.sendMediaGroup(WORKER_CHAT_ID, media).catch(() => {});
+      }
+    }
+  }
+
+  res.json({ success: true, quoteCode, photoUrls });
 });
 
 app.get('/api/messages/customer', async (req, res) => {

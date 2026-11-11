@@ -38,19 +38,25 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
   const [phone, setPhone] = useState(() => {
     try { return localStorage.getItem('korcha_customer_phone') || ''; } catch { return ''; }
   });
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdQuoteCode, setCreatedQuoteCode] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setPhotoFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      const newPreviews = newFiles.map(file => URL.createObjectURL(file));
+      setPhotoFiles(prev => [...prev, ...newFiles]);
+      setPhotoPreviews(prev => [...prev, ...newPreviews]);
     }
+  };
+
+  const removePhoto = (idx: number) => {
+    setPhotoFiles(prev => prev.filter((_, i) => i !== idx));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,8 +69,8 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       alert('እባክዎ የእቃውን ሊንክ ያስገቡ (Please enter product link)');
       return;
     }
-    if (mode === 'screenshot' && !photoFile) {
-      alert('እባክዎ የእቃውን ፎቶ ወይም ስክሪንሾት ይጫኑ (Please attach screenshot)');
+    if (mode === 'screenshot' && photoFiles.length === 0) {
+      alert('እባክዎ ቢያንስ አንድ የእቃውን ፎቶ ወይም ስክሪንሾት ይጫኑ (Please attach at least one screenshot)');
       return;
     }
 
@@ -86,8 +92,11 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       if (tgUser?.id) formData.append('telegramId', String(tgUser.id));
       if (tgUser?.username) formData.append('telegramUsername', tgUser.username);
 
-      if (photoFile) {
-        formData.append('screenshot', photoFile);
+      if (photoFiles.length > 0) {
+        photoFiles.forEach(file => {
+          formData.append('screenshots', file);
+        });
+        formData.append('screenshot', photoFiles[0]); // fallback
       }
 
       const res = await fetch('/api/quotes', {
@@ -210,27 +219,56 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
                 />
               </div>
             ) : (
-              <div>
-                <label className="block text-[11px] font-bold text-stone-800 mb-1">
-                  የእቃው ፎቶ ወይም ስክሪንሾት <span className="text-red-500">*</span>
-                </label>
-                <label className="flex flex-col items-center justify-center border-2 border-dashed border-stone-300 hover:border-amber-500 rounded-xl p-3 cursor-pointer transition-all bg-stone-50/70 hover:bg-amber-50/30">
-                  {photoPreview ? (
-                    <div className="relative w-full h-32 flex items-center justify-center">
-                      <img src={photoPreview} alt="Preview" className="max-h-full rounded-lg object-contain" />
-                      <span className="absolute bottom-1 right-1 bg-stone-900/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
-                        ቀይር
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-center space-y-1 py-1.5">
-                      <Camera className="w-6 h-6 text-amber-600 mx-auto" />
-                      <p className="text-xs font-bold text-stone-700">ስክሪንሾቱን እዚህ ይጫኑ</p>
-                      <p className="text-[10px] text-stone-500">JPG, PNG ወይም WEBP</p>
-                    </div>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-stone-800">
+                    የእቃው ፎቶዎች ወይም ስክሪንሾቶች (Multiple Photos) <span className="text-red-500">*</span>
+                  </label>
+                  {photoFiles.length > 0 && (
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      📷 {photoFiles.length} ፎቶዎች ተመርጠዋል
+                    </span>
                   )}
-                  <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
-                </label>
+                </div>
+
+                {photoPreviews.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-1.5 max-h-44 overflow-y-auto p-1 bg-stone-50 rounded-xl border border-stone-200">
+                      {photoPreviews.map((preview, idx) => (
+                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-stone-300 bg-white group">
+                          <img src={preview} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(idx)}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-[10px] shadow-sm hover:bg-red-700 cursor-pointer"
+                            title="ፎቶውን አስወግድ"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          <span className="absolute bottom-0.5 left-0.5 bg-stone-900/80 text-white text-[8px] font-bold px-1 rounded">
+                            #{idx + 1}
+                          </span>
+                        </div>
+                      ))}
+
+                      {/* Add more photo card */}
+                      <label className="aspect-square rounded-lg border-2 border-dashed border-amber-400 hover:border-amber-500 bg-amber-50/50 hover:bg-amber-100/50 flex flex-col items-center justify-center cursor-pointer transition-all">
+                        <Camera className="w-5 h-5 text-amber-600 mb-0.5" />
+                        <span className="text-[9px] font-bold text-amber-900">+ ፎቶ ጨምር</span>
+                        <input type="file" accept="image/*" multiple onChange={handlePhotoSelect} className="hidden" />
+                      </label>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-stone-300 hover:border-amber-500 rounded-xl p-4 cursor-pointer transition-all bg-stone-50/70 hover:bg-amber-50/30">
+                    <div className="text-center space-y-1 py-1">
+                      <Camera className="w-7 h-7 text-amber-600 mx-auto" />
+                      <p className="text-xs font-bold text-stone-800">ስክሪንሾቶችን ወይም ፎቶዎችን ይጫኑ</p>
+                      <p className="text-[10px] text-stone-500">አንድ ወይም ከዚያ በላይ ፎቶዎችን በአንድ ጊዜ መምረጥ ይችላሉ (Multiple Photos)</p>
+                    </div>
+                    <input type="file" accept="image/*" multiple onChange={handlePhotoSelect} className="hidden" />
+                  </label>
+                )}
               </div>
             )}
 
