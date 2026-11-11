@@ -427,7 +427,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
 
       if (text === '❌ ሰርዝ (Cancel)' || text === '/cancel') {
         clearSession(userId);
-        return ctx.reply('✅ ተሰርዟል። ወደ ዋና ገጽ ተመልሰዋል፡', getMainMenuKeyboard());
+        return ctx.reply('✅ ተሰርዟል።', getMainMenuKeyboard());
       }
 
       if (text === '✅ ፎቶዎችን ጨርሻለሁ (Done)' || text === 'ፎቶ ጨርሻለሁ' || text === '/done') {
@@ -518,7 +518,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
           await bot.telegram.sendMessage(WORKER_CHAT_ID, `🔔 <b>ደንበኛ ${customerTag} ስለ ኮድ/ስልክ <code>${escapeHtml(query)}</code> ሁኔታ ጠይቋል!</b>`, { parse_mode: 'HTML' }).catch(() => {});
         }
 
-        return ctx.reply('ወደ ዋና ገጽ ተመልሰዋል፡', getMainMenuKeyboard());
+        
       }
 
       if (session.state === 'AWAITING_SUPPORT_MESSAGE') {
@@ -566,7 +566,7 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
           [Markup.button.webApp('🛍️ ሱቅ ክፈት', MINI_APP_URL)]
         ]));
 
-        return ctx.reply('ወደ ዋና ገጽ ተመልሰዋል፡', getMainMenuKeyboard());
+        
       }
 
 

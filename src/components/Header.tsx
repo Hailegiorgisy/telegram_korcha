@@ -116,18 +116,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Clean Navigation Bar */}
         <div className="mt-2 flex items-center justify-between border-t border-stone-100 pt-1.5 text-xs gap-1">
-          {/* Tab 1: Home / Shelf */}
-          <button
-            onClick={() => setActiveTab('home')}
-            className={`flex-1 flex items-center justify-center space-x-1 py-1.5 px-1 rounded-lg font-semibold shadow-xs active:scale-95 transition-all cursor-pointer ${
-              activeTab === 'home'
-                ? 'bg-amber-600 text-white hover:bg-amber-700'
-                : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
-            }`}
-          >
-            <Home className={`w-3.5 h-3.5 ${activeTab === 'home' ? 'text-white' : 'text-stone-600'}`} />
-            <span>{isWorker ? 'መደርደሪያ' : 'መነሻ'}</span>
-          </button>
+          {/* For Workers: መደርደሪያ (Shelf Management) Tab */}
+          {isWorker && (
+            <button
+              onClick={() => setActiveTab('home')}
+              className={`flex-1 flex items-center justify-center space-x-1 py-1.5 px-1 rounded-lg font-semibold shadow-xs active:scale-95 transition-all cursor-pointer ${
+                activeTab === 'home'
+                  ? 'bg-amber-600 text-white hover:bg-amber-700'
+                  : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+              }`}
+            >
+              <Home className={`w-3.5 h-3.5 ${activeTab === 'home' ? 'text-white' : 'text-stone-600'}`} />
+              <span>መደርደሪያ</span>
+            </button>
+          )}
 
           {/* Tab 2: For Worker: Quotes & Pricing (/quotes) | For Customer: እዘዝ (Order) */}
           {isWorker ? (
