@@ -21,13 +21,15 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
 }) => {
   const [mode, setMode] = useState<'link' | 'screenshot'>(initialMode);
   const [productUrl, setProductUrl] = useState('');
-  const [origin, setOrigin] = useState<'KSA_UAE' | 'USA' | 'CHINA'>('CHINA');
-  const [marketplace, setMarketplace] = useState('Pingodo');
+  const [origin, setOrigin] = useState<'USA' | 'ARABIAN' | 'KOREAN' | 'CHINA'>('USA');
+  const [categoryType, setCategoryType] = useState<string>('Supplements');
+  const [marketplace, setMarketplace] = useState('Amazon US');
 
-  const originMarkets = {
-    KSA_UAE: ['Noon', 'Amazon AE', 'Shein Gulf', 'Other'],
-    USA: ['Amazon US', 'eBay', 'Walmart', 'Other'],
-    CHINA: ['Pingodo', 'Shein', 'AliExpress', 'Other'],
+  const originSubCategories: Record<string, string[]> = {
+    USA: ['Food', 'Supplements', 'Skin care products', 'Others'],
+    ARABIAN: ['Food', 'Supplements'],
+    KOREAN: ['Skin care products'],
+    CHINA: ['Pinduoduo Direct', 'Shein', 'AliExpress', 'Others'],
   };
   const [size, setSize] = useState('');
   const [color, setColor] = useState('');
@@ -72,6 +74,7 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
       formData.append('sourceType', mode);
       formData.append('productUrl', productUrl.trim());
       formData.append('origin', origin);
+      formData.append('categoryType', categoryType);
       formData.append('marketplace', marketplace);
       formData.append('size', size.trim());
       formData.append('color', color.trim());
@@ -231,56 +234,56 @@ export const LinkOrScreenshotQuoteModal: React.FC<LinkOrScreenshotQuoteModalProp
               </div>
             )}
 
-            {/* SOURCING ORIGIN LAYER (3 CHOICES) */}
+            {/* SOURCING ORIGIN LAYER (USA, ARABIAN MARKET, KOREAN, CHINA) */}
             <div className="space-y-1.5 pt-1 border-t border-stone-100">
               <label className="block text-[11px] font-bold text-stone-800">
-                1. የእቃው መነሻ ሀገር ይምረጡ (Select Sourcing Hub) <span className="text-red-500">*</span>
+                1. የእቃው መነሻ ገበያ ይምረጡ (Select Specialty Hub) <span className="text-red-500">*</span>
               </label>
-              <div className="grid grid-cols-3 gap-1.5">
+              <div className="grid grid-cols-4 gap-1">
                 {[
-                  { id: 'KSA_UAE' as const, label: 'KSA / UAE', flag: '🇸🇦 🇦🇪', eta: '5-8 ቀን' },
-                  { id: 'USA' as const, label: 'USA', flag: '🇺🇸', eta: '10-14 ቀን' },
-                  { id: 'CHINA' as const, label: 'China', flag: '🇨🇳', eta: '10-14 ቀን' },
+                  { id: 'USA' as const, label: 'USA', flag: '🇺🇸' },
+                  { id: 'ARABIAN' as const, label: 'Arabian', flag: '🇸🇦 🇦🇪' },
+                  { id: 'KOREAN' as const, label: 'Korean', flag: '🇰🇷' },
+                  { id: 'CHINA' as const, label: 'China', flag: '🇨🇳' },
                 ].map((hub) => (
                   <button
                     key={hub.id}
                     type="button"
                     onClick={() => {
                       setOrigin(hub.id);
-                      setMarketplace(originMarkets[hub.id][0]);
+                      setCategoryType(originSubCategories[hub.id][0]);
                     }}
-                    className={`py-1.5 px-2 rounded-xl text-center border transition-all ${
+                    className={`py-1 px-1 rounded-xl text-center border transition-all ${
                       origin === hub.id
-                        ? 'border-amber-500 bg-amber-50 ring-2 ring-amber-500 text-stone-950 font-black'
-                        : 'border-stone-200 bg-stone-50/80 text-stone-700 font-bold'
+                        ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs'
+                        : 'border-stone-200 bg-stone-50 text-stone-700 font-bold'
                     }`}
                   >
-                    <span className="text-sm block leading-none mb-0.5">{hub.flag}</span>
-                    <span className="text-[10px] block leading-none">{hub.label}</span>
-                    <span className="text-[8px] block text-stone-500 font-normal mt-0.5">{hub.eta}</span>
+                    <span className="text-xs block leading-none">{hub.flag}</span>
+                    <span className="text-[9.5px] block leading-tight truncate mt-0.5">{hub.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Regional Marketplace selection */}
+            {/* Dynamic Product Sub-Categories for Selected Region */}
             <div className="space-y-1">
               <label className="block text-[10px] font-bold text-stone-600">
-                የተመረጠ ገበያ ({origin === 'KSA_UAE' ? 'ሳውዲ/ኤምሬትስ' : origin === 'USA' ? 'አሜሪካ' : 'ቻይና'}):
+                2. የምርት ዓይነት ({origin === 'USA' ? 'USA' : origin === 'ARABIAN' ? 'Arabian market' : origin === 'KOREAN' ? 'Korean K-Beauty' : 'China'}):
               </label>
-              <div className="grid grid-cols-4 gap-1">
-                {originMarkets[origin].map((m) => (
+              <div className="flex flex-wrap gap-1">
+                {originSubCategories[origin].map((cat) => (
                   <button
-                    key={m}
+                    key={cat}
                     type="button"
-                    onClick={() => setMarketplace(m)}
-                    className={`py-1 px-1.5 rounded-lg text-[10px] font-bold border transition-all truncate ${
-                      marketplace === m
-                        ? 'border-amber-500 bg-amber-50 text-amber-900 ring-1 ring-amber-500'
+                    onClick={() => setCategoryType(cat)}
+                    className={`py-1 px-2 rounded-lg text-[10px] font-bold border transition-all ${
+                      categoryType === cat
+                        ? 'border-amber-600 bg-amber-600 text-white font-extrabold shadow-2xs'
                         : 'border-stone-200 bg-stone-50 text-stone-700'
                     }`}
                   >
-                    {m}
+                    {cat}
                   </button>
                 ))}
               </div>

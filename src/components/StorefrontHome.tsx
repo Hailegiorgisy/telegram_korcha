@@ -2,6 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShoppingBag, 
+  ShoppingCart, 
+  ZoomIn, 
+  ChevronLeft, 
+  Minus, 
+  Plus, 
   Globe, 
   MapPin, 
   MapPin, 
@@ -27,10 +32,17 @@ interface Product {
   id: number;
   category_id: string;
   name: string;
+  description?: string;
   size?: string;
   price_etb: number;
   photo_url?: string;
+  photos?: string[];
   is_bestseller?: boolean;
+}
+
+interface CartItem {
+  product: Product;
+  quantity: number;
 }
 
 interface Category {
@@ -57,8 +69,75 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
   isWorker = false,
 }) => {
   const [products, setProducts] = useState<Product[]>([]);
-  // Sourcing Origin Hub Layer: KSA/UAE, USA, China
-  const [selectedOrigin, setSelectedOrigin] = useState<'ALL' | 'KSA_UAE' | 'USA' | 'CHINA'>('ALL');
+  // 1. SHOPPING CART STATE
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('korcha_cart');
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
+
+  // Sync cart to localStorage
+  useEffect(() => {
+    try { localStorage.setItem('korcha_cart', JSON.stringify(cart)); } catch (_) {}
+  }, [cart]);
+
+  const addToCart = (product: Product) => {
+    if (isWorker) return;
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      if (existing) {
+        return prev.map(item =>
+          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prev, { product, quantity: 1 }];
+    });
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+    }
+  };
+
+  const updateCartQty = (productId: number, delta: number) => {
+    setCart(prev => {
+      return prev
+        .map(item => {
+          if (item.product.id === productId) {
+            const newQty = item.quantity + delta;
+            return newQty > 0 ? { ...item, quantity: newQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean) as CartItem[];
+    });
+  };
+
+  const totalCartPrice = cart.reduce((sum, item) => sum + (item.product.price_etb * item.quantity), 0);
+  const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // 3. PRODUCT DETAIL & ZOOM MODAL STATE (MULTIPLE PHOTOS + ZOOM + DESCRIPTION)
+  const [zoomedProduct, setZoomedProduct] = useState<Product | null>(null);
+  const [activePhotoIdx, setActivePhotoIdx] = useState<number>(0);
+  const [isZoomedIn, setIsZoomedIn] = useState<boolean>(false);
+  const [shelfViewMode, setShelfViewMode] = useState<'compact_scroll' | 'grid'>('compact_scroll');
+
+  // Curated Region Selection: USA, Arabian market, Korean
+  const [selectedRegion, setSelectedRegion] = useState<'USA' | 'ARABIAN' | 'KOREAN'>('USA');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+
+  const regionCategories: Record<'USA' | 'ARABIAN' | 'KOREAN', { id: string; nameEn: string; nameAm: string; icon: string }[]> = {
+    USA: [
+      { id: 'Food', nameEn: 'Food', nameAm: 'ምግብ እና ስናክስ', icon: '🍎' },
+      { id: 'Supplements', nameEn: 'Supplements', nameAm: 'ቫይታሚን እና ማሟያ', icon: '💊' },
+      { id: 'Skin care products', nameEn: 'Skin care products', nameAm: 'የቆዳ መንከባከቢያ', icon: '✨' },
+      { id: 'Others', nameEn: 'Others', nameAm: 'ሌሎች እቃዎች', icon: '📦' },
+    ],
+    ARABIAN: [], // No specific option for the time being!
+    KOREAN: [
+      { id: 'Skin care products', nameEn: 'Skin care products', nameAm: 'K-Beauty የኮሪያ ውበት', icon: '🌸' },
+    ],
+  };
 
   const originHubs = [
     {
@@ -424,86 +503,177 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       )}
 
-      {/* 2. SOURCING ORIGIN LAYER (BEFORE CATEGORIES): 3 REGIONS — KSA/UAE, USA, CHINA */}
-      <div className="bg-white rounded-2xl p-3 border border-stone-200/80 shadow-2xs space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-1.5">
-            <span className="text-sm">🌍</span>
-            <h3 className="text-xs font-black uppercase tracking-wider text-stone-900">
-              የእቃ መነሻ ገበያ ይምረጡ (Select Sourcing Hub)
-            </h3>
-          </div>
-          <button
-            onClick={() => setSelectedOrigin('ALL')}
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-md transition-all ${
-              selectedOrigin === 'ALL'
-                ? 'bg-amber-500 text-stone-950'
-                : 'text-stone-500 hover:text-stone-800'
-            }`}
-          >
-            ሁሉንም አሳይ
-          </button>
+      {/* 2. COMPACT MARKETPLACE APPS (REDUCED SIZE: ALIEXPRESS, SHEIN, AMAZON) */}
+      <div className="bg-white rounded-xl p-2 border border-stone-200/80 shadow-2xs space-y-1.5">
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
+            ዓለም አቀፍ ገበያዎች (Global Apps)
+          </span>
+          <span className="text-[9px] text-amber-700 font-semibold">ሊንክ ኮፒ አድርገው ይዘዙ</span>
         </div>
 
-        {/* 3 Prominent Origin Choice Cards: KSA/UAE, USA, China */}
+        {/* Ultra-compact, reduced-size marketplace tiles */}
         <div className="grid grid-cols-3 gap-1.5">
-          {originHubs.map((hub) => {
-            const isSelected = selectedOrigin === hub.id;
+          {[
+            { name: 'AliExpress', url: 'https://www.aliexpress.com', gradient: 'from-amber-500 to-orange-600', label: 'ኤሌክትሮኒክስ', tag: 'Ali' },
+            { name: 'Shein', url: 'https://www.shein.com', gradient: 'from-rose-500 to-pink-600', label: 'ፋሽን', tag: 'S' },
+            { name: 'Amazon', url: 'https://www.amazon.com', gradient: 'from-amber-600 to-yellow-600', label: 'ሁሉም ዓይነት', tag: 'a' },
+          ].map((m) => (
+            <a
+              key={m.name}
+              href={m.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 rounded-lg bg-stone-50 hover:bg-amber-50/60 border border-stone-200 flex items-center space-x-1.5 transition-all group active:scale-95 cursor-pointer shadow-2xs"
+              title={`${m.name} ክፈት`}
+            >
+              <div className={`w-5 h-5 rounded-md bg-gradient-to-tr ${m.gradient} text-white font-black text-[10px] flex items-center justify-center shrink-0 shadow-2xs`}>
+                {m.tag}
+              </div>
+              <div className="text-left overflow-hidden min-w-0">
+                <p className="font-extrabold text-[10px] text-stone-900 leading-none truncate">{m.name}</p>
+                <p className="text-[8px] text-stone-500 truncate">{m.label}</p>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* 2B. PINDUODUO FEATURE SPOT: ከቻይና ገበያ የፈለጉትን ዕቃ ያምጡ */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 text-white p-2.5 shadow-sm border border-red-500/50 flex items-center justify-between gap-2">
+        <div className="space-y-0.5 min-w-0 flex-1">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs">🇨🇳</span>
+            <span className="text-[9px] font-black uppercase tracking-wider bg-black/25 px-1.5 py-0.2 rounded-md">
+              Pinduoduo • ፒንጎዶ ቀጥታ
+            </span>
+          </div>
+          <h3 className="text-xs font-black tracking-tight leading-snug truncate">
+            ከቻይና ገበያ የፈለጉትን ዕቃ ያምጡ
+          </h3>
+          <p className="text-[9.5px] text-red-100 leading-none">
+            ቀጥታ የፋብሪካ ዋጋ • በ10-14 ቀን አዲስ አበባ በርዎ ድረስ
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-1.5 shrink-0">
+          <a
+            href="https://mobile.yangkeduo.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="py-1 px-2.5 rounded-lg bg-white hover:bg-amber-50 text-red-700 font-extrabold text-[10px] flex items-center space-x-1 shadow-xs transition-all active:scale-95 cursor-pointer"
+          >
+            <span>ፒንጎዶን ክፈት</span>
+            <ExternalLink className="w-2.5 h-2.5" />
+          </a>
+          <button
+            onClick={() => onOpenQuoteModal('link')}
+            className="py-1 px-2 rounded-lg bg-stone-950/80 hover:bg-stone-950 text-amber-300 font-bold text-[10px] transition-all cursor-pointer"
+            title="የፒንጎዶ ሊንክ አስገብተው እዘዙ"
+          >
+            በሊንክ እዘዝ
+          </button>
+        </div>
+      </div>
+
+      {/* 2C. THREE REGIONAL OPTIONS (USA, ARABIAN MARKET, KOREAN) + DYNAMIC SUB-CATEGORIES */}
+      <div className="bg-white rounded-xl p-2.5 border border-stone-200/90 shadow-2xs space-y-2">
+        <div className="flex items-center justify-between px-0.5">
+          <div className="flex items-center space-x-1">
+            <span className="text-xs">✈️</span>
+            <h3 className="text-[11px] font-black uppercase tracking-wider text-stone-900">
+              የተመረጡ የውጭ ገበያዎች (Specialty Hubs)
+            </h3>
+          </div>
+          <span className="text-[9px] text-stone-400 font-medium">የፈለጉትን ይምረጡ</span>
+        </div>
+
+        {/* 3 Main Region Tabs: Small & Attractive */}
+        <div className="grid grid-cols-3 gap-1">
+          {[
+            { id: 'USA' as const, label: 'USA', flag: '🇺🇸', sub: 'አሜሪካ' },
+            { id: 'ARABIAN' as const, label: 'Arabian market', flag: '🇸🇦 🇦🇪', sub: 'የአረብ ገበያ' },
+            { id: 'KOREAN' as const, label: 'Korean', flag: '🇰🇷', sub: 'ኮሪያ K-Beauty' },
+          ].map((r) => {
+            const isSelected = selectedRegion === r.id;
             return (
               <button
-                key={hub.id}
-                onClick={() => setSelectedOrigin(isSelected ? 'ALL' : hub.id)}
-                className={`p-2.5 rounded-xl border text-center flex flex-col items-center justify-between space-y-1 transition-all active:scale-95 cursor-pointer shadow-2xs relative ${
+                key={r.id}
+                onClick={() => {
+                  setSelectedRegion(r.id);
+                  setSelectedSubCategory(null);
+                }}
+                className={`py-1.5 px-1 rounded-lg border text-center transition-all active:scale-95 cursor-pointer ${
                   isSelected
-                    ? hub.activeClass + ' shadow-sm'
-                    : 'bg-stone-50/90 border-stone-200/90 hover:border-amber-400 text-stone-800'
+                    ? 'border-amber-500 bg-amber-500 text-stone-950 font-black shadow-xs ring-1 ring-amber-400'
+                    : 'border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-700 font-bold'
                 }`}
               >
-                <div className="text-lg leading-none">{hub.flag}</div>
-                <div>
-                  <p className="font-black text-[11px] leading-tight text-stone-950">{hub.titleEn}</p>
-                  <p className="text-[9px] font-bold text-stone-600 leading-none">{hub.titleAm}</p>
-                </div>
-                <div className="w-full pt-1 border-t border-stone-200/60 flex flex-col items-center space-y-0.5">
-                  <span className="text-[8px] font-extrabold text-amber-800 bg-amber-100/90 px-1 py-0.2 rounded-sm">
-                    {hub.etaAm}
-                  </span>
-                  <span className="text-[7.5px] font-medium text-stone-500">{hub.badge}</span>
-                </div>
+                <span className="text-xs leading-none block">{r.flag}</span>
+                <span className="text-[10px] leading-tight block truncate mt-0.5">{r.label}</span>
+                <span className={`text-[7.5px] leading-none block font-medium ${isSelected ? 'text-stone-900' : 'text-stone-400'}`}>
+                  {r.sub}
+                </span>
               </button>
             );
           })}
         </div>
 
-        {/* Dynamic Regional Marketplaces matching selected origin */}
-        <div className="pt-1.5 border-t border-stone-100 space-y-1.5">
-          <div className="flex items-center justify-between text-[10px] text-stone-500 font-bold px-0.5">
-            <span>
-              {selectedOrigin === 'ALL'
-                ? 'የተመረጡ ዓለም አቀፍ ገበያዎች:'
-                : `የ ${originHubs.find(h => h.id === selectedOrigin)?.titleEn} መሸጫ ገበያዎች:`}
-            </span>
-            <span className="text-amber-700">ሊንክ ኮፒ አድርገው ይዘዙ</span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-1.5">
-            {currentMarketplaces.map((m) => (
-              <a
-                key={m.name}
-                href={m.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-2 rounded-xl bg-stone-50 hover:bg-amber-50/70 border border-stone-200/90 flex flex-col items-center justify-center space-y-1 text-center transition-all group active:scale-95 cursor-pointer shadow-2xs"
-                title={`${m.name} ድረ-ገጽ ክፈት`}
+        {/* Dynamic Sub-Category Options for Selected Region */}
+        <div className="pt-1.5 border-t border-stone-100 space-y-1">
+          {selectedRegion === 'ARABIAN' ? (
+            /* ARABIAN MARKET: NO SPECIFIC SUB-OPTION FOR THE TIME BEING */
+            <div className="p-2 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <p className="text-[10px] font-bold text-amber-950 flex items-center space-x-1">
+                  <span>🇸🇦 🇦🇪</span>
+                  <span>የአረብ ገበያ (Noon, Amazon SA/AE, Shein)</span>
+                </p>
+                <p className="text-[8.5px] text-amber-800">
+                  ማንኛውንም እቃ ከሳውዲና ከዱባይ በሊንክ ወይም በፎቶ ማዘዝ ይችላሉ (ከ 5-8 ቀናት ማድረሻ)።
+                </p>
+              </div>
+              <button
+                onClick={() => onOpenQuoteModal('link')}
+                className="py-1 px-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[9.5px] shrink-0 active:scale-95 transition-all shadow-2xs"
               >
-                <div className={`w-7 h-7 rounded-lg bg-gradient-to-tr ${m.gradient} text-white font-black text-xs flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform`}>
-                  {m.name[0]}
-                </div>
-                <p className="font-extrabold text-[10px] text-stone-900 leading-none truncate max-w-full">{m.name}</p>
-                <p className="text-[8px] text-stone-500 leading-tight">{m.label}</p>
-              </a>
-            ))}
-          </div>
+                በሊንክ እዘዝ
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between text-[9px] text-stone-500 font-bold px-0.5">
+                <span>
+                  የ {selectedRegion === 'USA' ? 'USA (አሜሪካ)' : 'Korean (የኮሪያ)'} የተመረጡ ምርቶች:
+                </span>
+                <span className="text-amber-700">ለመጠየቅ ይጫኑ</span>
+              </div>
+
+              <div className="flex flex-wrap gap-1">
+                {regionCategories[selectedRegion].map((sub) => {
+                  const isSubActive = selectedSubCategory === sub.id;
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => {
+                        setSelectedSubCategory(sub.id);
+                        onOpenQuoteModal('link');
+                      }}
+                      className={`py-1 px-2.5 rounded-lg text-[10px] font-bold flex items-center space-x-1 border transition-all active:scale-95 cursor-pointer shadow-2xs ${
+                        isSubActive
+                          ? 'bg-amber-600 text-white border-amber-700 shadow-xs'
+                          : 'bg-stone-50 hover:bg-amber-50 border-stone-200/90 text-stone-800'
+                      }`}
+                    >
+                      <span className="text-xs">{sub.icon}</span>
+                      <span className="font-extrabold">{sub.nameEn}</span>
+                      <span className="text-[8px] text-stone-500 font-normal">({sub.nameAm})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -540,132 +710,544 @@ export const StorefrontHome: React.FC<StorefrontHomeProps> = ({
         </div>
       </div>
 
-      {/* 4. PRODUCT CARDS: WORKERS CAN EDIT (NO ORDER), CUSTOMERS CAN ORDER (NO EDIT) */}
-      {isLoading ? (
-        <div className="p-8 text-center bg-white rounded-2xl border border-stone-200">
-          <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-          <p className="text-xs text-stone-500">እቃዎች እየተጫኑ ነው...</p>
-        </div>
-      ) : filteredProducts.length === 0 ? (
-        <div className="p-6 text-center bg-white rounded-2xl border border-stone-200 space-y-2">
-          <ShoppingBag className="w-8 h-8 text-stone-300 mx-auto" />
-          <p className="text-xs font-bold text-stone-700">በዚህ ምድብ ዝግጁ እቃ አልተገኘም</p>
-          {isWorker ? (
+      {/* 4. PRODUCT SHELF: SMALL, SCROLLABLE, ZOOMABLE, MULTI-PHOTO & CART READY */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center space-x-1.5">
+            <h3 className="text-xs font-bold text-stone-800">
+              {isWorker ? 'የመደርደሪያ እቃዎች አስተዳደር' : 'ዝግጁ የመደርደሪያ እቃዎች (Shelf Stock)'}
+            </h3>
+            <span className="text-[9px] text-stone-400">({filteredProducts.length} እቃዎች)</span>
+          </div>
+
+          {/* Shelf View Mode Toggle: Compact Scroll vs 2-Col Grid */}
+          <div className="flex items-center bg-stone-100 p-0.5 rounded-lg border border-stone-200 text-[10px] font-bold">
             <button
-              onClick={() => setIsAddModalOpen(true)}
-              className="py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+              onClick={() => setShelfViewMode('compact_scroll')}
+              className={`px-2 py-0.5 rounded-md transition-all ${
+                shelfViewMode === 'compact_scroll'
+                  ? 'bg-white text-stone-950 shadow-2xs'
+                  : 'text-stone-500 hover:text-stone-800'
+              }`}
+              title="አግድም ሸብልል (Horizontal Scroll)"
             >
-              + አዲስ እቃ ጨምር
+              አነስተኛ (Scroll)
             </button>
-          ) : (
             <button
-              onClick={() => onOpenQuoteModal('link')}
-              className="py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+              onClick={() => setShelfViewMode('grid')}
+              className={`px-2 py-0.5 rounded-md transition-all ${
+                shelfViewMode === 'grid'
+                  ? 'bg-white text-stone-950 shadow-2xs'
+                  : 'text-stone-500 hover:text-stone-800'
+              }`}
+              title="ግሪድ እይታ (Grid View)"
             >
-              በሊንክ እዘዝ (Custom Order)
+              ግሪድ (Grid)
             </button>
-          )}
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2.5">
-          {filteredProducts.map((p) => (
-            <div
-              key={p.id}
-              className="bg-white rounded-2xl border border-stone-200 shadow-2xs overflow-hidden flex flex-col justify-between hover:shadow-xs transition-shadow"
-            >
-              {/* Product Photo */}
-              <div className="relative aspect-square bg-stone-100 overflow-hidden">
-                {p.photo_url ? (
-                  <img
-                    src={p.photo_url}
-                    alt={p.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
+
+        {isLoading ? (
+          <div className="p-8 text-center bg-white rounded-2xl border border-stone-200">
+            <div className="w-6 h-6 border-2 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <p className="text-xs text-stone-500">እቃዎች እየተጫኑ ነው...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="p-6 text-center bg-white rounded-2xl border border-stone-200 space-y-2">
+            <ShoppingBag className="w-8 h-8 text-stone-300 mx-auto" />
+            <p className="text-xs font-bold text-stone-700">በዚህ ምድብ ዝግጁ እቃ አልተገኘም</p>
+            {isWorker ? (
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+              >
+                + አዲስ እቃ ጨምር
+              </button>
+            ) : (
+              <button
+                onClick={() => onOpenQuoteModal('link')}
+                className="py-2 px-4 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs"
+              >
+                በሊንክ እዘዝ (Custom Order)
+              </button>
+            )}
+          </div>
+        ) : (
+          /* SHELF DISPLAY: COMPACT SCROLL OR HIGH-DENSITY GRID */
+          <div
+            className={
+              shelfViewMode === 'compact_scroll'
+                ? 'flex space-x-2.5 overflow-x-auto pb-2 scrollbar-none snap-x px-0.5'
+                : 'grid grid-cols-2 gap-2.5'
+            }
+          >
+            {filteredProducts.map((p) => {
+              const photosList = p.photos && p.photos.length > 0 ? p.photos : (p.photo_url ? [p.photo_url] : []);
+              const multiPhotoCount = photosList.length;
+
+              return (
+                <div
+                  key={p.id}
+                  className={`bg-white rounded-2xl border border-stone-200/90 shadow-2xs overflow-hidden flex flex-col justify-between hover:shadow-xs transition-shadow relative ${
+                    shelfViewMode === 'compact_scroll' ? 'w-44 shrink-0 snap-start' : 'w-full'
+                  }`}
+                >
+                  {/* Product Zoomed-Out Thumbnail with Tap-to-Zoom */}
+                  <div
+                    onClick={() => {
+                      setZoomedProduct(p);
+                      setActivePhotoIdx(0);
+                      setIsZoomedIn(false);
                     }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-stone-300">
-                    <ShoppingBag className="w-8 h-8" />
-                  </div>
-                )}
-                {p.is_bestseller && (
-                  <span className="absolute top-1.5 left-1.5 bg-amber-500 text-stone-950 font-black text-[9px] px-2 py-0.5 rounded-md shadow-xs">
-                    ተወዳጅ
-                  </span>
-                )}
-                <span className="absolute bottom-1.5 right-1.5 bg-stone-900/80 backdrop-blur-xs text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md">
-                  1-2 ቀን
-                </span>
-              </div>
+                    className="relative aspect-square bg-stone-100 overflow-hidden cursor-pointer group"
+                    title="ፎቶውን ለማጉላት እና ዝርዝር ለማየት ጠቅ ያድርጉ"
+                  >
+                    {p.photo_url ? (
+                      <img
+                        src={p.photo_url}
+                        alt={p.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-300">
+                        <ShoppingBag className="w-8 h-8" />
+                      </div>
+                    )}
 
-              {/* Product Info */}
-              <div className="p-2.5 space-y-1.5 flex flex-col justify-between flex-1">
-                <div>
-                  <h4 className="font-extrabold text-xs text-stone-900 line-clamp-2 leading-snug">
-                    {p.name}
-                  </h4>
-                  {p.size && (
-                    <p className="text-[10px] text-stone-500">መጠን: <b>{p.size}</b></p>
-                  )}
-                </div>
+                    {/* Zoom Overlay Icon on Hover/Tap */}
+                    <div className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-stone-900/70 backdrop-blur-xs flex items-center justify-center text-white shadow-xs group-hover:bg-amber-500 group-hover:text-stone-950 transition-colors">
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </div>
 
-                <div className="space-y-1.5 pt-1 border-t border-stone-100">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-xs font-black text-amber-700">
-                      {Number(p.price_etb).toLocaleString()} ETB
-                    </span>
-                    {!isWorker && (
-                      <span className="text-[9px] text-stone-400">
-                        40%: {Math.round(p.price_etb * 0.4).toLocaleString()}
+                    {/* Bestseller Badge */}
+                    {p.is_bestseller && (
+                      <span className="absolute top-1.5 left-1.5 bg-amber-500 text-stone-950 font-black text-[8px] px-1.5 py-0.2 rounded-md shadow-xs">
+                        ተወዳጅ
+                      </span>
+                    )}
+
+                    {/* Multiple Photos Indicator */}
+                    {multiPhotoCount > 1 ? (
+                      <span className="absolute bottom-1.5 left-1.5 bg-stone-900/80 backdrop-blur-xs text-amber-300 text-[8px] font-bold px-1.5 py-0.2 rounded-md">
+                        📷 {multiPhotoCount} ፎቶዎች
+                      </span>
+                    ) : (
+                      <span className="absolute bottom-1.5 left-1.5 bg-stone-900/80 backdrop-blur-xs text-white text-[8px] font-bold px-1.5 py-0.2 rounded-md">
+                        1-2 ቀን
                       </span>
                     )}
                   </div>
 
-                  {/* ROLE SEPARATION ON ACTION BUTTONS: */}
-                  {isWorker ? (
-                    /* WORKER CONTROLS: EDIT & DELETE (NO ORDER BUTTON) */
-                    <div className="grid grid-cols-2 gap-1 pt-0.5">
-                      <button
-                        onClick={() => {
-                          setEditingProduct(p);
-                          setEditName(p.name);
-                          setEditPrice(String(p.price_etb));
-                          setEditSize(p.size || 'Standard');
-                        }}
-                        className="py-1.5 px-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[11px] flex items-center justify-center space-x-1 cursor-pointer active:scale-95 transition-all"
-                        title="ዋጋ እና መረጃ አስተካክል"
-                      >
-                        <Edit className="w-3 h-3 text-amber-700" />
-                        <span>አስተካክል</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="py-1.5 px-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[11px] flex items-center justify-center space-x-1 cursor-pointer active:scale-95 transition-all"
-                        title="ከመደርደሪያ አጥፋ"
-                      >
-                        <Trash2 className="w-3 h-3 text-red-600" />
-                        <span>አጥፋ</span>
-                      </button>
-                    </div>
-                  ) : (
-                    /* CUSTOMER CONTROLS: ORDER NOW (NO EDIT/DELETE) */
-                    <button
+                  {/* Product Info & Controls */}
+                  <div className="p-2 space-y-1 flex flex-col justify-between flex-1">
+                    <div
                       onClick={() => {
-                        setSelectedProductForOrder(p);
-                        setConfirmedOrder(null);
+                        setZoomedProduct(p);
+                        setActivePhotoIdx(0);
+                        setIsZoomedIn(false);
                       }}
-                      className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 shadow-sm active:scale-95 transition-all cursor-pointer"
+                      className="cursor-pointer"
                     >
-                      <ShoppingBag className="w-3.5 h-3.5 text-stone-950" />
-                      <span>እዘዝ (Order Now)</span>
+                      <h4 className="font-extrabold text-[11px] text-stone-900 line-clamp-2 leading-tight">
+                        {p.name}
+                      </h4>
+                      {p.size && (
+                        <p className="text-[9px] text-stone-500">መጠን: <b>{p.size}</b></p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 pt-1 border-t border-stone-100">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-[11px] font-black text-amber-700">
+                          {Number(p.price_etb).toLocaleString()} ETB
+                        </span>
+                        {!isWorker && (
+                          <span className="text-[8px] text-stone-400">
+                            40%: {Math.round(p.price_etb * 0.4).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* ROLE-SEPARATED ACTION BUTTONS: */}
+                      {isWorker ? (
+                        /* WORKER CONTROLS: EDIT & DELETE (NO ORDERING) */
+                        <div className="grid grid-cols-2 gap-1 pt-0.5">
+                          <button
+                            onClick={() => {
+                              setEditingProduct(p);
+                              setEditName(p.name);
+                              setEditPrice(String(p.price_etb));
+                              setEditSize(p.size || 'Standard');
+                            }}
+                            className="py-1 px-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px] flex items-center justify-center space-x-0.5 cursor-pointer active:scale-95 transition-all"
+                            title="ዋጋ እና መረጃ አስተካክል"
+                          >
+                            <Edit className="w-2.5 h-2.5 text-amber-700" />
+                            <span>አስተካክል</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="py-1 px-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-[10px] flex items-center justify-center space-x-0.5 cursor-pointer active:scale-95 transition-all"
+                            title="ከመደርደሪያ አጥፋ"
+                          >
+                            <Trash2 className="w-2.5 h-2.5 text-red-600" />
+                            <span>አጥፋ</span>
+                          </button>
+                        </div>
+                      ) : (
+                        /* CUSTOMER CONTROLS: "ወደ ጋሪ (Add to Cart)" AND "እዘዝ (Order Now)" */
+                        <div className="grid grid-cols-2 gap-1 pt-0.5">
+                          <button
+                            onClick={() => addToCart(p)}
+                            className="py-1 px-1.5 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-[10px] flex items-center justify-center space-x-0.5 border border-amber-300 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                            title="ወደ ግዢ ጋሪ ጨምር"
+                          >
+                            <ShoppingCart className="w-3 h-3 text-amber-800" />
+                            <span>+ ጋሪ</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setSelectedProductForOrder(p);
+                              setConfirmedOrder(null);
+                            }}
+                            className="py-1 px-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-stone-950 font-black text-[10px] flex items-center justify-center space-x-0.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                            title="አሁኑኑ እዘዝ"
+                          >
+                            <ShoppingBag className="w-3 h-3 text-stone-950" />
+                            <span>እዘዝ</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 4B. STICKY / FLOATING CART BAR (WHEN CART HAS ITEMS) */}
+      {!isWorker && cart.length > 0 && (
+        <div className="sticky bottom-2 z-30 p-2.5 rounded-2xl bg-stone-950 text-white shadow-xl border border-amber-500/40 flex items-center justify-between gap-2 animate-fade-in">
+          <div className="flex items-center space-x-2 min-w-0">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-stone-950 font-black text-xs flex items-center justify-center shrink-0">
+              {totalCartCount}
+            </div>
+            <div className="truncate">
+              <p className="text-[11px] font-black text-white leading-tight">
+                ጋሪዎ ውስጥ: {totalCartCount} እቃዎች
+              </p>
+              <p className="text-[10px] text-amber-300 font-bold leading-tight">
+                ጠቅላላ፡ {totalCartPrice.toLocaleString()} ETB (40%: {Math.round(totalCartPrice * 0.4).toLocaleString()} ETB)
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsCartDrawerOpen(true)}
+            className="py-1.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center space-x-1 shrink-0 shadow-xs active:scale-95 transition-all cursor-pointer"
+          >
+            <ShoppingCart className="w-3.5 h-3.5" />
+            <span>ጋሪ ክፈት</span>
+          </button>
+        </div>
+      )}
+
+      {/* 4C. PRODUCT DETAIL & ZOOM MODAL (MULTIPLE PHOTOS + ZOOM + FULL DESCRIPTION) */}
+      {zoomedProduct && (
+        <div className="fixed inset-0 z-50 bg-stone-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-4 space-y-3 shadow-2xl max-h-[92vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+              <div className="flex items-center space-x-1.5">
+                <span className="text-xs">🔍</span>
+                <h3 className="font-extrabold text-xs text-stone-900 truncate max-w-[260px]">
+                  {zoomedProduct.name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setZoomedProduct(null)}
+                className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Interactive Image Gallery: Multi-Photo Carousel with Zoom In/Out */}
+            {(() => {
+              const gallery = zoomedProduct.photos && zoomedProduct.photos.length > 0 
+                ? zoomedProduct.photos 
+                : (zoomedProduct.photo_url ? [zoomedProduct.photo_url] : []);
+              const currentPhoto = gallery[activePhotoIdx] || zoomedProduct.photo_url || '';
+
+              return (
+                <div className="space-y-2">
+                  <div
+                    onClick={() => setIsZoomedIn(!isZoomedIn)}
+                    className={`relative rounded-2xl bg-stone-100 overflow-hidden cursor-zoom-in transition-all flex items-center justify-center ${
+                      isZoomedIn ? 'h-80' : 'h-64'
+                    }`}
+                  >
+                    {currentPhoto ? (
+                      <img
+                        src={currentPhoto}
+                        alt={zoomedProduct.name}
+                        className={`w-full h-full object-contain transition-transform duration-300 ${
+                          isZoomedIn ? 'scale-150 cursor-zoom-out' : 'scale-100'
+                        }`}
+                      />
+                    ) : (
+                      <div className="text-stone-300 text-center">
+                        <ShoppingBag className="w-12 h-12 mx-auto" />
+                      </div>
+                    )}
+
+                    {/* Zoom Toggle Pill */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsZoomedIn(!isZoomedIn);
+                      }}
+                      className="absolute top-2 right-2 px-2 py-1 rounded-full bg-stone-900/75 backdrop-blur-xs text-white text-[10px] font-bold flex items-center space-x-1 shadow-xs"
+                    >
+                      <ZoomIn className="w-3 h-3" />
+                      <span>{isZoomedIn ? 'አሳንስ (Zoom Out)' : 'አጉላ (Zoom In)'}</span>
                     </button>
+
+                    {/* Previous/Next photo buttons if multiple photos exist */}
+                    {gallery.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePhotoIdx((prev) => (prev > 0 ? prev - 1 : gallery.length - 1));
+                          }}
+                          className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 shadow-md flex items-center justify-center text-stone-800"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActivePhotoIdx((prev) => (prev < gallery.length - 1 ? prev + 1 : 0));
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/85 shadow-md flex items-center justify-center text-stone-800"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Thumbnail Strip / Indicator Dots if Multiple Photos */}
+                  {gallery.length > 1 && (
+                    <div className="flex items-center justify-center space-x-1.5 pt-1">
+                      {gallery.map((imgUrl, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setActivePhotoIdx(idx)}
+                          className={`w-10 h-10 rounded-lg overflow-hidden border-2 transition-all ${
+                            activePhotoIdx === idx ? 'border-amber-500 scale-105' : 'border-stone-200 opacity-60'
+                          }`}
+                        >
+                          <img src={imgUrl} alt="Thumbnail" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
+              );
+            })()}
+
+            {/* Product Details & Full Description */}
+            <div className="space-y-2 text-xs">
+              <div className="flex items-baseline justify-between border-b border-stone-100 pb-2">
+                <div>
+                  <span className="text-base font-black text-amber-700">
+                    {Number(zoomedProduct.price_etb).toLocaleString()} ETB
+                  </span>
+                  <p className="text-[10px] text-stone-500">
+                    40% ቅድመ ክፍያ፡ <b>{Math.round(zoomedProduct.price_etb * 0.4).toLocaleString()} ETB</b> (ቀሪ 60% ሲረከቡ)
+                  </p>
+                </div>
+                {zoomedProduct.size && (
+                  <span className="px-2 py-0.5 rounded-md bg-stone-100 font-bold text-stone-700 text-[10px]">
+                    መጠን: {zoomedProduct.size}
+                  </span>
+                )}
               </div>
+
+              {/* Rich Description Block */}
+              <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/80 space-y-1">
+                <p className="font-extrabold text-[11px] text-stone-900 flex items-center space-x-1">
+                  <span>📝</span>
+                  <span>የእቃው ዝርዝር መግለጫ (Product Description)</span>
+                </p>
+                <p className="text-[11px] text-stone-600 leading-relaxed">
+                  {zoomedProduct.description ||
+                    `ይህ እቃ በአዲስ አበባ ውስጥ በእጃችን ያለ ጥራት ያለው የኮርቻ መደርደሪያ እቃ ነው። ትዕዛዝ ሲሰጡ በ1-2 ቀናት ውስጥ በርዎ ድረስ እናደርሳለን። 40% ቅድመ ክፍያ በቴሌብር ወይም በንግድ ባንክ ተከፍሎ ቀሪው 60% ሲረከቡ የሚከፈል ነው።`}
+                </p>
+              </div>
+
+              {/* Action Buttons for Customer */}
+              {!isWorker && (
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      addToCart(zoomedProduct);
+                      setZoomedProduct(null);
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 font-bold text-xs flex items-center justify-center space-x-1 border border-amber-300 active:scale-95 transition-all cursor-pointer shadow-2xs"
+                  >
+                    <ShoppingCart className="w-4 h-4 text-amber-800" />
+                    <span>ወደ ጋሪ ጨምር</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setSelectedProductForOrder(zoomedProduct);
+                      setZoomedProduct(null);
+                      setConfirmedOrder(null);
+                    }}
+                    className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <ShoppingBag className="w-4 h-4 text-stone-950" />
+                    <span>አሁኑኑ እዘዝ</span>
+                  </button>
+                </div>
+              )}
             </div>
-          ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4D. SHOPPING CART DRAWER MODAL (CUSTOMER BULK CHECKOUT) */}
+      {!isWorker && isCartDrawerOpen && (
+        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-4 space-y-3 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500 text-stone-950 flex items-center justify-center font-bold">
+                  <ShoppingCart className="w-4 h-4" />
+                </div>
+                <h3 className="font-extrabold text-xs text-stone-900">
+                  የግዢ ጋሪ (Shopping Cart) — {totalCartCount} እቃዎች
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsCartDrawerOpen(false)}
+                className="w-7 h-7 rounded-full bg-stone-100 hover:bg-stone-200 flex items-center justify-center text-stone-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {cart.length === 0 ? (
+              <div className="py-8 text-center space-y-2">
+                <ShoppingCart className="w-10 h-10 text-stone-300 mx-auto" />
+                <p className="font-bold text-xs text-stone-700">ጋሪዎ ባዶ ነው</p>
+                <p className="text-[10px] text-stone-400">ከመደርደሪያው እቃዎችን ወደ ጋሪዎ ይጨምሩ</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {/* Cart Items List */}
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  {cart.map((item) => (
+                    <div
+                      key={item.product.id}
+                      className="p-2 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center space-x-2 min-w-0">
+                        {item.product.photo_url ? (
+                          <img
+                            src={item.product.photo_url}
+                            alt={item.product.name}
+                            className="w-10 h-10 rounded-lg object-cover border border-stone-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                            <ShoppingBag className="w-5 h-5 text-amber-700" />
+                          </div>
+                        )}
+                        <div className="truncate">
+                          <p className="font-bold text-[11px] text-stone-900 truncate">{item.product.name}</p>
+                          <p className="text-[10px] font-black text-amber-700">
+                            {Number(item.product.price_etb).toLocaleString()} ETB
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center space-x-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => updateCartQty(item.product.id, -1)}
+                          className="w-6 h-6 rounded-md bg-white border border-stone-200 flex items-center justify-center text-stone-600 hover:bg-stone-100"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="font-bold text-xs text-stone-900 w-4 text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateCartQty(item.product.id, 1)}
+                          className="w-6 h-6 rounded-md bg-white border border-stone-200 flex items-center justify-center text-stone-600 hover:bg-stone-100"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Total & Deposit Breakdown */}
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-1">
+                  <div className="flex justify-between font-bold text-stone-900">
+                    <span>ጠቅላላ የጋሪ ዋጋ፡</span>
+                    <span className="text-amber-900 font-black">{totalCartPrice.toLocaleString()} ETB</span>
+                  </div>
+                  <div className="flex justify-between text-[11px] text-emerald-800">
+                    <span>40% ቅድመ ክፍያ፡</span>
+                    <b className="font-bold">{Math.round(totalCartPrice * 0.4).toLocaleString()} ETB</b>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-stone-500">
+                    <span>ቀሪ 60% (ሲረከቡ የሚከፈል)፡</span>
+                    <span>{Math.round(totalCartPrice * 0.6).toLocaleString()} ETB</span>
+                  </div>
+                </div>
+
+                {/* Direct Cart Checkout Action */}
+                <button
+                  onClick={() => {
+                    if (cart.length > 0) {
+                      setSelectedProductForOrder({
+                        id: cart[0].product.id,
+                        category_id: cart[0].product.category_id,
+                        name: `${cart.length} እቃዎች (Cart Checkout)`,
+                        price_etb: totalCartPrice,
+                        photo_url: cart[0].product.photo_url,
+                      });
+                      setIsCartDrawerOpen(false);
+                    }
+                  }}
+                  className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/25 active:scale-95 transition-all cursor-pointer"
+                >
+                  <ShoppingBag className="w-4 h-4 text-stone-950" />
+                  <span>ሁሉንም እዘዝ (Proceed to Checkout)</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
