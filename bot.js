@@ -121,8 +121,7 @@ function getMainMenuKeyboard() {
   return Markup.keyboard([
     [Markup.button.webApp('🛍️ ሱቅ ይክፈቱ (Open Mini App)', MINI_APP_URL)],
     ['🔗 ሊንክ ያስገቡ (Insert Link)', '📸 ፎቶ / ስክሪንሾት ላክ (Send Photo)'],
-    ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')'],
-    ['💳 የክፍያ አማራጮች (Telebirr & CBE)', 'ℹ️ ስለ ኮርቻ (About Us)']
+    ['📦 የትዕዛዝ ሁኔታ መከታተያ', '💬 ከሰራተኛ ጋር አውራ (@' + WORKER_USERNAME + ')']
   ]).resize();
 }
 
