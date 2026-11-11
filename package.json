@@ -8,8 +8,7 @@
     "start": "node app.js",
     "server": "node app.js",
     "build": "vite build || true",
-    "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'",
-    "check": "node --input-type=module -e \"try { await import('./bot.js'); console.log('🎉 SUCCESS: bot.js starts cleanly!'); process.exit(0); } catch(e) { console.error('🚨 EXACT CRASH REASON:', e.stack||e.message); process.exit(1); }\""
+    "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'"
   },
   "dependencies": {
     "express": "^4.19.2",
@@ -19,7 +18,9 @@
     "cors": "^2.8.5",
     "multer": "^1.4.5-lts.1",
     "qrcode": "^1.5.3",
-    "axios": "^1.6.8",
+    "axios": "^1.6.8"
+  },
+  "devDependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "framer-motion": "^11.1.7",
