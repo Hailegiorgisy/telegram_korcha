@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node app.js",
     "server": "node app.js",
-    "build": "vite build || true",
+    "build": "vite build",
     "migrate": "node -e 'import(\"./db.js\").then(m => m.runMigrations())'"
   },
   "dependencies": {
@@ -18,13 +18,13 @@
     "cors": "^2.8.5",
     "multer": "^1.4.5-lts.1",
     "qrcode": "^1.5.3",
-    "axios": "^1.6.8"
-  },
-  "devDependencies": {
+    "axios": "^1.6.8",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "framer-motion": "^11.1.7",
-    "lucide-react": "^0.368.0",
+    "lucide-react": "^0.368.0"
+  },
+  "devDependencies": {
     "vite": "^5.1.4",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.18",
