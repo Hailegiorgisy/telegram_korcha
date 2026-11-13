@@ -219,7 +219,20 @@
               .then(function(res) { return res.json(); })
               .then(function(data) {
                 if (data.products && data.products.length > 0) {
-                  setProducts(data.products);
+                  const validRemote = data.products.filter(function(p) {
+                    return p && p.country && ['USA', 'KOREAN', 'ARABIAN'].indexOf(p.country.toUpperCase()) !== -1;
+                  }).map(function(p) {
+                    return Object.assign({}, p, {
+                      country: p.country.toUpperCase(),
+                      photos: (p.photos && p.photos.length > 0) ? p.photos : (p.photo_url ? [p.photo_url] : [])
+                    });
+                  });
+                  if (validRemote.length > 0) {
+                    setProducts(function(prev) {
+                      const existingIds = new Set(validRemote.map(function(p) { return p.id; }));
+                      return validRemote.concat(prev.filter(function(p) { return !existingIds.has(p.id); }));
+                    });
+                  }
                 }
               })
               .catch(function() {});
