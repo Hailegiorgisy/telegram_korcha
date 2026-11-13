@@ -309,6 +309,8 @@
           const urlParams = new URLSearchParams(window.location.search);
           const tgUser = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user : null;
           const tgUsername = tgUser && tgUser.username ? tgUser.username.replace('@', '').toLowerCase() : '';
+          const tgCustomerUsername = tgUser && tgUser.username ? ('@' + tgUser.username) : (tgUser && tgUser.first_name ? tgUser.first_name : '');
+          const tgChatId = tgUser && tgUser.id ? tgUser.id : null;
           const isAuthorizedWorker = urlParams.get('worker') === '1' || urlParams.get('role') === 'worker' || ['korcha_support', 'hailegiorgisy'].includes(tgUsername);
           const [workerPreviewCustomer, setWorkerPreviewCustomer] = useState(false);
           const isWorkerModeActive = isAuthorizedWorker && !workerPreviewCustomer;
@@ -327,6 +329,13 @@
           const [directOrderPhone, setDirectOrderPhone] = useState('');
           const [directOrderQty, setDirectOrderQty] = useState(1);
           const [directOrderPayment, setDirectOrderPayment] = useState('telebirr');
+          const [paymentAccounts, setPaymentAccounts] = useState({ telebirrPhone: '+251-996237800', cbeAccount: '10001116390' });
+          const [paymentSession, setPaymentSession] = useState(null);
+          const [receiptFile, setReceiptFile] = useState(null);
+          const [transactionRef, setTransactionRef] = useState('');
+          const [isSubmittingReceipt, setIsSubmittingReceipt] = useState(false);
+          const [cartPhone, setCartPhone] = useState('');
+          const [cartPaymentMethod, setCartPaymentMethod] = useState('telebirr');
 
           // Sourcing Quote modal
           const [isQuoteOpen, setIsQuoteOpen] = useState(false);
@@ -368,8 +377,20 @@
           // Product card photo index map (for multi-photo sliding on the card)
           const [cardPhotoIndexes, setCardPhotoIndexes] = useState({});
 
-          // Load live products from backend
+          // Load live products & payment accounts (.env) from backend
           useEffect(function() {
+            fetch('/api/payment-info')
+              .then(function(res) { return res.json(); })
+              .then(function(data) {
+                if (data.success) {
+                  setPaymentAccounts({
+                    telebirrPhone: data.telebirrPhone || '+251-996237800',
+                    cbeAccount: data.cbeAccount || '10001116390'
+                  });
+                }
+              })
+              .catch(function() {});
+
             fetch('/api/shelf')
               .then(function(res) { return res.json(); })
               .then(function(data) {
@@ -516,32 +537,105 @@
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                phone: chatPhone || '0911000000',
+                phone: chatPhone || tgCustomerUsername || '0911000000',
+                telegramUsername: tgCustomerUsername,
+                telegramChatId: tgChatId,
                 details: '[Live Chat] ' + msg.text
               })
             }).catch(function() {});
           };
 
-          // Submit Direct In-Stock Order
+          // Submit Direct In-Stock Order -> Open Payment & Receipt Step
           const handleConfirmDirectOrder = function(e) {
             e.preventDefault();
             if (!directOrderPhone.trim()) { alert('እባክዎ ስልክ ቁጥር ያስገቡ'); return; }
             const total = directOrderProduct.price_etb * directOrderQty;
             const deposit = Math.round(total * 0.4);
+            const fallbackCode = 'KC-' + Math.floor(100000 + Math.random() * 900000);
+            const chosenPhone = directOrderPhone.trim();
+            const chosenMethod = directOrderPayment;
+
             fetch('/api/shelf/order', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                phone: directOrderPhone.trim(),
+                phone: chosenPhone,
+                telegramUsername: tgCustomerUsername,
+                telegramChatId: tgChatId,
                 productName: directOrderProduct.name + ' (Qty: ' + directOrderQty + ')',
                 priceEtb: total,
-                paymentMethod: directOrderPayment
+                paymentMethod: chosenMethod
               })
-            }).catch(function() {});
-            alert('🎉 ትዕዛዝዎ ተመዝግቧል!\nኮድዎ በቅርቡ ይላክልዎታል።\nጠቅላላ ዋጋ: ' + total.toLocaleString() + ' ETB (40% ቅድመ ክፍያ: ' + deposit.toLocaleString() + ' ETB)');
+            })
+              .then(function(res) { return res.json(); })
+              .then(function(data) {
+                if (data.paymentInfo) setPaymentAccounts(data.paymentInfo);
+                setPaymentSession({
+                  orderCode: data.orderCode || fallbackCode,
+                  total: total,
+                  deposit: deposit,
+                  paymentMethod: chosenMethod,
+                  phone: chosenPhone,
+                  submitted: false,
+                  confirmationText: ''
+                });
+              })
+              .catch(function() {
+                setPaymentSession({
+                  orderCode: fallbackCode,
+                  total: total,
+                  deposit: deposit,
+                  paymentMethod: chosenMethod,
+                  phone: chosenPhone,
+                  submitted: false,
+                  confirmationText: ''
+                });
+              });
+
             setDirectOrderProduct(null);
             setDirectOrderPhone('');
             setDirectOrderQty(1);
+          };
+
+          const handleSubmitReceipt = function(e) {
+            e.preventDefault();
+            if (!paymentSession) return;
+            if (!receiptFile && !transactionRef.trim()) {
+              alert('እባክዎ የክፍያ ደረሰኝ ፎቶ ይምረጡ ወይም የTransaction Ref ቁጥር ያስገቡ');
+              return;
+            }
+            setIsSubmittingReceipt(true);
+            const fd = new FormData();
+            fd.append('orderCode', paymentSession.orderCode);
+            fd.append('paymentMethod', paymentSession.paymentMethod);
+            fd.append('phone', paymentSession.phone);
+            fd.append('transactionRef', transactionRef.trim());
+            fd.append('telegramUsername', tgCustomerUsername);
+            if (tgChatId) fd.append('telegramChatId', String(tgChatId));
+            if (receiptFile) fd.append('receipt', receiptFile);
+
+            fetch('/api/shelf/receipt', {
+              method: 'POST',
+              body: fd
+            })
+              .then(function(res) { return res.json(); })
+              .then(function(data) {
+                setPaymentSession(Object.assign({}, paymentSession, {
+                  submitted: true,
+                  confirmationText: data.message || '✅ የክፍያ ደረሰኝዎ በተሳካ ሁኔታ ተልኳል! ሰራተኛችን አረጋግጦ በቅርቡ ያነጋግርዎታል።'
+                }));
+                setReceiptFile(null);
+                setTransactionRef('');
+              })
+              .catch(function() {
+                setPaymentSession(Object.assign({}, paymentSession, {
+                  submitted: true,
+                  confirmationText: '✅ የክፍያ ደረሰኝዎ ተልኳል! ሰራተኛችን በቅርቡ ያነጋግርዎታል።'
+                }));
+              })
+              .finally(function() {
+                setIsSubmittingReceipt(false);
+              });
           };
 
           // Render Product Card with Multi-Photo Sliding Carousel
@@ -990,14 +1084,71 @@
                     h('span', null, 'ጠቅላላ የካርት ዋጋ:'),
                     h('span', { className: 'text-amber-700' }, totalCartPrice.toLocaleString() + ' ETB')
                   ),
-                  h('button', {
-                    onClick: function() {
-                      alert('✅ ትዕዛዝዎ ተመዝግቧል! ሰራተኛችን በቅርቡ ያነጋግርዎታል።');
-                      setCart([]);
-                      setIsCartOpen(false);
+                  h('div', { className: 'space-y-1.5 mt-2' },
+                    h('input', {
+                      type: 'tel',
+                      value: cartPhone,
+                      onChange: function(e) { setCartPhone(e.target.value); },
+                      placeholder: 'የመገናኛ ስልክ ቁጥርዎ (Phone)...',
+                      className: 'w-full p-2 rounded-xl border border-stone-300 text-xs'
+                    }),
+                    h('select', {
+                      value: cartPaymentMethod,
+                      onChange: function(e) { setCartPaymentMethod(e.target.value); },
+                      className: 'w-full p-2 rounded-xl border border-stone-300 text-xs'
                     },
-                    className: 'w-full mt-3 py-2.5 rounded-xl bg-amber-500 text-stone-950 font-black text-xs'
-                  }, 'ትዕዛዙን አረጋግጥ (Checkout)')
+                      h('option', { value: 'telebirr' }, 'ቴሌብር (Telebirr)'),
+                      h('option', { value: 'cbe' }, 'የኢትዮጵያ ንግድ ባንክ (CBE)')
+                    ),
+                    h('button', {
+                      onClick: function() {
+                        if (!cartPhone.trim()) { alert('እባክዎ ስልክ ቁጥር ያስገቡ'); return; }
+                        const summary = cart.map(function(i) { return i.product.name + ' x' + i.quantity; }).join(', ');
+                        const total = totalCartPrice;
+                        const deposit = Math.round(total * 0.4);
+                        const fallbackCode = 'KC-' + Math.floor(100000 + Math.random() * 900000);
+                        fetch('/api/shelf/order', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            phone: cartPhone.trim(),
+                            telegramUsername: tgCustomerUsername,
+                            telegramChatId: tgChatId,
+                            productName: summary,
+                            priceEtb: total,
+                            paymentMethod: cartPaymentMethod
+                          })
+                        })
+                          .then(function(res) { return res.json(); })
+                          .then(function(data) {
+                            if (data.paymentInfo) setPaymentAccounts(data.paymentInfo);
+                            setPaymentSession({
+                              orderCode: data.orderCode || fallbackCode,
+                              total: total,
+                              deposit: deposit,
+                              paymentMethod: cartPaymentMethod,
+                              phone: cartPhone.trim(),
+                              submitted: false,
+                              confirmationText: ''
+                            });
+                          })
+                          .catch(function() {
+                            setPaymentSession({
+                              orderCode: fallbackCode,
+                              total: total,
+                              deposit: deposit,
+                              paymentMethod: cartPaymentMethod,
+                              phone: cartPhone.trim(),
+                              submitted: false,
+                              confirmationText: ''
+                            });
+                          });
+                        setCart([]);
+                        setIsCartOpen(false);
+                      },
+                      className: 'w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-black text-xs'
+                    }, 'ትዕዛዙን አረጋግጥ እና ክፈል (Checkout & Pay)')
+                  )
                 )
               )
             ) : null,
@@ -1063,6 +1214,57 @@
                     )
                   ),
                   h('button', { type: 'submit', className: 'w-full py-2.5 rounded-xl bg-amber-500 text-stone-950 font-black' }, 'ትዕዛዝ አረጋግጥ (Confirm Order)')
+                )
+              )
+            ) : null,
+
+            // Payment & Receipt Submission Modal (Uses .env Telebirr / CBE accounts)
+            paymentSession ? h('div', { className: 'fixed inset-0 z-50 bg-stone-950/80 flex items-center justify-center p-3' },
+              h('div', { className: 'bg-white rounded-2xl max-w-sm w-full p-4 space-y-3' },
+                h('div', { className: 'flex items-center justify-between border-b pb-2' },
+                  h('h3', { className: 'font-extrabold text-xs text-stone-900' }, '💳 ክፍያ እና ደረሰኝ ማስገቢያ (Pay & Submit Receipt)'),
+                  h('button', { onClick: function() { setPaymentSession(null); }, className: 'font-bold text-stone-500' }, '✕')
+                ),
+                paymentSession.submitted ? h('div', { className: 'p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center space-y-2' },
+                  h('p', { className: 'text-sm font-black text-emerald-800' }, '✅ ክፍያዎ ተልኳል!'),
+                  h('p', { className: 'text-xs text-stone-700' }, paymentSession.confirmationText),
+                  h('p', { className: 'text-[11px] font-bold text-stone-600' }, 'የትዕዛዝ ኮድ: ' + paymentSession.orderCode),
+                  h('button', {
+                    onClick: function() { setPaymentSession(null); },
+                    className: 'w-full mt-2 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs'
+                  }, 'ዝጋ (Done)')
+                ) : h('form', { onSubmit: handleSubmitReceipt, className: 'space-y-2.5 text-xs' },
+                  h('div', { className: 'p-2.5 bg-amber-50 rounded-xl border border-amber-200 space-y-1' },
+                    h('p', { className: 'font-bold text-stone-800' }, '🏷️ የትዕዛዝ ኮድ: ' + paymentSession.orderCode),
+                    h('p', { className: 'font-bold text-emerald-800' }, '💰 የሚከፈል 40% ቅድመ ክፍያ: ' + paymentSession.deposit.toLocaleString() + ' ETB (ጠቅላላ: ' + paymentSession.total.toLocaleString() + ' ETB)'),
+                    h('div', { className: 'pt-1 border-t border-amber-200/70' },
+                      paymentSession.paymentMethod === 'telebirr'
+                        ? h('p', { className: 'font-black text-amber-900' }, '📱 Telebirr ቁጥር: ' + paymentAccounts.telebirrPhone)
+                        : h('p', { className: 'font-black text-amber-900' }, '🏦 CBE ሂሳብ ቁጥር: ' + paymentAccounts.cbeAccount)
+                    )
+                  ),
+                  tgCustomerUsername ? h('p', { className: 'text-[10px] text-emerald-700 font-bold' }, '✓ Telegram ተጠቃሚ: ' + tgCustomerUsername) : null,
+                  h('div', { className: 'space-y-1' },
+                    h('label', { className: 'font-bold text-stone-700 block' }, '📸 የክፍያ ደረሰኝ ስክሪንሾት (Receipt Image):'),
+                    h('input', {
+                      type: 'file',
+                      accept: 'image/*',
+                      onChange: function(e) { setReceiptFile(e.target.files && e.target.files[0] ? e.target.files[0] : null); },
+                      className: 'w-full text-[11px] p-1.5 border border-stone-300 rounded-lg'
+                    })
+                  ),
+                  h('input', {
+                    type: 'text',
+                    value: transactionRef,
+                    onChange: function(e) { setTransactionRef(e.target.value); },
+                    placeholder: 'የTransaction / Ref ቁጥር (ካለዎት)...',
+                    className: 'w-full p-2.5 rounded-xl border border-stone-300'
+                  }),
+                  h('button', {
+                    type: 'submit',
+                    disabled: isSubmittingReceipt,
+                    className: 'w-full py-2.5 rounded-xl bg-emerald-600 text-white font-black'
+                  }, isSubmittingReceipt ? 'በመላክ ላይ...' : 'ደረሰኝ ላክ (Submit Receipt)')
                 )
               )
             ) : null,

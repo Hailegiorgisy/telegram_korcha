@@ -826,17 +826,104 @@ app.delete('/api/shelf/products/:id', async (req, res) => {
   }
 });
 
+app.get('/api/payment-info', (req, res) => {
+  res.json({
+    success: true,
+    telebirrPhone: TELEBIRR_PHONE,
+    cbeAccount: CBE_ACCOUNT,
+  });
+});
+
 app.post('/api/shelf/order', async (req, res) => {
   const orderCode = `KC-${Math.floor(100000 + Math.random() * 900000)}`;
+  const tgUsername = (req.body.telegramUsername || '').trim();
+  const tgChatId = req.body.telegramChatId || null;
+  const paymentMethod = req.body.paymentMethod || 'telebirr';
+  const depositAmountEtb = Math.round(Number(req.body.priceEtb) * 0.4);
+
   const order = await createOrder({
     orderCode,
     customerPhone: req.body.phone,
     productSummary: req.body.productName,
     totalPriceEtb: req.body.priceEtb,
-    depositAmountEtb: Math.round(Number(req.body.priceEtb) * 0.4),
-    paymentMethod: req.body.paymentMethod || 'telebirr',
+    depositAmountEtb,
+    paymentMethod,
   });
-  res.json({ success: true, orderCode, order });
+
+  if (WORKER_CHAT_ID && bot) {
+    const userLine = tgUsername
+      ? `👤 <b>Telegram:</b> ${tgUsername.startsWith('@') ? tgUsername : '@' + tgUsername}`
+      : (tgChatId ? `👤 <b>Telegram ID:</b> <code>${tgChatId}</code>` : '');
+    const msg = `🛒 <b>አዲስ ቀጥታ ትዕዛዝ (In-Stock Order)!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ኮድ:</b> <code>${orderCode}</code>
+📦 <b>እቃ:</b> ${req.body.productName}
+📱 <b>ስልክ:</b> <code>${req.body.phone}</code>${req.body.telegramUsername ? `
+👤 <b>Telegram:</b> ${req.body.telegramUsername}` : ''}
+${userLine ? userLine + '\n' : ''}💰 <b>ጠቅላላ:</b> ${Number(req.body.priceEtb).toLocaleString()} ETB (40%: ${depositAmountEtb.toLocaleString()} ETB)
+💳 <b>ዘዴ:</b> ${paymentMethod.toUpperCase()} (⏳ ደረሰኝ በመጠበቅ ላይ)`;
+    bot.telegram.sendMessage(WORKER_CHAT_ID, msg, { parse_mode: 'HTML' }).catch(() => {});
+  }
+
+  res.json({
+    success: true,
+    orderCode,
+    order,
+    paymentInfo: {
+      telebirrPhone: TELEBIRR_PHONE,
+      cbeAccount: CBE_ACCOUNT,
+    },
+  });
+});
+
+app.post('/api/shelf/receipt', upload.single('receipt'), async (req, res) => {
+  try {
+    const orderCode = req.body.orderCode || `KC-${Math.floor(100000 + Math.random() * 900000)}`;
+    const paymentMethod = req.body.paymentMethod || 'telebirr';
+    const transactionRef = (req.body.transactionRef || '').trim();
+    const phone = (req.body.phone || '').trim();
+    const tgUsername = (req.body.telegramUsername || '').trim();
+    const tgChatId = req.body.telegramChatId || null;
+    const receiptUrl = req.file ? `/uploads/${req.file.filename}` : null;
+
+    if (WORKER_CHAT_ID && bot) {
+      const userLine = tgUsername
+        ? `👤 <b>Telegram:</b> ${tgUsername.startsWith('@') ? tgUsername : '@' + tgUsername}`
+        : (tgChatId ? `👤 <b>Telegram ID:</b> <code>${tgChatId}</code>` : '');
+      const caption = `💳 <b>የክፍያ ደረሰኝ ገብቷል!</b>
+━━━━━━━━━━━━━━━━━━━━
+🏷️ <b>ኮድ:</b> <code>${orderCode}</code>
+📱 <b>ስልክ:</b> <code>${phone}</code>
+${userLine ? userLine + '\n' : ''}🏦 <b>ዘዴ:</b> ${paymentMethod.toUpperCase()}
+${transactionRef ? `🔢 <b>Ref:</b> <code>${transactionRef}</code>\n` : ''}━━━━━━━━━━━━━━━━━━━━
+👉 ለማረጋገጥ: <code>/reply ${orderCode} ክፍያዎ ተረጋግጧል</code>`;
+
+      if (req.file) {
+        await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: req.file.path }, { caption, parse_mode: 'HTML' }).catch(() => {});
+      } else {
+        await bot.telegram.sendMessage(WORKER_CHAT_ID, caption, { parse_mode: 'HTML' }).catch(() => {});
+      }
+    }
+
+    if (tgChatId && bot) {
+      const confirmMsg = `✅ <b>የክፍያ ደረሰኝዎ ደርሶናል!</b>
+
+🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${orderCode}</code>
+💳 <b>የክፍያ ዘዴ:</b> ${paymentMethod.toUpperCase()}
+
+ሰራተኛችን ደረሰኙን አረጋግጦ በቅርቡ ያነጋግርዎታል። እናመሰግናለን!`;
+      bot.telegram.sendMessage(tgChatId, confirmMsg, { parse_mode: 'HTML' }).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      orderCode,
+      receiptUrl,
+      message: '✅ የክፍያ ደረሰኝዎ በተሳካ ሁኔታ ተልኳል! ሰራተኛችን አረጋግጦ በቅርቡ ያነጋግርዎታል።',
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/quotes', upload.any(), async (req, res) => {
