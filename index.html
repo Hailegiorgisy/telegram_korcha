@@ -616,7 +616,7 @@
                   className: 'cursor-pointer'
                 },
                   h('h4', { className: 'font-extrabold text-[11px] text-stone-900 line-clamp-2 leading-tight' }, p.name),
-                  p.size ? h('p', { className: 'text-[9px] text-stone-500 mt-0.5' }, 'መጠን: <b>' + p.size + '</b>') : null,
+                  p.size ? h('p', { className: 'text-[9px] text-stone-500 mt-0.5' }, 'መጠን: ', h('b', null, p.size)) : null,
                   p.description ? h('p', { className: 'text-[9.5px] text-stone-500 line-clamp-1 mt-0.5 leading-snug' }, p.description) : null
                 ),
 
@@ -1324,7 +1324,7 @@
                   h('div', { className: 'space-y-1 text-left' },
                     h('div', { className: 'flex items-baseline justify-between' },
                       h('span', { className: 'font-black text-sm text-amber-700' }, Number(zoomedProduct.price_etb).toLocaleString() + ' ETB'),
-                      zoomedProduct.size ? h('span', { className: 'text-[10px] text-stone-500' }, 'መጠን: <b>' + zoomedProduct.size + '</b>') : null
+                      zoomedProduct.size ? h('span', { className: 'text-[10px] text-stone-500' }, 'መጠን: ', h('b', null, zoomedProduct.size)) : null
                     ),
                     zoomedProduct.description ? h('p', { className: 'text-xs text-stone-600 leading-relaxed bg-stone-50 p-2 rounded-xl border border-stone-200' },
                       zoomedProduct.description
