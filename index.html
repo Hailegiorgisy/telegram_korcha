@@ -345,6 +345,7 @@
           const [quoteSpecs, setQuoteSpecs] = useState('');
           const [quotePhone, setQuotePhone] = useState('');
           const [quoteSite, setQuoteSite] = useState('');
+          const [quoteFiles, setQuoteFiles] = useState([]);
 
           // Worker Add/Edit Product state
           const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -873,6 +874,24 @@
                   )
                 ),
 
+                // Submit Link & Submit Screenshot Quick Actions (just below 3 Marketplaces)
+                h('div', { key: 'submit-actions', className: 'grid grid-cols-2 gap-2' },
+                  h('button', {
+                    onClick: function() { setQuoteMode('link'); setQuoteSite('Global Marketplace'); setIsQuoteOpen(true); },
+                    className: 'py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95'
+                  },
+                    h('span', null, '🔗'),
+                    h('span', null, 'በሊንክ እዘዝ (Submit Link)')
+                  ),
+                  h('button', {
+                    onClick: function() { setQuoteMode('photo'); setQuoteSite('Global Marketplace'); setIsQuoteOpen(true); },
+                    className: 'py-2.5 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-400 font-black text-xs shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95 border border-amber-500/40'
+                  },
+                    h('span', null, '📸'),
+                    h('span', null, 'በፎቶ እዘዝ (Screenshot)')
+                  )
+                ),
+
                 // ==========================================
                 // REQUIREMENT 2: CHINA MARKET
                 // Links customers to Pinduoduo in Play Store and App Store
@@ -1308,11 +1327,24 @@
                   onSubmit: function(e) {
                     e.preventDefault();
                     if (!quotePhone.trim()) { alert('እባክዎ ስልክ ቁጥር ያስገቡ'); return; }
+                    const fd = new FormData();
+                    fd.append('phone', quotePhone.trim());
+                    fd.append('origin', quoteSite || 'Global Marketplace');
+                    fd.append('categoryType', quoteMode === 'link' ? 'Link Order' : 'Screenshot Order');
+                    fd.append('details', quoteSpecs.trim() || 'Standard');
+                    if (quoteUrl.trim()) fd.append('productUrl', quoteUrl.trim());
+                    if (tgCustomerUsername) fd.append('telegramUsername', tgCustomerUsername);
+                    if (tgChatId) fd.append('telegramChatId', String(tgChatId));
+                    for (var qi = 0; qi < quoteFiles.length; qi++) {
+                      fd.append('photos', quoteFiles[qi]);
+                    }
+                    fetch('/api/quotes', { method: 'POST', body: fd }).catch(function() {});
                     alert('✅ የእቃ ማዘዣ ጥያቄዎ ደርሶናል! ሰራተኛችን ዋጋ አስልቶ ያሳውቅዎታል።');
                     setIsQuoteOpen(false);
                     setQuotePhone('');
                     setQuoteSpecs('');
                     setQuoteUrl('');
+                    setQuoteFiles([]);
                   },
                   className: 'space-y-2.5 text-xs'
                 },
@@ -1328,7 +1360,7 @@
                       placeholder: 'የእቃው ሊንክ (Link)...',
                       className: 'w-full px-3 py-2 rounded-xl border border-stone-300'
                     }) :
-                    h('input', { type: 'file', multiple: true, accept: 'image/*', required: true, className: 'w-full text-[11px]' }),
+                    h('input', { type: 'file', multiple: true, accept: 'image/*', required: true, onChange: function(e) { setQuoteFiles(Array.from(e.target.files || [])); }, className: 'w-full text-[11px]' }),
                   h('input', {
                     type: 'text',
                     value: quoteSpecs,
