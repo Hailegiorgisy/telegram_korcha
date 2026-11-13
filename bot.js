@@ -101,11 +101,17 @@ function isValidEthiopianPhone(phone) {
   return Boolean(normalizeEthiopianPhone(phone));
 }
 
-const AUTHORIZED_WORKERS = [
+const EXTRA_WORKERS = (process.env.WORKER_TELEGRAM_USERNAMES || '')
+  .split(',')
+  .map(s => s.replace(/^@/, '').trim().toLowerCase())
+  .filter(Boolean);
+
+const AUTHORIZED_WORKERS = Array.from(new Set([
   'korcha_support',
   'hailegiorgisy',
-  WORKER_USERNAME.toLowerCase()
-];
+  WORKER_USERNAME.toLowerCase(),
+  ...EXTRA_WORKERS
+]));
 
 function isAuthorizedWorkerUsername(username) {
   if (!username) return false;
@@ -831,6 +837,7 @@ app.get('/api/payment-info', (req, res) => {
     success: true,
     telebirrPhone: TELEBIRR_PHONE,
     cbeAccount: CBE_ACCOUNT,
+    authorizedWorkers: AUTHORIZED_WORKERS,
   });
 });
 

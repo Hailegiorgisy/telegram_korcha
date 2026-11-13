@@ -311,7 +311,8 @@
           const tgUsername = tgUser && tgUser.username ? tgUser.username.replace('@', '').toLowerCase() : '';
           const tgCustomerUsername = tgUser && tgUser.username ? ('@' + tgUser.username) : (tgUser && tgUser.first_name ? tgUser.first_name : '');
           const tgChatId = tgUser && tgUser.id ? tgUser.id : null;
-          const isAuthorizedWorker = urlParams.get('worker') === '1' || urlParams.get('role') === 'worker' || ['korcha_support', 'hailegiorgisy'].includes(tgUsername);
+          const [workerAllowList, setWorkerAllowList] = useState(['korcha_support', 'hailegiorgisy']);
+          const isAuthorizedWorker = urlParams.get('worker') === '1' || urlParams.get('role') === 'worker' || workerAllowList.includes(tgUsername);
           const [workerPreviewCustomer, setWorkerPreviewCustomer] = useState(false);
           const isWorkerModeActive = isAuthorizedWorker && !workerPreviewCustomer;
 
@@ -387,6 +388,9 @@
                     telebirrPhone: data.telebirrPhone || '+251-996237800',
                     cbeAccount: data.cbeAccount || '10001116390'
                   });
+                  if (Array.isArray(data.authorizedWorkers) && data.authorizedWorkers.length > 0) {
+                    setWorkerAllowList(data.authorizedWorkers);
+                  }
                 }
               })
               .catch(function() {});
@@ -1339,13 +1343,15 @@
                       h('option', { value: 'ARABIAN' }, '🇸🇦 🇦🇪 Arabian Mart'),
                       h('option', { value: 'KOREAN' }, '🇰🇷 Korean Mart')
                     ),
-                    h('input', {
-                      type: 'text',
-                      placeholder: 'ምድብ (Category)...',
+                    h('select', {
                       value: newProdCategory,
                       onChange: function(e) { setNewProdCategory(e.target.value); },
-                      className: 'p-2 rounded-lg border border-stone-300'
-                    })
+                      className: 'p-2 rounded-lg border border-stone-300 font-bold'
+                    },
+                      (THREE_REGIONS.find(function(r) { return r.id === newProdCountry; }) || THREE_REGIONS[0]).categories
+                        .filter(function(c) { return ['All', 'Most Sales', 'Available'].indexOf(c) === -1; })
+                        .map(function(c) { return h('option', { key: c, value: c }, c); })
+                    )
                   ),
                   h('input', {
                     type: 'text',
