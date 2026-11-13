@@ -13,6 +13,23 @@ let isPostgresAvailable = false;
 let hasCheckedPostgres = false;
 
 // Fail-safe In-Memory Store
+
+function loadPersistedShelf() {
+  try {
+    if (fs.existsSync(SHELF_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(SHELF_FILE, 'utf8'));
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (_) {}
+  const seed = [{"id": 1, "country": "USA", "category": "Food", "name": "Original Stanley Quencher H2.0 FlowState 40oz Tumbler", "size": "40oz (1.18L)", "price_etb": 4850, "photo_url": "https://images.unsplash.com/photo-1577705998148-6da4f3963bc8?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1577705998148-6da4f3963bc8?w=500&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1544816155-12df9643f363?w=500&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=500&auto=format&fit=crop&q=80"], "description": "በእጃችን ያለ ኦሪጅናል ስታንሊ ተምብለር። ቀኑን ሙሉ ቀዝቃዛ ወይም ትኩስ የሚያቆይ፣ ለስፖርትና ለቢሮ ተወዳጅ እቃ። 100% ኦሪጅናል ከ USA።", "is_bestseller": true}, {"id": 2, "country": "USA", "category": "Supplements", "name": "Optimum Nutrition Gold Standard 100% Whey Protein (5 lbs)", "size": "5 lbs (2.27kg)", "price_etb": 8900, "photo_url": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=500&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?w=500&auto=format&fit=crop&q=80"], "description": "በእጃችን ያለ ዝግጁ የጡንቻ ማጎልበቻ ፕሮቲን። 24g ንፁህ ዋይ ፕሮቲን በየስኩፑ፣ ከ USA በቀጥታ የመጣ።", "is_bestseller": true}, {"id": 3, "country": "KOREAN", "category": "Skin care products", "name": "COSRX Advanced Snail 96 Mucin Power Essence", "size": "100ml", "price_etb": 2450, "photo_url": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=500&auto=format&fit=crop&q=80"], "description": "በእጃችን ያለ የኮሪያ K-Beauty ሰረም። የፊት ቆዳን የሚያለሰልስ፣ እርጥበት የሚሰጥ እና ጠባሳ የሚያጠፋ ኦሪጅናል የኮሪያ ምርት።", "is_bestseller": true}, {"id": 4, "country": "KOREAN", "category": "Skin care products", "name": "Beauty of Joseon Relief Sun: Rice + Probiotics SPF50+", "size": "50ml", "price_etb": 2100, "photo_url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1556228720-195a672e8a03?w=500&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80"], "description": "ከፀሐይ ጨረር የሚከላከል፣ ነጭ ምልክት የማይተው እና ቆዳን የሚያለሰልስ ተወዳጅ የኮሪያ ሰንስክሪን።", "is_bestseller": true}, {"id": 5, "country": "KOREAN", "category": "Skin care products", "name": "Anua Heartleaf 77% Soothing Toner", "size": "250ml", "price_etb": 2650, "photo_url": "https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=500&auto=format&fit=crop&q=80"], "description": "ስሜታዊ እና በቀላሉ የሚቆጣ ቆዳን የሚያረጋጋ 77% ሃርትሊፍ ያለው ኦሪጅናል የኮሪያ ቶነር።", "is_bestseller": false}, {"id": 6, "country": "KOREAN", "category": "Skin care products", "name": "Laneige Lip Sleeping Mask Berry", "size": "20g", "price_etb": 1850, "photo_url": "https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=500&auto=format&fit=crop&q=80"], "description": "ከንፈርን በሌሊት ውስጥ የሚያለሰልስ እና እርጥበት የሚሰጥ የኮሪያ ሊፕ ማስክ።", "is_bestseller": false}, {"id": 7, "country": "ARABIAN", "category": "Perfume & Oud", "name": "Lattafa Khamrah Luxury Arabian Eau de Parfum", "size": "100ml", "price_etb": 3800, "photo_url": "https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?w=500&auto=format&fit=crop&q=80", "https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=500&auto=format&fit=crop&q=80"], "description": "በእጃችን ያለ ኦሪጅናል የዱባይ ቅንጦት ሽቶ። ረጅም ሰዓት የሚቆይ ልዩ የቫኒላና የአምበር መአዛ ያለው።", "is_bestseller": true}, {"id": 8, "country": "ARABIAN", "category": "Perfume & Oud", "name": "Royal Bakhoor Oud Incense & Burner Gift Set", "size": "80g Jar", "price_etb": 2200, "photo_url": "https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1547887537-6158d64c35b3?w=500&auto=format&fit=crop&q=80"], "description": "ቤትን እና ልብስን በጥሩ የአረብኛ ኡድ መዓዛ የሚያውድ ኦሪጅናል ባኹር።", "is_bestseller": false}, {"id": 9, "country": "ARABIAN", "category": "Abaya & Fashion", "name": "Dubai Nida Crepe Luxury Open Abaya with Matching Sheila", "size": "54 / 56 / 58", "price_etb": 6500, "photo_url": "https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1583391733956-6c78276477e2?w=500&auto=format&fit=crop&q=80"], "description": "ቀላል እና የማይጨማደድ የዱባይ ኒዳ ክሬፕ አባያ ከተመሳሳይ ሻሽ ጋር።", "is_bestseller": true}, {"id": 10, "country": "ARABIAN", "category": "Abaya & Fashion", "name": "Embroidered Medinah Silk Hijab & Under-Cap Set", "size": "180 x 75 cm", "price_etb": 1450, "photo_url": "https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1606760227091-3dd870d97f1d?w=500&auto=format&fit=crop&q=80"], "description": "ለስላሳ እና የማይንሸራተት የመዲና ሐር ሂጃብ በተለያዩ ከለሮች።", "is_bestseller": false}, {"id": 11, "country": "ARABIAN", "category": "Supplements", "name": "Pure Yemeni Sidr Honey (100% Natural)", "size": "500g", "price_etb": 4200, "photo_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=500&auto=format&fit=crop&q=80"], "description": "ለጤና እና ለበሽታ መከላከያ የሚረዳ 100% ንፁህ የየመን ሲድር ማር።", "is_bestseller": true}, {"id": 12, "country": "ARABIAN", "category": "Supplements", "name": "Cold-Pressed Black Seed (Habbat Al-Baraka) Oil", "size": "250ml", "price_etb": 1750, "photo_url": "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=500&auto=format&fit=crop&q=80"], "description": "በቀዝቃዛ ተጭኖ የተዘጋጀ ንፁህ የጥቁር አዝሙድ ዘይት ለዕለታዊ ጤና።", "is_bestseller": false}, {"id": 13, "country": "ARABIAN", "category": "Others", "name": "Dubai Chocolate (Pistachio & Kunafa Bar)", "size": "200g Bar", "price_etb": 600, "photo_url": "https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=500&auto=format&fit=crop&q=80"], "description": "በፒስታቺዮ እና በኩናፋ የተሞላ ተወዳጅ የዱባይ ቸኮሌት።", "is_bestseller": true}, {"id": 14, "country": "ARABIAN", "category": "Others", "name": "Baharat Mushakkal (Arabian Mix Spices)", "size": "Shaker Bottle", "price_etb": 900, "photo_url": "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=500&auto=format&fit=crop&q=80"], "description": "ለምግብ ማጣፈጫ የሚሆን የአረብኛ የተቀላቀለ ቅመም።", "is_bestseller": false}, {"id": 15, "country": "ARABIAN", "category": "Others", "name": "Dried Pink Rose Buds (For Tea & Decor)", "size": "Pack", "price_etb": 550, "photo_url": "https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=500&auto=format&fit=crop&q=80", "photos": ["https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=500&auto=format&fit=crop&q=80"], "description": "ለሻይ እና ለመዓዛ የሚሆን ደረቅ የሮዝ አበባ።", "is_bestseller": false}];
+  try { fs.writeFileSync(SHELF_FILE, JSON.stringify(seed, null, 2)); } catch (_) {}
+  return seed;
+}
+
+function savePersistedShelf(list) {
+  try { fs.writeFileSync(SHELF_FILE, JSON.stringify(list, null, 2)); } catch (_) {}
+}
+
 const inMemoryStore = {
   customers: new Map(),
   quotes: new Map(),
@@ -28,7 +45,7 @@ const inMemoryStore = {
     { id: 'home', nameAm: 'የቤት ውስጥ', nameEn: 'Home & Kitchen', icon: '🍳', color: 'from-stone-600 to-stone-800' },
     { id: 'miscellaneous', nameAm: 'ሌሎች', nameEn: 'Other', icon: '✨', color: 'from-emerald-500 to-teal-700' }
   ],
-  shelfProducts: [],
+  shelfProducts: loadPersistedShelf(),
   idCounter: 1000,
 };
 
@@ -209,6 +226,7 @@ export async function addShelfProduct(product) {
     created_at: new Date().toISOString()
   };
   inMemoryStore.shelfProducts.unshift(item);
+  savePersistedShelf(inMemoryStore.shelfProducts);
   return item;
 }
 
@@ -219,6 +237,10 @@ export async function updateShelfProduct(id, updates = {}) {
     const existing = inMemoryStore.shelfProducts[idx];
     const updated = {
       ...existing,
+      country: updates.country ? String(updates.country).toUpperCase() : existing.country,
+      category: updates.category !== undefined ? updates.category : existing.category,
+      description: updates.description !== undefined ? updates.description : existing.description,
+      photos: Array.isArray(updates.photos) && updates.photos.length > 0 ? updates.photos : existing.photos,
       name: updates.name !== undefined ? updates.name : existing.name,
       size: updates.size !== undefined ? updates.size : existing.size,
       price_etb: updates.priceEtb !== undefined ? parseFloat(updates.priceEtb) : (updates.price_etb !== undefined ? parseFloat(updates.price_etb) : existing.price_etb),
@@ -227,6 +249,7 @@ export async function updateShelfProduct(id, updates = {}) {
       is_bestseller: updates.isBestseller !== undefined ? Boolean(updates.isBestseller) : existing.is_bestseller,
     };
     inMemoryStore.shelfProducts[idx] = updated;
+    savePersistedShelf(inMemoryStore.shelfProducts);
     return updated;
   }
   return null;
@@ -235,6 +258,7 @@ export async function updateShelfProduct(id, updates = {}) {
 export async function deleteShelfProduct(id) {
   const numId = parseInt(id, 10);
   inMemoryStore.shelfProducts = inMemoryStore.shelfProducts.filter(p => p.id !== numId);
+  savePersistedShelf(inMemoryStore.shelfProducts);
   return { success: true, id: numId };
 }
 
