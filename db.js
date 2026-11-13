@@ -190,13 +190,20 @@ export async function getBestSellerProducts() {
 }
 
 export async function addShelfProduct(product) {
+  const photosList = Array.isArray(product.photos) && product.photos.length > 0
+    ? product.photos
+    : (product.photoUrl || product.photo_url ? [product.photoUrl || product.photo_url] : []);
   const item = {
-    id: ++inMemoryStore.idCounter,
+    id: product.id || ++inMemoryStore.idCounter,
+    country: (product.country || 'USA').toUpperCase(),
+    category: product.category || 'Others',
     category_id: product.categoryId || product.category_id || 'miscellaneous',
     name: product.name,
     size: product.size || 'Standard',
-    price_etb: product.priceEtb || product.price_etb || 0,
-    photo_url: product.photoUrl || product.photo_url || '',
+    price_etb: Number(product.priceEtb || product.price_etb || 0),
+    photo_url: product.photoUrl || product.photo_url || photosList[0] || '',
+    photos: photosList,
+    description: product.description || '',
     is_bestseller: Boolean(product.isBestseller || product.is_bestseller),
     created_by: product.createdBy || 'korcha_support',
     created_at: new Date().toISOString()
