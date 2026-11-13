@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Korcha (ኮርቻ)",
+    "slug": "korcha-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "korcha",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "et.com.korcha.app"
+    },
+    "android": {
+      "package": "et.com.korcha.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#f59e0b"
+      }
+    },
+    "plugins": [
+      "expo-image-picker",
+      "expo-updates"
+    ]
+  }
+}
