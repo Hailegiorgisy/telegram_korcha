@@ -28,41 +28,7 @@ const inMemoryStore = {
     { id: 'home', nameAm: 'የቤት ውስጥ', nameEn: 'Home & Kitchen', icon: '🍳', color: 'from-stone-600 to-stone-800' },
     { id: 'miscellaneous', nameAm: 'ሌሎች', nameEn: 'Other', icon: '✨', color: 'from-emerald-500 to-teal-700' }
   ],
-  shelfProducts: [
-    {
-      id: 1,
-      category_id: 'womens',
-      name: 'Shein Floral Summer Maxi Dress',
-      size: 'S, M, L, XL',
-      price_etb: 2850,
-      photo_url: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=500&auto=format&fit=crop&q=80',
-      is_bestseller: true,
-      created_by: 'korcha_support',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 2,
-      category_id: 'electronics',
-      name: 'Wireless Bluetooth Earbuds Pro (Active Noise Cancelling)',
-      size: 'One Size',
-      price_etb: 3400,
-      photo_url: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500&auto=format&fit=crop&q=80',
-      is_bestseller: true,
-      created_by: 'korcha_support',
-      created_at: new Date().toISOString()
-    },
-    {
-      id: 3,
-      category_id: 'beauty',
-      name: 'Hydrating Face Serum & Vitamin C Glow Complex',
-      size: '50ml',
-      price_etb: 1950,
-      photo_url: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=500&auto=format&fit=crop&q=80',
-      is_bestseller: true,
-      created_by: 'korcha_support',
-      created_at: new Date().toISOString()
-    }
-  ],
+  shelfProducts: [],
   idCounter: 1000,
 };
 

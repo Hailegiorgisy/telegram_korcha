@@ -916,7 +916,7 @@ app.post('/api/merchant/submissions', async (req, res) => {
 
 // Serve static
 const distPath = path.join(__dirname, 'dist');
-app.use(express.static(distPath));
+app.use(express.static(distPath, { index: false }));
 app.use('/uploads', express.static(uploadsDir));
 app.use('/public', express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res, next) => {
