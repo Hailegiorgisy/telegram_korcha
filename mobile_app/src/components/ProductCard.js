@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   imageBox: {
-    aspectRatio: 1,
+    height: 112,
     backgroundColor: '#f5f5f4',
     position: 'relative',
   },
