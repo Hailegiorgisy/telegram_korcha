@@ -382,6 +382,12 @@ if (BOT_TOKEN && BOT_TOKEN !== '123456789:ABCdefghIJKlmnopQRstuvwxYZ') {
       const workerName = ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Worker');
 
       await updateOrderStatus(code, 'deposit_verified', workerName, `ክፍያ ተረጋግጧል — እቃው በ${deliveryText} ይደርሳል`);
+      await addTicketMessage({
+        ticketCode: code,
+        senderRole: 'worker',
+        senderName: workerName,
+        messageText: `🎉 የድጋፍ ማረጋገጫ ሪፖርት (Support Confirmation Report): ክፍያዎ ተረጋግጧል። ዕቃዎ በ${deliveryText} ይደርሳል።`
+      });
       const resolved = await resolveTrackingTarget(code);
 
       if (resolved?.customerTelegramId) {
@@ -936,13 +942,25 @@ app.post('/api/shelf/receipt', upload.single('receipt'), async (req, res) => {
       }
     }
 
+    const orderType = (req.body.orderType || 'direct').toLowerCase();
+    const arrivalWindow = orderType === 'indirect' ? '10-14 ቀን' : '1-2 ቀን';
+
+    await addTicketMessage({
+      ticketCode: orderCode,
+      senderRole: 'customer',
+      senderName: tgUsername || phone || 'Customer',
+      messageText: `💳 የክፍያ ደረሰኝ ተልኳል (${paymentMethod.toUpperCase()}${transactionRef ? ', Ref: ' + transactionRef : ''})`
+    }).catch(() => {});
+
+    await addTicketMessage({
+      ticketCode: orderCode,
+      senderRole: 'system',
+      senderName: 'Korcha Auto',
+      messageText: `✅ ደረሰኝዎ በራስ-ሰር ተረጋግጧል (Automatic Receipt Confirmation)! ዕቃዎ በ${arrivalWindow} ውስጥ ይደርሳል። የደንበኞች አገልግሎት ማረጋገጫ ሪፖርት በቅርቡ ይላክልዎታል።`
+    }).catch(() => {});
+
     if (tgChatId && bot) {
-      const confirmMsg = `✅ <b>የክፍያ ደረሰኝዎ ደርሶናል!</b>
-
-🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${orderCode}</code>
-💳 <b>የክፍያ ዘዴ:</b> ${paymentMethod.toUpperCase()}
-
-ሰራተኛችን ደረሰኙን አረጋግጦ በቅርቡ ያነጋግርዎታል። እናመሰግናለን!`;
+      const confirmMsg = `✅ <b>የክፍያ ደረሰኝዎ ደርሶናል! (Automatic Confirmation)</b>\n\n🏷️ <b>የትዕዛዝ ኮድ:</b> <code>${orderCode}</code>\n💳 <b>የክፍያ ዘዴ:</b> ${paymentMethod.toUpperCase()}\n🚚 <b>የመድረሻ ጊዜ:</b> በ<b>${arrivalWindow}</b> ውስጥ ይደርሳል\n\nሰራተኛችን ደረሰኙን አረጋግጦ የማረጋገጫ ሪፖርት በቅርቡ ይልክልዎታል። እናመሰግናለን!`;
       bot.telegram.sendMessage(tgChatId, confirmMsg, { parse_mode: 'HTML' }).catch(() => {});
     }
 
@@ -950,7 +968,8 @@ app.post('/api/shelf/receipt', upload.single('receipt'), async (req, res) => {
       success: true,
       orderCode,
       receiptUrl,
-      message: '✅ የክፍያ ደረሰኝዎ በተሳካ ሁኔታ ተልኳል! ሰራተኛችን አረጋግጦ በቅርቡ ያነጋግርዎታል።',
+      arrivalWindow,
+      message: `✅ የክፍያ ደረሰኝዎ በተሳካ ሁኔታ ተልኳል! ዕቃዎ በ${arrivalWindow} ውስጥ ይደርሳል። የሰራተኛ ማረጋገጫ ሪፖርት በቅርቡ ይደርስዎታል።`,
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -968,6 +987,7 @@ app.post('/api/quotes', upload.any(), async (req, res) => {
   const quote = await createQuote({
     quoteCode,
     customerPhone: req.body.phone,
+    customerTelegramId: req.body.telegramChatId ? String(req.body.telegramChatId) : null,
     productUrl: req.body.productUrl || null,
     details,
     photoUrl: photoUrls[0] || null,
