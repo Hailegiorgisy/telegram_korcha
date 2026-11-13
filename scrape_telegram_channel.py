@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
 scrape_telegram_channel.py
-Extracts 100 distinct products (name, price, size, description, photo URLs)
-from https://t.me/s/originalcosmeticsaddisusa using only Python's standard library,
-strips private contact info, categorizes them into USA, KOREAN, and ARABIAN shelves,
-saves them to extracted_100_products.json for review/editing, and injects them
-into Korcha's index.html and dist/index.html.
+Extracts 100 distinct products across USA, KOREAN, and ARABIAN shelves from:
+  - https://t.me/s/originalcosmeticsaddisusa (USA & KOREAN)
+  - https://t.me/s/RayhanArabianMart (ARABIAN)
+
+Strips private contact info (phone numbers, @handles, t.me links), saves to
+extracted_100_products.json for review/editing, and injects them into
+index.html and dist/index.html.
 
 Usage (from D:\Projects\korcha):
     python scrape_telegram_channel.py           # Scrape 100 products + save JSON + inject into HTML
@@ -20,9 +22,11 @@ import sys
 import time
 import urllib.request
 
-CHANNEL_URL = "https://t.me/s/originalcosmeticsaddisusa"
+SOURCES = [
+    {"url": "https://t.me/s/originalcosmeticsaddisusa", "forced_origin": None, "limit": 70},
+    {"url": "https://t.me/s/RayhanArabianMart", "forced_origin": "ARABIAN", "limit": 30},
+]
 OUTPUT_JSON = "extracted_100_products.json"
-TARGET_COUNT = 100
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -38,27 +42,29 @@ KOREA_KEYWORDS = [
 ]
 ARABIAN_KEYWORDS = [
     "arabian", "dubai", "uae", "saudi", "oud", "lattafa", "armaf", "afnan",
-    "rasasi", "ajmal", "bakhoor", "attar", "musk", "amber", "khamrah",
-    "al rehab", "swiss arabian",
+    "rasasi", "ajmal", "bakhoor", "bukhoor", "attar", "musk", "amber",
+    "khamrah", "al rehab", "swiss arabian",
 ]
 
 
-def fetch_page(before_id=None):
-    url = f"{CHANNEL_URL}?before={before_id}" if before_id else CHANNEL_URL
+def fetch_page(base_url, before_id=None):
+    url = f"{base_url}?before={before_id}" if before_id else base_url
     req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=20) as resp:
         return resp.read().decode("utf-8", errors="replace")
 
 
 def strip_private_info(text):
-    # Remove phone numbers, @handles, and t.me links
+    # Remove Ethiopian/international phone numbers, @handles, and t.me links
     text = re.sub(r"(?:\+?251|0)?[\s\-]?9\d{2}[\s\-]?\d{3}[\s\-]?\d{3}", "", text)
     text = re.sub(r"@\w+", "", text)
     text = re.sub(r"https?://t\.me/\S+", "", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
-def classify_origin(text):
+def classify_origin(text, forced_origin=None):
+    if forced_origin:
+        return forced_origin
     lower = text.lower()
     if any(k in lower for k in KOREA_KEYWORDS):
         return "KOREAN"
@@ -69,13 +75,23 @@ def classify_origin(text):
 
 def classify_category(text, origin):
     lower = text.lower()
-    if any(k in lower for k in ["perfume", "eau de", "oud", "cologne", "fragrance", "mist", "body spray"]):
-        return "Perfume & Oud" if origin == "ARABIAN" else "Others"
+    if origin == "ARABIAN":
+        if any(k in lower for k in ["perfume", "eau de", "oud", "bakhoor", "bukhoor", "freshener", "fragrance", "mist", "attar", "musk", "incense"]):
+            return "Perfume & Oud"
+        if any(k in lower for k in ["abaya", "hijab", "scarf", "dress", "kaftan", "fashion"]):
+            return "Abaya & Fashion"
+        if any(k in lower for k in ["honey", "dates", "vitamin", "supplement", "black seed", "habbat", "sidr", "tea"]):
+            return "Supplements"
+        return "Others"
+
+    if origin == "KOREAN":
+        return "Skin care products"
+
     if any(k in lower for k in ["pediasure", "ensure", "glucerna", "vitamin", "whey", "protein", "omega", "dha", "fish oil", "collagen", "supplement", "gummy", "gummies", "zinc", "magnesium"]):
         return "Supplements"
     if any(k in lower for k in ["serum", "cream", "cleanser", "lotion", "soap", "moisturizer", "sunscreen", "spf", "toner", "mask", "wash", "scrub", "essence", "retinol", "niacinamide", "dove", "irish spring", "cerave", "cetaphil", "neutrogena"]):
         return "Skin care products"
-    if any(k in lower for k in ["chocolate", "coffee", "tea", "snack", "honey", "milk", "formula"]):
+    if any(k in lower for k in ["chocolate", "coffee", "tea", "snack", "honey", "milk", "formula", "syrup", "biscuit"]):
         return "Food"
     return "Others"
 
@@ -98,11 +114,11 @@ def extract_price_etb(text):
 
 
 def extract_size(text):
-    m = re.search(r"\b(\d+(?:\.\d+)?\s*(?:ml|l|g|kg|oz|fl\.?\s*oz|pcs|tablets|capsules|pack))\b", text, re.IGNORECASE)
+    m = re.search(r"\b(\d+(?:\.\d+)?\s*(?:ml|l|liters?|g|kg|oz|fl\.?\s*oz|pcs|tablets|capsules|pack))\b", text, re.IGNORECASE)
     return m.group(1).strip() if m else "Standard"
 
 
-def parse_posts(page_html):
+def parse_posts(page_html, forced_origin=None):
     blocks = re.split(r'<div class="tgme_widget_message_wrap[^"]*"', page_html)[1:]
     posts = []
     min_id = None
@@ -136,7 +152,7 @@ def parse_posts(page_html):
         if price_etb == 0:
             continue
 
-        origin = classify_origin(full_desc)
+        origin = classify_origin(full_desc, forced_origin=forced_origin)
         category = classify_category(full_desc, origin)
 
         posts.append({
@@ -149,10 +165,43 @@ def parse_posts(page_html):
             "photo_url": photos[0],
             "photos": photos[:4],
             "description": full_desc,
-            "is_bestseller": len(posts) < 15,
+            "is_bestseller": len(posts) < 10,
         })
 
     return posts, min_id
+
+
+def scrape_source(source_cfg, seen_names, start_id=1):
+    base_url = source_cfg["url"]
+    forced_origin = source_cfg["forced_origin"]
+    limit = source_cfg["limit"]
+    items = []
+    before_id = None
+    pages_fetched = 0
+
+    print(f"\nFetching up to {limit} products from {base_url}...")
+    while len(items) < limit and pages_fetched < 25:
+        pages_fetched += 1
+        page_html = fetch_page(base_url, before_id)
+        posts, min_id = parse_posts(page_html, forced_origin=forced_origin)
+
+        for p in reversed(posts):
+            key = p["name"].lower()
+            if key not in seen_names:
+                seen_names.add(key)
+                p["id"] = start_id + len(items)
+                p.pop("post_id", None)
+                items.append(p)
+                if len(items) >= limit:
+                    break
+
+        print(f"  Page {pages_fetched}: collected {len(items)}/{limit} (oldest post_id={min_id})")
+        if min_id is None or min_id <= 1:
+            break
+        before_id = min_id
+        time.sleep(0.5)
+
+    return items
 
 
 def inject_into_html(file_path, products):
@@ -186,36 +235,15 @@ def main():
     else:
         collected = []
         seen_names = set()
-        before_id = None
-        pages_fetched = 0
-
-        print(f"Fetching up to {TARGET_COUNT} products from {CHANNEL_URL}...")
-        while len(collected) < TARGET_COUNT and pages_fetched < 30:
-            pages_fetched += 1
-            page_html = fetch_page(before_id)
-            posts, min_id = parse_posts(page_html)
-
-            for p in reversed(posts):
-                key = p["name"].lower()
-                if key not in seen_names:
-                    seen_names.add(key)
-                    p["id"] = len(collected) + 1
-                    p.pop("post_id", None)
-                    collected.append(p)
-                    if len(collected) >= TARGET_COUNT:
-                        break
-
-            print(f"Page {pages_fetched}: collected {len(collected)}/{TARGET_COUNT} products (oldest post_id={min_id})")
-            if min_id is None or min_id <= 1:
-                break
-            before_id = min_id
-            time.sleep(0.5)
+        for src in SOURCES:
+            batch = scrape_source(src, seen_names, start_id=len(collected) + 1)
+            collected.extend(batch)
 
         with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
             json.dump(collected, f, ensure_ascii=False, indent=2)
-        print(f"\nSaved {len(collected)} products to {os.path.abspath(OUTPUT_JSON)}")
+        print(f"\nSaved {len(collected)} total products to {os.path.abspath(OUTPUT_JSON)}")
 
-    for target in ["index.html", "dist/index.html", "../korcha_web/index.html", "../korcha_web/dist/index.html"]:
+    for target in ["index.html", "dist/index.html"]:
         inject_into_html(target, collected)
 
 
