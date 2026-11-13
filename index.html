@@ -345,6 +345,7 @@
           const [quoteSpecs, setQuoteSpecs] = useState('');
           const [quotePhone, setQuotePhone] = useState('');
           const [quoteSite, setQuoteSite] = useState('');
+          const [quoteFiles, setQuoteFiles] = useState([]);
 
           // Worker Add/Edit Product state
           const [isAddProductOpen, setIsAddProductOpen] = useState(false);
@@ -580,6 +581,10 @@
                   deposit: deposit,
                   paymentMethod: chosenMethod,
                   phone: chosenPhone,
+                  productName: directOrderProduct.name + ' (Qty: ' + directOrderQty + ')',
+                  productType: directOrderProduct.category || 'General',
+                  country: directOrderProduct.country || 'USA',
+                  productPhoto: (directOrderProduct.photos && directOrderProduct.photos[0]) || directOrderProduct.photo_url || '',
                   submitted: false,
                   confirmationText: ''
                 });
@@ -591,6 +596,10 @@
                   deposit: deposit,
                   paymentMethod: chosenMethod,
                   phone: chosenPhone,
+                  productName: directOrderProduct.name + ' (Qty: ' + directOrderQty + ')',
+                  productType: directOrderProduct.category || 'General',
+                  country: directOrderProduct.country || 'USA',
+                  productPhoto: (directOrderProduct.photos && directOrderProduct.photos[0]) || directOrderProduct.photo_url || '',
                   submitted: false,
                   confirmationText: ''
                 });
@@ -613,6 +622,12 @@
             fd.append('orderCode', paymentSession.orderCode);
             fd.append('paymentMethod', paymentSession.paymentMethod);
             fd.append('phone', paymentSession.phone);
+            fd.append('productName', paymentSession.productName || '');
+            fd.append('productType', paymentSession.productType || '');
+            fd.append('country', paymentSession.country || '');
+            fd.append('productPhoto', paymentSession.productPhoto || '');
+            fd.append('totalPriceEtb', String(paymentSession.total || 0));
+            fd.append('depositEtb', String(paymentSession.deposit || 0));
             fd.append('transactionRef', transactionRef.trim());
             fd.append('telegramUsername', tgCustomerUsername);
             if (tgChatId) fd.append('telegramChatId', String(tgChatId));
@@ -856,6 +871,24 @@
                         h('a', { href: 'https://apps.apple.com/app/amazon-shopping/id297607301', target: '_blank', className: 'text-[8px] bg-stone-200 hover:bg-amber-200 px-1 rounded text-stone-800 font-bold' }, 'iOS ')
                       )
                     )
+                  )
+                ),
+
+                // Submit Link & Submit Screenshot Quick Actions (just below 3 Marketplaces)
+                h('div', { key: 'submit-actions', className: 'grid grid-cols-2 gap-2' },
+                  h('button', {
+                    onClick: function() { setQuoteMode('link'); setQuoteSite('Global Marketplace'); setIsQuoteOpen(true); },
+                    className: 'py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95'
+                  },
+                    h('span', null, '🔗'),
+                    h('span', null, 'በሊንክ እዘዝ (Submit Link)')
+                  ),
+                  h('button', {
+                    onClick: function() { setQuoteMode('photo'); setQuoteSite('Global Marketplace'); setIsQuoteOpen(true); },
+                    className: 'py-2.5 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-400 font-black text-xs shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95 border border-amber-500/40'
+                  },
+                    h('span', null, '📸'),
+                    h('span', null, 'በፎቶ እዘዝ (Screenshot)')
                   )
                 ),
 
@@ -1126,23 +1159,33 @@
                           .then(function(res) { return res.json(); })
                           .then(function(data) {
                             if (data.paymentInfo) setPaymentAccounts(data.paymentInfo);
+                            const firstItem = cart[0] ? cart[0].product : null;
                             setPaymentSession({
                               orderCode: data.orderCode || fallbackCode,
                               total: total,
                               deposit: deposit,
                               paymentMethod: cartPaymentMethod,
                               phone: cartPhone.trim(),
+                              productName: summary,
+                              productType: (firstItem && firstItem.category) || 'Cart Bundle',
+                              country: (firstItem && firstItem.country) || 'USA',
+                              productPhoto: (firstItem && ((firstItem.photos && firstItem.photos[0]) || firstItem.photo_url)) || '',
                               submitted: false,
                               confirmationText: ''
                             });
                           })
                           .catch(function() {
+                            const firstItem = cart[0] ? cart[0].product : null;
                             setPaymentSession({
                               orderCode: fallbackCode,
                               total: total,
                               deposit: deposit,
                               paymentMethod: cartPaymentMethod,
                               phone: cartPhone.trim(),
+                              productName: summary,
+                              productType: (firstItem && firstItem.category) || 'Cart Bundle',
+                              country: (firstItem && firstItem.country) || 'USA',
+                              productPhoto: (firstItem && ((firstItem.photos && firstItem.photos[0]) || firstItem.photo_url)) || '',
                               submitted: false,
                               confirmationText: ''
                             });
@@ -1284,11 +1327,24 @@
                   onSubmit: function(e) {
                     e.preventDefault();
                     if (!quotePhone.trim()) { alert('እባክዎ ስልክ ቁጥር ያስገቡ'); return; }
+                    const fd = new FormData();
+                    fd.append('phone', quotePhone.trim());
+                    fd.append('origin', quoteSite || 'Global Marketplace');
+                    fd.append('categoryType', quoteMode === 'link' ? 'Link Order' : 'Screenshot Order');
+                    fd.append('details', quoteSpecs.trim() || 'Standard');
+                    if (quoteUrl.trim()) fd.append('productUrl', quoteUrl.trim());
+                    if (tgCustomerUsername) fd.append('telegramUsername', tgCustomerUsername);
+                    if (tgChatId) fd.append('telegramChatId', String(tgChatId));
+                    for (var qi = 0; qi < quoteFiles.length; qi++) {
+                      fd.append('photos', quoteFiles[qi]);
+                    }
+                    fetch('/api/quotes', { method: 'POST', body: fd }).catch(function() {});
                     alert('✅ የእቃ ማዘዣ ጥያቄዎ ደርሶናል! ሰራተኛችን ዋጋ አስልቶ ያሳውቅዎታል።');
                     setIsQuoteOpen(false);
                     setQuotePhone('');
                     setQuoteSpecs('');
                     setQuoteUrl('');
+                    setQuoteFiles([]);
                   },
                   className: 'space-y-2.5 text-xs'
                 },
@@ -1304,7 +1360,7 @@
                       placeholder: 'የእቃው ሊንክ (Link)...',
                       className: 'w-full px-3 py-2 rounded-xl border border-stone-300'
                     }) :
-                    h('input', { type: 'file', multiple: true, accept: 'image/*', required: true, className: 'w-full text-[11px]' }),
+                    h('input', { type: 'file', multiple: true, accept: 'image/*', required: true, onChange: function(e) { setQuoteFiles(Array.from(e.target.files || [])); }, className: 'w-full text-[11px]' }),
                   h('input', {
                     type: 'text',
                     value: quoteSpecs,

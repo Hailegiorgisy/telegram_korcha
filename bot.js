@@ -891,24 +891,48 @@ app.post('/api/shelf/receipt', upload.single('receipt'), async (req, res) => {
     const phone = (req.body.phone || '').trim();
     const tgUsername = (req.body.telegramUsername || '').trim();
     const tgChatId = req.body.telegramChatId || null;
+    const productName = (req.body.productName || 'In-Stock Product').trim();
+    const productType = (req.body.productType || 'General').trim();
+    const country = (req.body.country || 'USA').trim();
+    const productPhoto = (req.body.productPhoto || '').trim();
+    const totalPriceEtb = Number(req.body.totalPriceEtb || 0);
+    const depositEtb = Number(req.body.depositEtb || Math.round(totalPriceEtb * 0.4));
+    const saleTime = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Addis_Ababa', hour12: true });
     const receiptUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
     if (WORKER_CHAT_ID && bot) {
       const userLine = tgUsername
         ? `👤 <b>Telegram:</b> ${tgUsername.startsWith('@') ? tgUsername : '@' + tgUsername}`
         : (tgChatId ? `👤 <b>Telegram ID:</b> <code>${tgChatId}</code>` : '');
-      const caption = `💳 <b>የክፍያ ደረሰኝ ገብቷል!</b>
-━━━━━━━━━━━━━━━━━━━━
-🏷️ <b>ኮድ:</b> <code>${orderCode}</code>
-📱 <b>ስልክ:</b> <code>${phone}</code>
-${userLine ? userLine + '\n' : ''}🏦 <b>ዘዴ:</b> ${paymentMethod.toUpperCase()}
-${transactionRef ? `🔢 <b>Ref:</b> <code>${transactionRef}</code>\n` : ''}━━━━━━━━━━━━━━━━━━━━
-👉 ለማረጋገጥ: <code>/reply ${orderCode} ክፍያዎ ተረጋግጧል</code>`;
 
-      if (req.file) {
-        await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: req.file.path }, { caption, parse_mode: 'HTML' }).catch(() => {});
+      const summaryCaption = [
+        `📊 <b>የሽያጭ ማጠቃለያ እና የክፍያ ደረሰኝ (@${WORKER_USERNAME})</b>`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `🏷️ <b>ኮድ:</b> <code>${orderCode}</code>`,
+        `📦 <b>እቃ:</b> ${escapeHtml(productName)}`,
+        `📂 <b>አይነት (Type):</b> ${escapeHtml(productType)}`,
+        `🌍 <b>ሀገር/መደርደሪያ (Country):</b> ${escapeHtml(country)}`,
+        `🕒 <b>ሰዓት (Time):</b> ${saleTime} (EAT)`,
+        `💵 <b>ዋጋ:</b> ${totalPriceEtb ? totalPriceEtb.toLocaleString() + ' ETB (40%: ' + depositEtb.toLocaleString() + ' ETB)' : 'N/A'}`,
+        `📱 <b>ስልክ:</b> <code>${escapeHtml(phone)}</code>`,
+        userLine,
+        `🏦 <b>የክፍያ ዘዴ:</b> ${paymentMethod.toUpperCase()}`,
+        transactionRef ? `🔢 <b>Ref:</b> <code>${escapeHtml(transactionRef)}</code>` : '',
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `👉 ለማረጋገጥ: <code>/confirm ${orderCode} በ10-14 ቀን</code>`
+      ].filter(Boolean).join('\n');
+
+      if (req.file && productPhoto && /^https?:\/\//i.test(productPhoto)) {
+        await bot.telegram.sendMediaGroup(WORKER_CHAT_ID, [
+          { type: 'photo', media: productPhoto, caption: summaryCaption, parse_mode: 'HTML' },
+          { type: 'photo', media: { source: req.file.path }, caption: `🧾 የክፍያ ደረሰኝ (${orderCode})` }
+        ]).catch(async () => {
+          await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: req.file.path }, { caption: summaryCaption, parse_mode: 'HTML' }).catch(() => {});
+        });
+      } else if (req.file) {
+        await bot.telegram.sendPhoto(WORKER_CHAT_ID, { source: req.file.path }, { caption: summaryCaption, parse_mode: 'HTML' }).catch(() => {});
       } else {
-        await bot.telegram.sendMessage(WORKER_CHAT_ID, caption, { parse_mode: 'HTML' }).catch(() => {});
+        await bot.telegram.sendMessage(WORKER_CHAT_ID, summaryCaption, { parse_mode: 'HTML' }).catch(() => {});
       }
     }
 
