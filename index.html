@@ -366,7 +366,22 @@
           const [newMsgText, setNewMsgText] = useState('');
           const [chatPhone, setChatPhone] = useState('');
 
-          // Tracker state
+          // Tracker state & saved customer ticket codes
+          const [savedCodes, setSavedCodes] = useState(function() {
+            try {
+              const raw = localStorage.getItem('korcha_codes');
+              return raw ? JSON.parse(raw) : [];
+            } catch (e) { return []; }
+          });
+          const rememberCode = function(c) {
+            if (!c) return;
+            setSavedCodes(function(prev) {
+              if (prev.indexOf(c) !== -1) return prev;
+              const next = [c].concat(prev).slice(0, 10);
+              try { localStorage.setItem('korcha_codes', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+          };
           const [searchCode, setSearchCode] = useState('');
           const [trackedResult, setTrackedResult] = useState(null);
           const [isTracking, setIsTracking] = useState(false);
@@ -423,6 +438,40 @@
           useEffect(function() {
             try { localStorage.setItem('korcha_cart', JSON.stringify(cart)); } catch (e) {}
           }, [cart]);
+
+          // Poll worker replies & confirmation reports seamlessly
+          useEffect(function() {
+            if ((activeTab !== 'support' && activeTab !== 'tracker') || savedCodes.length === 0) return;
+            const loadUpdates = function() {
+              fetch('/api/messages/customer?codes=' + encodeURIComponent(savedCodes.join(',')))
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                  if (data.conversations && data.conversations.length > 0) {
+                    const latest = data.conversations[0];
+                    if (activeTab === 'tracker' && !searchCode.trim()) {
+                      setTrackedResult(latest);
+                    }
+                    if (latest.messages && latest.messages.length > 0) {
+                      const mapped = latest.messages.map(function(m, idx) {
+                        return {
+                          id: m.id || (idx + 100),
+                          sender: m.sender_role === 'customer' ? 'customer' : 'worker',
+                          text: m.message_text || m.text || '',
+                          time: m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''
+                        };
+                      });
+                      setChatMessages(function(prev) {
+                        return [prev[0]].concat(mapped);
+                      });
+                    }
+                  }
+                })
+                .catch(function() {});
+            };
+            loadUpdates();
+            const timer = setInterval(loadUpdates, 6000);
+            return function() { clearInterval(timer); };
+          }, [activeTab, savedCodes.join(',')]);
 
           const addToCart = function(product) {
             setCart(function(prev) {
@@ -547,7 +596,10 @@
                 telegramChatId: tgChatId,
                 details: '[Live Chat] ' + msg.text
               })
-            }).catch(function() {});
+            })
+              .then(function(res) { return res.json(); })
+              .then(function(data) { if (data.quoteCode) rememberCode(data.quoteCode); })
+              .catch(function() {});
           };
 
           // Submit Direct In-Stock Order -> Open Payment & Receipt Step
@@ -575,6 +627,7 @@
               .then(function(res) { return res.json(); })
               .then(function(data) {
                 if (data.paymentInfo) setPaymentAccounts(data.paymentInfo);
+                if (data.orderCode) rememberCode(data.orderCode);
                 setPaymentSession({
                   orderCode: data.orderCode || fallbackCode,
                   total: total,
@@ -620,6 +673,7 @@
             setIsSubmittingReceipt(true);
             const fd = new FormData();
             fd.append('orderCode', paymentSession.orderCode);
+            fd.append('orderType', paymentSession.orderType || 'direct');
             fd.append('paymentMethod', paymentSession.paymentMethod);
             fd.append('phone', paymentSession.phone);
             fd.append('productName', paymentSession.productName || '');
@@ -1026,12 +1080,62 @@
                   }),
                   h('button', { type: 'submit', className: 'px-4 py-2 rounded-xl bg-amber-500 text-stone-950 font-bold text-xs' }, isTracking ? '...' : 'ፈልግ')
                 ),
-                trackedResult ? h('div', { className: 'p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs space-y-1' },
+                trackedResult ? h('div', { className: 'p-3 bg-stone-50 rounded-xl border border-stone-200 text-xs space-y-2' },
                   trackedResult.notFound ? h('p', { className: 'text-amber-800 font-bold' }, '⚠️ ምንም የተገኘ ትዕዛዝ የለም።') :
-                  h('div', null,
-                    h('p', null, '🏷️ ኮድ: ' + (trackedResult.ticket_code || trackedResult.code)),
-                    h('p', null, '📊 ሁኔታ: ' + (trackedResult.status || 'በግምገማ ላይ')),
-                    h('p', { className: 'text-[10px] text-stone-500 pt-1' }, 'ዕቃዎ የደረሰበትን ቦታ/ሁኔታ ሰራተኛችኝ ያሳውቅዎታል።')
+                  h('div', { className: 'space-y-2' },
+                    h('div', null,
+                      h('p', { className: 'font-bold text-stone-900' }, '🏷️ ኮድ: ' + (trackedResult.ticket_code || trackedResult.code)),
+                      h('p', { className: 'font-bold text-amber-800' }, '📊 ሁኔታ: ' + (trackedResult.status || 'በግምገማ ላይ')),
+                      h('p', { className: 'text-[10px] text-stone-500 pt-0.5' }, '🚚 የመድረሻ ጊዜ፡ ከመደርደሪያ (1-2 ቀን) | በሊንክ/ፎቶ (10-14 ቀን)')
+                    ),
+                    trackedResult.messages && trackedResult.messages.length > 0 ? h('div', { className: 'space-y-1 border-t border-stone-200 pt-2' },
+                      trackedResult.messages.map(function(m, mIdx) {
+                        return h('div', { key: mIdx, className: 'p-2 rounded-lg text-[11px] ' + (m.sender_role === 'customer' ? 'bg-amber-100 text-stone-900' : 'bg-white border border-stone-200 text-stone-800') },
+                          h('span', { className: 'font-bold block text-[9.5px] text-stone-500' }, m.sender_name || m.sender_role),
+                          h('span', null, m.message_text)
+                        );
+                      })
+                    ) : null,
+                    h('div', { className: 'grid grid-cols-2 gap-1.5 pt-1' },
+                      h('button', {
+                        onClick: function() {
+                          setPaymentSession({
+                            orderCode: trackedResult.ticket_code || trackedResult.code,
+                            total: trackedResult.total_price_etb || 0,
+                            deposit: trackedResult.deposit_amount_etb || 0,
+                            paymentMethod: 'telebirr',
+                            phone: trackedResult.customer_phone || '',
+                            orderType: 'indirect',
+                            productName: trackedResult.product_summary || 'Link / Screenshot Order',
+                            productType: 'Indirect Order',
+                            country: 'Global',
+                            productPhoto: '',
+                            submitted: false,
+                            confirmationText: ''
+                          });
+                        },
+                        className: 'py-2 px-2 rounded-xl bg-emerald-600 text-white font-black text-[10.5px]'
+                      }, '💳 በTelebirr ክፈል & ደረሰኝ ላክ'),
+                      h('button', {
+                        onClick: function() {
+                          setPaymentSession({
+                            orderCode: trackedResult.ticket_code || trackedResult.code,
+                            total: trackedResult.total_price_etb || 0,
+                            deposit: trackedResult.deposit_amount_etb || 0,
+                            paymentMethod: 'cbe',
+                            phone: trackedResult.customer_phone || '',
+                            orderType: 'indirect',
+                            productName: trackedResult.product_summary || 'Link / Screenshot Order',
+                            productType: 'Indirect Order',
+                            country: 'Global',
+                            productPhoto: '',
+                            submitted: false,
+                            confirmationText: ''
+                          });
+                        },
+                        className: 'py-2 px-2 rounded-xl bg-amber-500 text-stone-950 font-black text-[10.5px]'
+                      }, '🏦 በCBE ክፈል & ደረሰኝ ላክ')
+                    )
                   )
                 ) : null
               ) : null,
@@ -1159,6 +1263,7 @@
                           .then(function(res) { return res.json(); })
                           .then(function(data) {
                             if (data.paymentInfo) setPaymentAccounts(data.paymentInfo);
+                if (data.orderCode) rememberCode(data.orderCode);
                             const firstItem = cart[0] ? cart[0].product : null;
                             setPaymentSession({
                               orderCode: data.orderCode || fallbackCode,
@@ -1283,7 +1388,8 @@
                 ) : h('form', { onSubmit: handleSubmitReceipt, className: 'space-y-2.5 text-xs' },
                   h('div', { className: 'p-2.5 bg-amber-50 rounded-xl border border-amber-200 space-y-1' },
                     h('p', { className: 'font-bold text-stone-800' }, '🏷️ የትዕዛዝ ኮድ: ' + paymentSession.orderCode),
-                    h('p', { className: 'font-bold text-emerald-800' }, '💰 የሚከፈል 40% ቅድመ ክፍያ: ' + paymentSession.deposit.toLocaleString() + ' ETB (ጠቅላላ: ' + paymentSession.total.toLocaleString() + ' ETB)'),
+                    paymentSession.total > 0 ? h('p', { className: 'font-bold text-emerald-800' }, '💰 የሚከፈል 40% ቅድመ ክፍያ: ' + paymentSession.deposit.toLocaleString() + ' ETB (ጠቅላላ: ' + paymentSession.total.toLocaleString() + ' ETB)') : h('p', { className: 'font-bold text-emerald-800' }, '💰 በሰራተኛ የተገለጸውን 40% ቅድመ ክፍያ ይክፈሉ'),
+                    h('p', { className: 'text-[10.5px] font-bold text-amber-900' }, (paymentSession.orderType === 'indirect') ? '🚚 የመድረሻ ጊዜ፡ በ 10-14 ቀን ውስጥ ይደርሳል' : '🚚 የመድረሻ ጊዜ፡ በ 1-2 ቀን ውስጥ ይደርሳል (ከመደርደሪያ)'),
                     h('div', { className: 'pt-1 border-t border-amber-200/70' },
                       paymentSession.paymentMethod === 'telebirr'
                         ? h('p', { className: 'font-black text-amber-900' }, '📱 Telebirr ቁጥር: ' + paymentAccounts.telebirrPhone)
@@ -1338,8 +1444,15 @@
                     for (var qi = 0; qi < quoteFiles.length; qi++) {
                       fd.append('photos', quoteFiles[qi]);
                     }
-                    fetch('/api/quotes', { method: 'POST', body: fd }).catch(function() {});
-                    alert('✅ የእቃ ማዘዣ ጥያቄዎ ደርሶናል! ሰራተኛችን ዋጋ አስልቶ ያሳውቅዎታል።');
+                    fetch('/api/quotes', { method: 'POST', body: fd })
+                      .then(function(res) { return res.json(); })
+                      .then(function(data) {
+                        if (data.quoteCode) rememberCode(data.quoteCode);
+                        alert('✅ የእቃ ማዘዣ ጥያቄዎ ደርሶናል! (ኮድ: ' + (data.quoteCode || 'KC-...') + ')\nሰራተኛችን ዋጋ አስልቶ በቴሌግራም እና በትዕዛዞች ገጽ ያሳውቅዎታል።\n🚚 የመድረሻ ጊዜ፡ ዋጋው ከተረጋገጠ በኋላ በ 10-14 ቀን ውስጥ ይደርሳል።');
+                      })
+                      .catch(function() {
+                        alert('✅ የእቃ ማዘዣ ጥያቄዎ ደርሶናል! ሰራተኛችን ዋጋ አስልቶ ያሳውቅዎታል። (በ 10-14 ቀን ይደርሳል)');
+                      });
                     setIsQuoteOpen(false);
                     setQuotePhone('');
                     setQuoteSpecs('');
